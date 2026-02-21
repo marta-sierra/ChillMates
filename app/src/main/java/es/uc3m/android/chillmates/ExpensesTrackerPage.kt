@@ -82,7 +82,7 @@ private fun ExpensesHeaderSection(
                 Icon(
                     imageVector = Icons.Default.ArrowBack,
                     contentDescription = "Back",
-                    tint = Color.White
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
 
@@ -92,7 +92,7 @@ private fun ExpensesHeaderSection(
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                color = Color.White
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
     }
