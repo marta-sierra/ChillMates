@@ -51,11 +51,12 @@ import androidx.navigation.NavController
 
 @Composable
 fun UserPage(navController: NavController) {
+
     val vm: UserViewModel = viewModel()
 
     UserRoute(
         state = vm.uiState,
-        onBackClick = { navController.popBackStack() },
+        onBackClick = { navController.popBackStack() }, // go to the previous screen
 
         onEditProfileClick = vm::onEditProfileClick,
         onSaveProfileClick = vm::onSaveProfileClick,
@@ -90,13 +91,16 @@ private fun UserRoute(
     onLeaveFlatClick: () -> Unit,
     onCreateNewFlatClick: () -> Unit
 ) {
+    // Main page layout (top header + scrollable content)
     Column(modifier = Modifier.fillMaxSize()) {
+        // Top area: header band (back arrow, user name, profile photo)
         UserHeaderSection(
             title = state.fullName,
             onBackClick = onBackClick,
             onProfilePhotoClick = onChangePhotoClick
         )
 
+        // Content: Scrollable cards (My profile, My flat, Create/join)
         UserContentSection(
             state = state,
             onEditProfileClick = onEditProfileClick,
@@ -120,6 +124,7 @@ private fun UserHeaderSection(
     onBackClick: () -> Unit,
     onProfilePhotoClick: () -> Unit
 ) {
+
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer,
         tonalElevation = 0.dp
@@ -130,6 +135,7 @@ private fun UserHeaderSection(
                 .padding(horizontal = 16.dp)
                 .padding(top = 12.dp, bottom = 14.dp)
         ) {
+            // Back arrow button
             IconButton(
                 onClick = onBackClick,
                 modifier = Modifier.size(36.dp)
@@ -143,17 +149,20 @@ private fun UserHeaderSection(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // User name + profile photo
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                // Current user name
                 Text(
                     text = title,
                     style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
 
+                // Profile photo with "Change photo" menu
                 ProfilePhotoLarge(
                     onChangePhotoClick = onProfilePhotoClick
                 )
@@ -166,9 +175,11 @@ private fun UserHeaderSection(
 private fun ProfilePhotoLarge(
     onChangePhotoClick: () -> Unit
 ) {
+
     var menuExpanded by remember { mutableStateOf(false) }
 
     Box {
+        // Profile photo
         Surface(
             modifier = Modifier
                 .size(96.dp)
@@ -187,6 +198,7 @@ private fun ProfilePhotoLarge(
             }
         }
 
+        // "Change photo" dropdown
         DropdownMenu(
             expanded = menuExpanded,
             onDismissRequest = { menuExpanded = false }
@@ -202,6 +214,7 @@ private fun ProfilePhotoLarge(
     }
 }
 
+// User Page screen
 @Composable
 private fun UserContentSection(
     state: UserUiState,
@@ -227,6 +240,7 @@ private fun UserContentSection(
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
         item {
+            // "My profile" card (name + email + edit/save + password)
             PersonalSectionCard(
                 isEditing = state.isProfileEditing,
                 fullNameValue = if (state.isProfileEditing) state.draftFullName else state.fullName,
@@ -240,6 +254,7 @@ private fun UserContentSection(
         }
 
         item {
+            // "My flat" card (flat name + roommates + invite/leave actions)
             FlatSectionCard(
                 flatName = state.flatName,
                 isFlatNameEditing = state.isFlatNameEditing,
@@ -252,6 +267,7 @@ private fun UserContentSection(
         }
 
         item {
+            // "Create/join a new flat" botton
             CreateNewFlatButton(
                 onClick = onCreateNewFlatClick
             )
@@ -259,6 +275,7 @@ private fun UserContentSection(
     }
 }
 
+// SECTION: "My profile" -----
 @Composable
 private fun PersonalSectionCard(
     isEditing: Boolean,
@@ -283,6 +300,7 @@ private fun PersonalSectionCard(
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
             )
 
+            // Full name (read-only unless editing is enabled)
             OutlinedTextField(
                 value = fullNameValue,
                 onValueChange = { if (isEditing) onNameChange(it) },
@@ -292,6 +310,7 @@ private fun PersonalSectionCard(
                 readOnly = !isEditing
             )
 
+            // Email (read-only unless editing is enabled)
             OutlinedTextField(
                 value = emailValue,
                 onValueChange = { if (isEditing) onEmailChange(it) },
@@ -301,10 +320,12 @@ private fun PersonalSectionCard(
                 readOnly = !isEditing
             )
 
+            // Edit/Save (left) + Password (right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Toggle profile editing / save changes
                 FilledTonalButton(
                     onClick = { if (isEditing) onSaveProfileClick() else onEditProfileClick() },
                     modifier = Modifier.weight(1f),
@@ -318,6 +339,7 @@ private fun PersonalSectionCard(
                     Text(if (isEditing) "Save changes" else "Edit my info")
                 }
 
+                // Change password entry point
                 FilledTonalButton(
                     onClick = onChangePasswordClick,
                     modifier = Modifier.weight(1f),
@@ -332,6 +354,7 @@ private fun PersonalSectionCard(
     }
 }
 
+// SECTION: "My flat" -----
 @Composable
 private fun FlatSectionCard(
     flatName: String,
@@ -355,6 +378,7 @@ private fun FlatSectionCard(
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
             )
 
+            // Flat name (editable only when the trailing icon enables it)
             OutlinedTextField(
                 value = flatName,
                 onValueChange = { if (isFlatNameEditing) onFlatNameChange(it) },
@@ -363,6 +387,7 @@ private fun FlatSectionCard(
                 singleLine = true,
                 readOnly = !isFlatNameEditing,
                 trailingIcon = {
+                    // Pencil/check icon to toggle edit mode for the flat name
                     IconButton(onClick = onToggleFlatNameEditing) {
                         Icon(
                             imageVector = if (isFlatNameEditing) Icons.Default.Check else Icons.Default.Edit,
@@ -372,11 +397,11 @@ private fun FlatSectionCard(
                 }
             )
 
+            //  Roommates list
             Text(
                 text = "Roommates",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
             )
-
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 members.forEachIndexed { index, m ->
                     ListItem(
@@ -391,6 +416,7 @@ private fun FlatSectionCard(
                 }
             }
 
+            // Invite roommate (left) + Leave flat (right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -421,6 +447,7 @@ private fun FlatSectionCard(
 
 @Composable
 private fun CreateNewFlatButton(onClick: () -> Unit) {
+    // Create/join a different flat
     OutlinedButton(
         onClick = onClick,
         modifier = Modifier

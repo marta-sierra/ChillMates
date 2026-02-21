@@ -6,12 +6,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 
+// individual roommate
 @Immutable
 data class FlatMemberUi(
     val id: String,
     val name: String
 )
 
+// settings state
 @Immutable
 data class UserUiState(
     val fullName: String = "",
@@ -51,6 +53,7 @@ class UserViewModel : ViewModel() {
         private set
 
     fun onEditProfileClick() {
+        // "Edit my info" button
         uiState = uiState.copy(
             isProfileEditing = true,
             draftFullName = uiState.fullName,
@@ -59,6 +62,7 @@ class UserViewModel : ViewModel() {
     }
 
     fun onSaveProfileClick() {
+        // "Save changes" button
         uiState = uiState.copy(
             isProfileEditing = false,
             fullName = uiState.draftFullName,
@@ -67,24 +71,38 @@ class UserViewModel : ViewModel() {
     }
 
     fun onDraftNameChange(newValue: String) {
+        // Editing name value
         uiState = uiState.copy(draftFullName = newValue)
     }
 
     fun onDraftEmailChange(newValue: String) {
+        // Editing email value
         uiState = uiState.copy(draftEmail = newValue)
     }
 
     fun onFlatNameChange(newValue: String) {
+        // Editing flat name value
         uiState = uiState.copy(flatName = newValue)
     }
 
     fun onToggleFlatNameEditing() {
+        // Changes between blocked/editable. Manages item change
         uiState = uiState.copy(isFlatNameEditing = !uiState.isFlatNameEditing)
     }
 
-    fun onChangePasswordClick() {}
-    fun onChangePhotoClick() {}
-    fun onInviteClick() {}
-    fun onLeaveFlatClick() {}
-    fun onCreateNewFlatClick() {}
+    fun onChangePasswordClick() {
+        // "Password" button
+    }
+    fun onChangePhotoClick() {
+        // "Change photo" button
+    }
+    fun onInviteClick() {
+        // "Invite roommate" button
+    }
+    fun onLeaveFlatClick() {
+        // "Leave flat" button
+    }
+    fun onCreateNewFlatClick() {
+        // "Create/join a new flat" button
+    }
 }
