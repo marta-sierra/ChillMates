@@ -216,7 +216,8 @@ val surfaceContainerLowDarkHighContrast = Color(0xFF1C2024)
 val surfaceContainerDarkHighContrast = Color(0xFF2D3135)
 val surfaceContainerHighDarkHighContrast = Color(0xFF383C40)
 val surfaceContainerHighestDarkHighContrast = Color(0xFF43474B)
-
+val newsBoardCardBackground = Color(0xFFFFF4CC)
+val newsBoardButtonBackground = Color(0xFFF3EAD6)
 
 
 

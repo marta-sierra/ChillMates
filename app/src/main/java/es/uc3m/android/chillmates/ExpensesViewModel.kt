@@ -23,7 +23,7 @@ data class BalanceUi(
     val balance: Double
 )
 
-// entire screen
+// Expenses screen
 @Immutable
 data class ExpensesUiState(
     val title: String = "Expenses",
