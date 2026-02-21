@@ -4,10 +4,16 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -17,8 +23,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -55,20 +63,26 @@ fun ChillMatesApp() {
                     selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                     onClick = {
                         navController.navigate(screen.route) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            popUpTo(navController.graph.findStartDestination().id)
                             launchSingleTop = true
-                            restoreState = true
                         }
                     }
                 )
             }
         }
     ) {
-        // --- AQUÍ AÑADIMOS EL SCAFFOLD PARA LA BARRA SUPERIOR ---
         Scaffold(
             topBar = {
                 TopAppBar(
                     title = { Text("ChillMates") },
+                    actions = {
+                        val isUserPage = currentDestination?.route == NavGraph.User.route
+                        if (!isUserPage) {
+                            ProfileTopBarButton(
+                                onClick = { navController.navigate(NavGraph.User.route) }
+                            )
+                        }
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -76,11 +90,10 @@ fun ChillMatesApp() {
                 )
             }
         ) { innerPadding ->
-            // El NavHost ahora vive dentro del área de contenido del Scaffold
             Surface(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding), // IMPORTANTE: Para que no se solape con la TopBar
+                    .padding(innerPadding),
                 color = MaterialTheme.colorScheme.background
             ) {
                 NavHost(
@@ -92,7 +105,30 @@ fun ChillMatesApp() {
                     composable(NavGraph.Expenses.route) { ExpensesTrackerPage(navController) }
                     composable(NavGraph.Repairs.route) { RepairPage(navController) }
                     composable(NavGraph.Shopping.route) { ShoppingListPage(navController) }
+                    composable(NavGraph.User.route) { UserPage(navController) }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileTopBarButton(onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 2.dp
+        ) {
+            Box(
+                modifier = Modifier.size(34.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "User profile",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
             }
         }
     }
