@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -77,7 +78,11 @@ fun ChillMatesApp() {
                     title = { Text("ChillMates") },
                     actions = {
                         val isUserPage = currentDestination?.route == NavGraph.User.route
-                        if (!isUserPage) {
+                        val isSettings = currentDestination?.route == NavGraph.Settings.route
+                        if (!isUserPage and !isSettings) {
+                            SettingsTopBarButton(
+                                onClick = { navController.navigate(NavGraph.Settings.route) }
+                            )
                             ProfileTopBarButton(
                                 onClick = { navController.navigate(NavGraph.User.route) }
                             )
@@ -106,6 +111,7 @@ fun ChillMatesApp() {
                     composable(NavGraph.Repairs.route) { RepairPage(navController) }
                     composable(NavGraph.Shopping.route) { ShoppingListPage(navController) }
                     composable(NavGraph.User.route) { UserPage(navController) }
+                    composable(NavGraph.Settings.route) { SettingsPage(navController) }
                 }
             }
         }
@@ -126,6 +132,28 @@ private fun ProfileTopBarButton(onClick: () -> Unit) {
             ) {
                 Icon(
                     imageVector = Icons.Default.Person,
+                    contentDescription = "User profile",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsTopBarButton(onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 2.dp
+        ) {
+            Box(
+                modifier = Modifier.size(34.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
                     contentDescription = "User profile",
                     tint = MaterialTheme.colorScheme.onSurface
                 )

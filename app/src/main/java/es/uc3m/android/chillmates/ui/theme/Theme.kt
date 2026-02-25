@@ -275,4 +275,3 @@ fun ChillMatesTheme(
     content = content
   )
 }
-

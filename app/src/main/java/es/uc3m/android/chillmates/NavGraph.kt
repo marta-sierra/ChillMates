@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class NavGraph(val route: String, val label: String, val icon: ImageVector) {
@@ -18,7 +19,10 @@ sealed class NavGraph(val route: String, val label: String, val icon: ImageVecto
     data object Shopping : NavGraph("shopping", "Shop", Icons.Filled.ShoppingCart)
 
     // User profile screen (opened from top-right avatar)
-    data object User : NavGraph("user", "User", Icons.Filled.Person)
+    data object User : NavGraph("user", "User", Icons.Filled.Settings)
+
+    // Settings profile screen (opened from top-right avatar)
+    data object Settings : NavGraph("settings", "Settings", Icons.Filled.Person)
 
     // Route with argument example
     data object RepairDetail : NavGraph("repair_detail/{id}", "Repair Detail", Icons.Filled.Build) {

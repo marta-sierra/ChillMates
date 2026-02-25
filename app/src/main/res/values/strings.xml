@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">ChillMates</string>
+    <string name="filter_all">All</string>
+    <string name="filter_label">Filter by supermarket</string>
 </resources>
