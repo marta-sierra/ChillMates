@@ -55,44 +55,42 @@ fun ChillMatesApp() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
+    // Detectamos si estamos en la pantalla de Login
+    val isLoginScreen = currentDestination?.route == "login"
+
     NavigationSuiteScaffold(
         navigationSuiteItems = {
-            NavGraph.bottomBarItems.forEach { screen ->
-                item(
-                    icon = { Icon(screen.icon, contentDescription = screen.label) },
-                    label = { Text(screen.label) },
-                    selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
-                    onClick = {
-                        navController.navigate(screen.route) {
-                            popUpTo(navController.graph.findStartDestination().id)
-                            launchSingleTop = true
+            // Solo mostramos los iconos de abajo si NO estamos en la pantalla de login
+            if (!isLoginScreen) {
+                NavGraph.bottomBarItems.forEach { screen ->
+                    item(
+                        icon = { Icon(screen.icon, contentDescription = screen.label) },
+                        label = { Text(screen.label) },
+                        selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                        onClick = {
+                            navController.navigate(screen.route) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
     ) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text("ChillMates") },
-                    actions = {
-                        val isUserPage = currentDestination?.route == NavGraph.User.route
-                        val isSettings = currentDestination?.route == NavGraph.Settings.route
-                        if (!isUserPage and !isSettings) {
-                            SettingsTopBarButton(
-                                onClick = { navController.navigate(NavGraph.Settings.route) }
-                            )
-                            ProfileTopBarButton(
-                                onClick = { navController.navigate(NavGraph.User.route) }
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                // Solo mostramos la barra de arriba si NO estamos en la pantalla de login
+                if (!isLoginScreen) {
+                    TopAppBar(
+                        title = { Text("ChillMates") },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
                     )
-                )
+                }
             }
         ) { innerPadding ->
             Surface(
@@ -103,15 +101,15 @@ fun ChillMatesApp() {
             ) {
                 NavHost(
                     navController = navController,
-                    startDestination = NavGraph.Home.route
+                    startDestination = "login" // <--- Ahora la app empieza directamente en el login
                 ) {
+                    // Hemos añadido la nueva ruta de login aquí
+                    composable("login") { LoginPage(navController) }
                     composable(NavGraph.Home.route) { HomePage(navController) }
                     composable(NavGraph.Chores.route) { ChoresPage(navController) }
                     composable(NavGraph.Expenses.route) { ExpensesTrackerPage(navController) }
                     composable(NavGraph.Repairs.route) { RepairPage(navController) }
                     composable(NavGraph.Shopping.route) { ShoppingListPage(navController) }
-                    composable(NavGraph.User.route) { UserPage(navController) }
-                    composable(NavGraph.Settings.route) { SettingsPage(navController) }
                 }
             }
         }
