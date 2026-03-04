@@ -1,3 +1,4 @@
+// ExpensesTrackerPage.kt
 package es.uc3m.android.chillmates
 
 import androidx.compose.foundation.clickable
@@ -12,7 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -20,18 +20,156 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import kotlin.math.absoluteValue
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import android.widget.ImageView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.viewinterop.AndroidView
 
 @Composable
 fun ExpensesTrackerPage(navController: NavController) {
     val vm: ExpensesViewModel = viewModel()
+    val context = LocalContext.current
+
+    // stores which expense requested the picker
+    var pendingExpenseId by remember { mutableStateOf<String?>(null) }
+    // stores which ticket we want to view
+    var ticketToView by remember { mutableStateOf<Uri?>(null) }
+
+    // image picker
+    val getImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        val expenseId = pendingExpenseId
+        pendingExpenseId = null
+
+        if (uri != null && expenseId != null) {
+            // persist read permission so we can open it later
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: SecurityException) {
+                // Some providers may not allow persistable permissions; ignore
+            }
+
+            vm.onTicketSelected(expenseId, uri)
+            Toast.makeText(context, "Ticket attached ✅", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Cancelled", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // launcher to add an expense
+    val addExpenseLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val data = result.data
+            val title = data?.getStringExtra(AddExpenseActivity.EXTRA_TITLE)
+            val amount = data?.getDoubleExtra(AddExpenseActivity.EXTRA_AMOUNT, Double.NaN)
+            val paidBy = data?.getStringExtra(AddExpenseActivity.EXTRA_PAID_BY)
+
+            if (!title.isNullOrBlank() && amount != null && !amount.isNaN() && !paidBy.isNullOrBlank()) {
+                vm.onExpenseAdded(title = title, amount = amount, paidBy = paidBy)
+                Toast.makeText(context, "Expense added ✅", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Invalid data", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Cancelled", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // in-app ticket viewer
+    if (ticketToView != null) {
+        TicketViewerDialog(
+            uri = ticketToView!!,
+            onDismiss = { ticketToView = null }
+        )
+    }
 
     // events
     ExpensesRoute(
         state = vm.uiState,
         onBackClick = { navController.popBackStack() },
-        onAddExpenseClick = { vm.onAddExpense() },
-        onTicketClick = { expenseId -> vm.onTicketRequested(expenseId) }
+        onAddExpenseClick = {
+            // AddExpenseActivity
+            val intent = Intent(context, AddExpenseActivity::class.java)
+            addExpenseLauncher.launch(intent)
+        },
+        onTicketClick = { expenseId ->
+            when (val action = vm.onTicketRequested(expenseId)) {
+                is TicketAction.PickTicketImage -> {
+                    // open gallery/file picker
+                    pendingExpenseId = expenseId
+                    getImageLauncher.launch(arrayOf("image/*"))
+                }
+
+                is TicketAction.ViewTicket -> {
+                    // show the image
+                    ticketToView = action.uri
+                }
+            }
+        }
     )
+}
+
+@Composable
+private fun TicketViewerDialog(
+    uri: Uri,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 6.dp
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Ticket",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = onDismiss) { Text("Close") }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                AndroidView(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(420.dp),
+                    factory = { ctx ->
+                        ImageView(ctx).apply {
+                            adjustViewBounds = true
+                            scaleType = ImageView.ScaleType.FIT_CENTER
+                        }
+                    },
+                    update = { imageView ->
+                        // This will work as long as we have persisted permission (OpenDocument)
+                        imageView.setImageURI(uri)
+                    }
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -274,3 +412,20 @@ private fun DividerThin() {
 
 private fun formatMoney(amount: Double): String =
     "€" + String.format("%.2f", amount)
+
+// NEW: opens the ticket using an implicit intent (ACTION_VIEW)
+private fun openTicket(context: Context, uri: Uri) {
+    // NEW: try to resolve the mime type from ContentResolver
+    val mimeType = context.contentResolver.getType(uri) ?: "image/*"
+
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(uri, mimeType)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+
+    try {
+        context.startActivity(intent)
+    } catch (e: ActivityNotFoundException) {
+        Toast.makeText(context, "No app found to open this file", Toast.LENGTH_LONG).show()
+    }
+}

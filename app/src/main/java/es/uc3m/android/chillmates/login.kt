@@ -15,75 +15,83 @@ fun LoginPage(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
-    Column(
+    // NEW: Paint an explicit background across the whole screen and apply system insets
+    Surface(
         modifier = Modifier
             .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .windowInsetsPadding(WindowInsets.safeDrawing),
+        color = MaterialTheme.colorScheme.background
     ) {
-        // Título de la App
-        Text(
-            text = "ChillMates",
-            style = MaterialTheme.typography.displayMedium,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Welcome to your shared flat",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(48.dp))
-
-        // Campo Email
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Campo Contraseña
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation() // Oculta los caracteres
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Botón principal de Log In
-        Button(
-            onClick = {
-                // Al hacer Log In, navegamos a Home y borramos "login" del historial
-                // para que al pulsar la flecha de atrás de Android no vuelva a esta pantalla
-                navController.navigate(NavGraph.Home.route) {
-                    popUpTo("login") { inclusive = true }
-                }
-            },
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
+                .fillMaxSize()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Text("Log In", style = MaterialTheme.typography.titleMedium)
-        }
+            // Título de la App
+            Text(
+                text = "ChillMates",
+                style = MaterialTheme.typography.displayMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        // Enlace para Sign Up
-        TextButton(onClick = { /* Acción para ir a la pantalla de registro */ }) {
-            Text("Don't have an account? Sign up")
+            Text(
+                text = "Welcome to your shared flat",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(48.dp))
+
+            // Campo Email
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Email") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Campo Contraseña
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Password") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation() // Oculta los caracteres
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Botón principal de Log In
+            Button(
+                onClick = {
+                    // Al hacer Log In, navegamos a Home y borramos "login" del historial
+                    // para que al pulsar la flecha de atrás de Android no vuelva a esta pantalla
+                    navController.navigate(NavGraph.Home.route) {
+                        popUpTo("login") { inclusive = true }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text("Log In", style = MaterialTheme.typography.titleMedium)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Enlace para Sign Up
+            TextButton(onClick = { /* Acción para ir a la pantalla de registro */ }) {
+                Text("Don't have an account? Sign up")
+            }
         }
     }
 }
