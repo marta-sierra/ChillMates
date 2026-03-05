@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Star
@@ -27,10 +26,7 @@ fun RepairPage(navController: NavController) {
     var requestText by remember { mutableStateOf("") }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        RepairHeaderSection(
-            title = "Repairs",
-            onBackClick = { navController.popBackStack() }
-        )
+        RepairHeaderSection(title = "Repairs")
 
         LazyColumn(
             modifier = Modifier
@@ -52,7 +48,6 @@ fun RepairPage(navController: NavController) {
                 RepairCard(repair)
             }
 
-            // Separador visual
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -69,7 +64,6 @@ fun RepairPage(navController: NavController) {
                 )
             }
 
-            // Caja de texto (ahora sin el icono dentro)
             item {
                 OutlinedTextField(
                     value = requestText,
@@ -82,7 +76,6 @@ fun RepairPage(navController: NavController) {
                 )
             }
 
-            // Nuevo botón de "Add images"
             item {
                 TextButton(
                     onClick = { /* Acción para abrir la cámara/galería */ },
@@ -94,7 +87,6 @@ fun RepairPage(navController: NavController) {
                 }
             }
 
-            // Botones de IA y Enviar
             item {
                 Row(
                     modifier = Modifier
@@ -134,10 +126,7 @@ fun RepairPage(navController: NavController) {
 }
 
 @Composable
-private fun RepairHeaderSection(
-    title: String,
-    onBackClick: () -> Unit
-) {
+private fun RepairHeaderSection(title: String) {
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer,
         tonalElevation = 0.dp
@@ -146,19 +135,8 @@ private fun RepairHeaderSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .padding(top = 12.dp, bottom = 14.dp)
+                .padding(top = 24.dp, bottom = 16.dp) // Ajustado para que respire bien sin la flecha
         ) {
-            IconButton(
-                onClick = onBackClick,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),

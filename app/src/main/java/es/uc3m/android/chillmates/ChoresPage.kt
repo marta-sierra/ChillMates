@@ -5,7 +5,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,18 +19,15 @@ import androidx.navigation.NavController
 fun ChoresPage(navController: NavController) {
     val chores = remember {
         mutableStateListOf(
-            Chore(1, "Clean the bathroom", "Marta", false),    // Botón: Swap
-            Chore(2, "Take out the trash", "Me", false),       // Checkbox
-            Chore(3, "Wash the dishes", "Lorena", true),       // Botón: Redo
-            Chore(4, "Sweep the living room", "Everyone", false) // Checkbox
+            Chore(1, "Clean the bathroom", "Marta", false),
+            Chore(2, "Take out the trash", "Me", false),
+            Chore(3, "Wash the dishes", "Lorena", true),
+            Chore(4, "Sweep the living room", "Everyone", false)
         )
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        ChoresHeaderSection(
-            title = "Chores",
-            onBackClick = { navController.popBackStack() }
-        )
+        ChoresHeaderSection(title = "Chores")
 
         LazyColumn(
             modifier = Modifier
@@ -106,10 +102,7 @@ fun ChoresPage(navController: NavController) {
 }
 
 @Composable
-private fun ChoresHeaderSection(
-    title: String,
-    onBackClick: () -> Unit
-) {
+private fun ChoresHeaderSection(title: String) {
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer,
         tonalElevation = 0.dp
@@ -118,19 +111,8 @@ private fun ChoresHeaderSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .padding(top = 12.dp, bottom = 14.dp)
+                .padding(top = 24.dp, bottom = 16.dp) // Ajustado para que respire bien sin la flecha
         ) {
-            IconButton(
-                onClick = onBackClick,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
@@ -142,7 +124,6 @@ private fun ChoresHeaderSection(
 
 @Composable
 fun ChoreCard(chore: Chore, onUpdateChore: (Chore) -> Unit) {
-    // Comprobamos si la tarea es tuya ("Me") o de todos ("Everyone")
     val isMe = chore.assignee == "Me" || chore.assignee == "Everyone"
 
     Card(
@@ -172,7 +153,6 @@ fun ChoreCard(chore: Chore, onUpdateChore: (Chore) -> Unit) {
                 )
             }
 
-            // Lógica para mostrar Checkbox o Botones
             if (isMe) {
                 Checkbox(
                     checked = chore.isDone,
@@ -180,17 +160,12 @@ fun ChoreCard(chore: Chore, onUpdateChore: (Chore) -> Unit) {
                 )
             } else {
                 if (chore.isDone) {
-                    // Tarea de otro terminada -> Botón Redo
                     TextButton(
-                        onClick = {
-                            // Al hacer clic en Redo, marcamos la tarea como NO hecha
-                            onUpdateChore(chore.copy(isDone = false))
-                        }
+                        onClick = { onUpdateChore(chore.copy(isDone = false)) }
                     ) {
                         Text("Redo", color = MaterialTheme.colorScheme.error)
                     }
                 } else {
-                    // Tarea de otro sin terminar -> Botón Swap
                     TextButton(
                         onClick = { /* Lógica para proponer el cambio de tarea */ }
                     ) {
