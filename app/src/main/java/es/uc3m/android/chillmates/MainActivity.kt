@@ -5,9 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
@@ -48,7 +50,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class) // Necesario para TopAppBar
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChillMatesApp() {
     val navController = rememberNavController()
@@ -88,7 +90,14 @@ fun ChillMatesApp() {
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                        ),
+                        actions = {
+                            // Aquí integramos los botones de ajustes y perfil
+                            SettingsTopBarButton(onClick = { /* Acción de ajustes */ })
+                            Spacer(modifier = Modifier.width(4.dp))
+                            ProfileTopBarButton(onClick = { /* Acción de perfil */ })
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
                     )
                 }
             }
@@ -103,7 +112,6 @@ fun ChillMatesApp() {
                     navController = navController,
                     startDestination = "login" // <--- Ahora la app empieza directamente en el login
                 ) {
-                    // Hemos añadido la nueva ruta de login aquí
                     composable("login") { LoginPage(navController) }
                     composable(NavGraph.Home.route) { HomePage(navController) }
                     composable(NavGraph.Chores.route) { ChoresPage(navController) }
@@ -152,7 +160,7 @@ private fun SettingsTopBarButton(onClick: () -> Unit) {
             ) {
                 Icon(
                     imageVector = Icons.Default.Settings,
-                    contentDescription = "User profile",
+                    contentDescription = "Settings",
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
