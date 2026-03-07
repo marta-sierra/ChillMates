@@ -37,6 +37,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import es.uc3m.android.chillmates.ui.theme.ChillMatesTheme
+import es.uc3m.android.chillmates.user.UserPage
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,9 +94,9 @@ fun ChillMatesApp() {
                         ),
                         actions = {
                             // Aquí integramos los botones de ajustes y perfil
-                            SettingsTopBarButton(onClick = { /* Acción de ajustes */ })
+                            SettingsTopBarButton(onClick =  { navController.navigate(NavGraph.Settings.route) })
                             Spacer(modifier = Modifier.width(4.dp))
-                            ProfileTopBarButton(onClick = { /* Acción de perfil */ })
+                            ProfileTopBarButton(onClick = { navController.navigate(NavGraph.User.route) })
                             Spacer(modifier = Modifier.width(8.dp))
                         }
                     )
@@ -110,7 +111,7 @@ fun ChillMatesApp() {
             ) {
                 NavHost(
                     navController = navController,
-                    startDestination = "login" // <--- Ahora la app empieza directamente en el login
+                    startDestination = "login"
                 ) {
                     composable("login") { LoginPage(navController) }
                     composable(NavGraph.Home.route) { HomePage(navController) }
@@ -118,6 +119,8 @@ fun ChillMatesApp() {
                     composable(NavGraph.Expenses.route) { ExpensesTrackerPage(navController) }
                     composable(NavGraph.Repairs.route) { RepairPage(navController) }
                     composable(NavGraph.Shopping.route) { ShoppingListPage(navController) }
+                    composable(NavGraph.User.route) { UserPage(navController) }
+                    composable(NavGraph.Settings.route) { SettingsPage(navController) }
                 }
             }
         }

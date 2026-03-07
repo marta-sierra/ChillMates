@@ -14,7 +14,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-
 @Composable
 fun ChoresPage(navController: NavController) {
     val chores = remember {
@@ -27,97 +26,79 @@ fun ChoresPage(navController: NavController) {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        ChoresHeaderSection(title = "Chores")
+        LargeSectionHeader(title = "Chores")
 
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "To make living together easier.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
-            items(chores) { chore ->
-                ChoreCard(
-                    chore = chore,
-                    onUpdateChore = { updatedChore ->
-                        val index = chores.indexOfFirst { it.id == updatedChore.id }
-                        if (index != -1) {
-                            chores[index] = updatedChore
+        PageContentWrapper {
+            Column(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    item {
+                        Spacer(modifier = Modifier.height(32.dp))
+                        Text(
+                            text = "To make living together easier.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                    items(chores) { chore ->
+                        ChoreCard(
+                            chore = chore,
+                            onUpdateChore = { updatedChore ->
+                                val index = chores.indexOfFirst { it.id == updatedChore.id }
+                                if (index != -1) {
+                                    chores[index] = updatedChore
+                                }
+                            }
+                        )
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.background,
+                    tonalElevation = 2.dp,
+                    shadowElevation = 8.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Reconfigure Chores")
+                        }
+
+                        Button(
+                            onClick = { },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Add new chore")
                         }
                     }
-                )
-            }
-        }
-
-        // --- SECCIÓN DE BOTONES INFERIORES ---
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.background,
-            tonalElevation = 2.dp,
-            shadowElevation = 4.dp
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { /* Acción para reconfigurar tareas */ },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Reconfigure",
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text("Reconfigure Chores")
-                }
-
-                Button(
-                    onClick = { /* Acción para añadir nueva tarea */ },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add Chore",
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text("Add new chore")
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ChoresHeaderSection(title: String) {
-    Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
-        tonalElevation = 0.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(top = 24.dp, bottom = 16.dp) // Ajustado para que respire bien sin la flecha
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
         }
     }
 }

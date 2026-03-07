@@ -1,4 +1,4 @@
-package es.uc3m.android.chillmates
+package es.uc3m.android.chillmates.user
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue

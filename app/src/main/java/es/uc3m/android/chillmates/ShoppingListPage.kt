@@ -49,105 +49,105 @@ private fun ShoppingListRoute(
     var showAddDialog by remember { mutableStateOf(false) }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
+        modifier = Modifier.fillMaxSize()
     ) {
-
-        Text(
-            text = "Shopping List",
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        // Filter + Map row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            SupermarketDropdown(
-                selected = state.selectedSupermarket,
-                onFilter = onFilter,
-                supermarkets = state.availableSupermarkets,
-                modifier = Modifier.weight(1f)
-            )
-
-            IconButton(onClick = { showMap = true }) {
-                Icon(Icons.Default.Map, contentDescription = "Open Map")
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        // 🔹 LIST TAKES ALL AVAILABLE SPACE
-        Box(modifier = Modifier.weight(1f)) {
-
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val filteredItems = if (state.selectedSupermarket == null) {
-                    state.items
-                } else {
-                    state.items.filter { state.selectedSupermarket in it.supermarkets }
-                }
-
-                val itemsToShow = if (showBoughtItems) {
-                    filteredItems
-                } else {
-                    filteredItems.filter { !it.isBought }
-                }
-
-                items(itemsToShow) { item ->
-                    ShoppingItemRow(
-                        item = item,
-                        onToggleBought = onToggleBought,
-                        onDelete = onDelete
+        LargeSectionHeader(title = "Shopping List")
+        PageContentWrapper {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize().padding(horizontal = 24.dp)
+                    .padding(top=24.dp)) {
+                // Filter + Map row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SupermarketDropdown(
+                        selected = state.selectedSupermarket,
+                        onFilter = onFilter,
+                        supermarkets = state.availableSupermarkets,
+                        modifier = Modifier.weight(1f)
                     )
+
+                    IconButton(onClick = { showMap = true }) {
+                        Icon(Icons.Default.Map, contentDescription = "Open Map")
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // 🔹 LIST TAKES ALL AVAILABLE SPACE
+                Box(modifier = Modifier.weight(1f)) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val filteredItems = if (state.selectedSupermarket == null) {
+                            state.items
+                        } else {
+                            state.items.filter { state.selectedSupermarket in it.supermarkets }
+                        }
+
+                        val itemsToShow = if (showBoughtItems) {
+                            filteredItems
+                        } else {
+                            filteredItems.filter { !it.isBought }
+                        }
+
+                        items(itemsToShow) { item ->
+                            ShoppingItemRow(
+                                item = item,
+                                onToggleBought = onToggleBought,
+                                onDelete = onDelete
+                            )
+                        }
+                    }
+                }
+
+                // 🔹 ALWAYS AT BOTTOM
+                Column(
+                    modifier = Modifier.padding(top = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Button(
+                        onClick = { showAddDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Add new item")
+                    }
+
+                    OutlinedButton(
+                        onClick = { showBoughtItems = !showBoughtItems },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large
+                    ) {
+                        Text(
+                            if (showBoughtItems) "Hide recently bought items"
+                            else "See recently bought items"
+                        )
+                    }
                 }
             }
-        }
-
-        // 🔹 ALWAYS AT BOTTOM
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-
-            Button(
-                onClick = { showAddDialog = true },
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Add new item")
-            }
-
-            OutlinedButton(
-                onClick = { showBoughtItems = !showBoughtItems },
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large
-            ) {
-                Text(
-                    if (showBoughtItems) "Hide recently bought items"
-                    else "See recently bought items"
-                )
-            }
-        }
-        if (showAddDialog) {
-            AddItemDialog(
-                supermarkets = state.availableSupermarkets,
-                flatmates = listOf("Marta", "Alex", "John"),
-                onDismiss = { showAddDialog = false },
-                onAdd = { newItem ->
-                    onAddItem(newItem)
-                    showAddDialog = false
-                }
-            )
         }
     }
+
+    if (showAddDialog) {
+        AddItemDialog(
+            supermarkets = state.availableSupermarkets,
+            flatmates = listOf("Marta", "Alex", "John"),
+            onDismiss = { showAddDialog = false },
+            onAdd = { newItem ->
+                onAddItem(newItem)
+                showAddDialog = false
+            }
+        )
+    }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SupermarketDropdown(
