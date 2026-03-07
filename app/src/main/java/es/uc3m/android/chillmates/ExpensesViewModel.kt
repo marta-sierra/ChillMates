@@ -17,7 +17,8 @@ data class ExpenseUi(
     val ticketLabel: String, // "see ticket"/"add ticket"
     val amount: Double,
     val paidBy: String,
-    val ticketUri: String? = null  // store the selected ticket
+    val ticketUri: String? = null,  // store the selected ticket
+    val splitBetween: List<String> = emptyList()
 )
 
 // balances of expenses
@@ -32,7 +33,8 @@ data class BalanceUi(
 data class ExpensesUiState(
     val title: String = "Expenses",
     val expenses: List<ExpenseUi> = emptyList(),
-    val balances: List<BalanceUi> = emptyList()
+    val balances: List<BalanceUi> = emptyList(),
+    val availableFlatmates: List<String> = listOf("MARTA", "FRAN", "LORENA", "ALEX", "ME") //TODO hacer esto comun
 )
 
 // one-shot actions (photo picker vs viewer)
@@ -50,10 +52,10 @@ class ExpensesViewModel : ViewModel() {
     var uiState by mutableStateOf(
         ExpensesUiState(
             expenses = listOf(
-                ExpenseUi("1", "Pan", "add ticket", 29.99, "MARTA"),
-                ExpenseUi("2", "Cutlery", "add ticket", 45.63, "MARTA"),
-                ExpenseUi("3", "Groceries", "add ticket", 35.95, "FRAN"),
-                ExpenseUi("4", "Utilities", "add ticket", 9.95, "LORENA"),
+                ExpenseUi("1", "Weekly Bread & Milk", "see ticket", 5.50, "MARTA", splitBetween = listOf("MARTA", "FRAN", "LORENA", "ALEX", "ME")),
+                ExpenseUi("2", "IKEA Cutlery Set", "add ticket", 45.63, "MARTA", splitBetween = listOf("MARTA", "FRAN", "LORENA", "ALEX", "ME")),
+                ExpenseUi("3", "Groceries (Mercadona)", "see ticket", 82.20, "FRAN", splitBetween = listOf("FRAN", "LORENA", "ME")),
+                ExpenseUi("4", "Fiber Internet", "add ticket", 29.99, "LORENA", splitBetween = listOf("MARTA", "FRAN", "LORENA", "ALEX", "ME"))
             ),
             balances = listOf(
                 BalanceUi("MARTA", 36.0),
@@ -65,7 +67,7 @@ class ExpensesViewModel : ViewModel() {
         private set // only viewModel can change the state
 
     // add a new expense coming from AddExpenseActivity
-    fun onExpenseAdded(title: String, amount: Double, paidBy: String) {
+    fun onExpenseAdded(title: String, amount: Double, paidBy: String, splitBetween: List<String>) {
         val newId = (uiState.expenses.size + 1).toString()
 
         uiState = uiState.copy(
@@ -74,7 +76,8 @@ class ExpensesViewModel : ViewModel() {
                 title = title,
                 ticketLabel = "add ticket",
                 amount = amount,
-                paidBy = paidBy
+                paidBy = paidBy,
+                splitBetween = splitBetween
             )
         )
 

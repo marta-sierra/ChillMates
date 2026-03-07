@@ -1,5 +1,9 @@
 package es.uc3m.android.chillmates.user
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,7 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
@@ -44,19 +48,37 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 
 @Composable
 fun UserPage(navController: NavController) {
 
     val vm: UserViewModel = viewModel()
+    val context = LocalContext.current
+    
+    // Launcher for picking profile picture
+    val pickMedia = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            context.contentResolver.takePersistableUriPermission(
+                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            vm.onChangePhotoClick(uri)
+        }
+    }
 
     UserRoute(
         state = vm.uiState,
-        onBackClick = { navController.popBackStack() }, // go to the previous screen
+        onBackClick = { navController.popBackStack() },
 
         onEditProfileClick = vm::onEditProfileClick,
         onSaveProfileClick = vm::onSaveProfileClick,
@@ -66,8 +88,10 @@ fun UserPage(navController: NavController) {
         onFlatNameChange = vm::onFlatNameChange,
         onToggleFlatNameEditing = vm::onToggleFlatNameEditing,
         onChangePasswordClick = vm::onChangePasswordClick,
-        onChangePhotoClick = vm::onChangePhotoClick,
-        onInviteClick = vm::onInviteClick,
+        onChangePhotoClick = { 
+            pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) 
+        },
+        onInviteClick = { vm.onInviteClick(context) },
         onLeaveFlatClick = vm::onLeaveFlatClick,
         onCreateNewFlatClick = vm::onCreateNewFlatClick
     )
@@ -97,6 +121,7 @@ private fun UserRoute(
         UserHeaderSection(
             title = state.fullName,
             onBackClick = onBackClick,
+            photoUri = state.profilePhotoUrl,
             onProfilePhotoClick = onChangePhotoClick
         )
 
@@ -121,10 +146,10 @@ private fun UserRoute(
 @Composable
 private fun UserHeaderSection(
     title: String,
+    photoUri: String?, // Pasamos el dato desde el estado
     onBackClick: () -> Unit,
     onProfilePhotoClick: () -> Unit
 ) {
-
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer,
         tonalElevation = 0.dp
@@ -135,35 +160,25 @@ private fun UserHeaderSection(
                 .padding(horizontal = 16.dp)
                 .padding(top = 12.dp, bottom = 14.dp)
         ) {
-            // Back arrow button
-            IconButton(
-                onClick = onBackClick,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+            IconButton(onClick = onBackClick, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // User name + profile photo
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Current user name
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold)
                 )
 
-                // Profile photo with "Change photo" menu
+                // Pasamos la URI al componente de la foto
                 ProfilePhotoLarge(
+                    photoUri = photoUri,
                     onChangePhotoClick = onProfilePhotoClick
                 )
             }
@@ -173,13 +188,12 @@ private fun UserHeaderSection(
 
 @Composable
 private fun ProfilePhotoLarge(
+    photoUri: String?,
     onChangePhotoClick: () -> Unit
 ) {
-
     var menuExpanded by remember { mutableStateOf(false) }
 
     Box {
-        // Profile photo
         Surface(
             modifier = Modifier
                 .size(96.dp)
@@ -188,21 +202,23 @@ private fun ProfilePhotoLarge(
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 2.dp
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.Person,
+            if (photoUri != null) {
+                AsyncImage(
+                    model = photoUri,
                     contentDescription = "Profile photo",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(34.dp)
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
                 )
+            } else {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(40.dp))
+                }
             }
         }
 
-        // "Change photo" dropdown
-        DropdownMenu(
-            expanded = menuExpanded,
-            onDismissRequest = { menuExpanded = false }
-        ) {
+        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
             DropdownMenuItem(
                 text = { Text("Change photo") },
                 onClick = {
@@ -387,7 +403,6 @@ private fun FlatSectionCard(
                 singleLine = true,
                 readOnly = !isFlatNameEditing,
                 trailingIcon = {
-                    // Pencil/check icon to toggle edit mode for the flat name
                     IconButton(onClick = onToggleFlatNameEditing) {
                         Icon(
                             imageVector = if (isFlatNameEditing) Icons.Default.Check else Icons.Default.Edit,
@@ -397,64 +412,69 @@ private fun FlatSectionCard(
                 }
             )
 
-            //  Roommates list
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            // Roommates list
             Text(
                 text = "Roommates",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
             )
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                members.forEachIndexed { index, m ->
-                    ListItem(
-                        headlineContent = { Text(m.name) }
-                    )
-                    if (index != members.lastIndex) {
-                        HorizontalDivider(
-                            thickness = 1.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-                        )
+            members.forEach { member ->
+                ListItem(
+                    headlineContent = { Text(member.name) },
+                    leadingContent = {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Person,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
                     }
-                }
+                )
             }
 
-            // Invite roommate (left) + Leave flat (right)
+            // Actions: Invite (left) + Leave (right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                FilledTonalButton(
+                OutlinedButton(
                     onClick = onInviteClick,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("Invite roommate")
                 }
-
-                Button(
+                OutlinedButton(
                     onClick = onLeaveFlatClick,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Leave flat", color = MaterialTheme.colorScheme.onError)
+                    Text("Leave flat")
                 }
             }
         }
     }
 }
 
+// SECTION: Bottom button -----
 @Composable
-private fun CreateNewFlatButton(onClick: () -> Unit) {
-    // Create/join a different flat
-    OutlinedButton(
+private fun CreateNewFlatButton(
+    onClick: () -> Unit
+) {
+    Button(
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(46.dp),
-        shape = RoundedCornerShape(12.dp)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Text("Create / join a new flat")
+        Text("Create/join a new flat")
     }
 }

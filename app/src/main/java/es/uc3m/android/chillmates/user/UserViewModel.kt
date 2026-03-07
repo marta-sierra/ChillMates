@@ -1,5 +1,7 @@
 package es.uc3m.android.chillmates.user
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -93,11 +95,20 @@ class UserViewModel : ViewModel() {
     fun onChangePasswordClick() {
         // "Password" button
     }
-    fun onChangePhotoClick() {
-        // "Change photo" button
+    fun onChangePhotoClick(uri: Uri) {
+        uiState = uiState.copy(profilePhotoUrl = uri.toString())
     }
-    fun onInviteClick() {
-        // "Invite roommate" button
+
+    fun onInviteClick(context: android.content.Context) {
+        val flatName = uiState.flatName
+        val inviteMsg = "Join my flat '$flatName' on ChillMates! Click here: https://chillmates.app/join/flat123"
+
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, inviteMsg)
+        }
+        val chooser = Intent.createChooser(intent, "Invite roommate via...")
+        context.startActivity(chooser)
     }
     fun onLeaveFlatClick() {
         // "Leave flat" button

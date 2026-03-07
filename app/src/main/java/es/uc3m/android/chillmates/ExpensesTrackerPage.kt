@@ -83,7 +83,8 @@ fun ExpensesTrackerPage(navController: NavController) {
             val paidBy = data?.getStringExtra(AddExpenseActivity.EXTRA_PAID_BY)
 
             if (!title.isNullOrBlank() && amount != null && !amount.isNaN() && !paidBy.isNullOrBlank()) {
-                vm.onExpenseAdded(title = title, amount = amount, paidBy = paidBy)
+                val splitBetween = result.data?.getStringArrayListExtra("EXTRA_SPLIT_BETWEEN") ?: emptyList<String>()
+                vm.onExpenseAdded(title, amount, paidBy, splitBetween)
                 Toast.makeText(context, "Expense added ✅", Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(context, "Invalid data", Toast.LENGTH_SHORT).show()
@@ -107,7 +108,9 @@ fun ExpensesTrackerPage(navController: NavController) {
         onBackClick = { navController.popBackStack() },
         onAddExpenseClick = {
             // AddExpenseActivity
-            val intent = Intent(context, AddExpenseActivity::class.java)
+            val intent = Intent(context, AddExpenseActivity::class.java).apply {
+                putStringArrayListExtra("FLATMATES_LIST", ArrayList(vm.uiState.availableFlatmates))
+            }
             addExpenseLauncher.launch(intent)
         },
         onTicketClick = { expenseId ->
@@ -299,7 +302,13 @@ private fun ExpenseRowItem(
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium)
             )
 
-            Spacer(modifier = Modifier.height(2.dp))
+            if (expense.splitBetween.isNotEmpty()) {
+                Text(
+                    text = "For: ${expense.splitBetween.joinToString(", ")}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
 
             // "see ticket"/"Add ticket"
             Text(

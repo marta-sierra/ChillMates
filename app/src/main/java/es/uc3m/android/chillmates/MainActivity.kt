@@ -1,5 +1,6 @@
 package es.uc3m.android.chillmates
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -36,12 +37,22 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import es.uc3m.android.chillmates.shoppinglist.ShoppingListPage
 import es.uc3m.android.chillmates.ui.theme.ChillMatesTheme
 import es.uc3m.android.chillmates.user.UserPage
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // For handling invitation links to the app
+        val intent = intent
+        val data: Uri? = intent?.data
+        if (data != null && data.pathSegments.contains("join")) {
+            val flatId = data.lastPathSegment
+            println("Joining flat: $flatId")
+        }
+
         enableEdgeToEdge()
         setContent {
             ChillMatesTheme {

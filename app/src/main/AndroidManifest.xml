@@ -15,6 +15,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ChillMates">
 
+        <!-- MAIN UI ACTIVITY -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -24,7 +25,24 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Handle invitation links -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="https" />
+                <data android:host="chillmates.app" />
+                <data android:pathPrefix="/join" />
+            </intent-filter>
         </activity>
+
+        <!-- MAP ACTIVITY FOR SUPERMARKET SELECTION IN MAP -->
+        <activity
+            android:name=".shoppinglist.MapActivity"
+            android:theme="@style/Theme.MapDialog"
+            android:exported="false" />
 
         <activity android:name=".AddExpenseActivity" />
 

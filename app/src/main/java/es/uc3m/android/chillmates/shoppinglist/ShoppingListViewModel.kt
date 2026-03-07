@@ -1,4 +1,4 @@
-package es.uc3m.android.chillmates
+package es.uc3m.android.chillmates.shoppinglist
 
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
@@ -17,7 +17,8 @@ data class ShoppingItemUi(
 data class ShoppingUiState(
     val items: List<ShoppingItemUi> = emptyList(),
     val selectedSupermarket: String? = null,
-    val availableSupermarkets: List<String> = emptyList()
+    val availableSupermarkets: List<String> = emptyList(),
+    val availableFlatmates: List<String> = listOf("MARTA", "FRAN", "LORENA", "ALEX", "ME") //TODO
 )
 
 class ShoppingViewModel : ViewModel() {
@@ -29,7 +30,7 @@ class ShoppingViewModel : ViewModel() {
                     id = "1",
                     name = "Milk",
                     quantity = "2L",
-                    neededBy = listOf("Marta"),
+                    neededBy = listOf("MARTA"),
                     supermarkets = listOf("Lidl"),
                     isBought = false
                 ),

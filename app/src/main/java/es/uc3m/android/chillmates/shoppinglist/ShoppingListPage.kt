@@ -1,5 +1,9 @@
-package es.uc3m.android.chillmates
+package es.uc3m.android.chillmates.shoppinglist
 
+import android.app.Activity
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,20 +25,80 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
+import es.uc3m.android.chillmates.AddExpenseActivity
+import es.uc3m.android.chillmates.LargeSectionHeader
+import es.uc3m.android.chillmates.PageContentWrapper
+import es.uc3m.android.chillmates.R
 
 @Composable
 fun ShoppingListPage(navController: NavController) {
     val vm: ShoppingViewModel = viewModel()
+    val context = LocalContext.current
+
+    // Estado para el ítem que se acaba de marcar (disparador del diálogo)
+    var itemToPrompt by remember { mutableStateOf<ShoppingItemUi?>(null) }
+
+    // Launcher para abrir AddExpenseActivity y esperar el resultado
+    val expenseLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { /* No necesitamos lógica especial al volver */ }
 
     ShoppingListRoute(
         state = vm.uiState,
         onFilter = vm::onFilterSupermarket,
-        onToggleBought = vm::onToggleBought,
+        onToggleBought = { itemId ->
+            vm.onToggleBought(itemId) // Cambia el estado en el ViewModel
+
+            // Buscamos cómo ha quedado el ítem
+            val item = vm.uiState.items.find { it.id == itemId }
+
+            // Si el resultado de la pulsación es que está comprado, preguntamos SIEMPRE
+            if (item?.isBought == true) {
+                itemToPrompt = item
+            }
+        },
         onDelete = vm::onDeleteItem,
-        onAddItem = vm::addItem
+        onAddItem = vm::addItem,
+        onOpenMap = { /* Lógica del mapa que ya tenías */ }
     )
+
+    // Diálogo de confirmación
+    if (itemToPrompt != null) {
+        AlertDialog(
+            onDismissRequest = { itemToPrompt = null },
+            title = { Text("Add to Expenses?") },
+            text = { Text("Do you want to create an expense for '${itemToPrompt?.name}'?") },
+            confirmButton = {
+                Button(onClick = {
+                    val item = itemToPrompt!!
+                    val intent = Intent(context, AddExpenseActivity::class.java).apply {
+                        // Pasamos los datos pre-rellenados
+                        putExtra(AddExpenseActivity.EXTRA_TITLE, item.name)
+                        putExtra(AddExpenseActivity.EXTRA_AMOUNT, 0.0)
+                        putExtra(AddExpenseActivity.EXTRA_PAID_BY, "ME")
+
+                        // Lista de compañeros para los checkboxes
+                        putStringArrayListExtra("FLATMATES_LIST", ArrayList(vm.uiState.availableFlatmates))
+                        // Pre-seleccionamos los que necesitaban el producto
+                        putStringArrayListExtra(AddExpenseActivity.EXTRA_SPLIT_BETWEEN, ArrayList(item.neededBy))
+                    }
+                    expenseLauncher.launch(intent)
+                    itemToPrompt = null // Reset para la próxima vez
+                }) {
+                    Text("Yes, create expense")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { itemToPrompt = null }) {
+                    Text("Not now")
+                }
+            }
+        )
+    }
 }
+
 
 @Composable
 private fun ShoppingListRoute(
@@ -42,7 +106,8 @@ private fun ShoppingListRoute(
     onFilter: (String?) -> Unit,
     onToggleBought: (String) -> Unit,
     onDelete: (String) -> Unit,
-    onAddItem: (ShoppingItemUi) -> Unit
+    onAddItem: (ShoppingItemUi) -> Unit,
+    onOpenMap: () -> Unit
 ) {
     var showMap by remember { mutableStateOf(false) }
     var showBoughtItems by remember { mutableStateOf(false) }
@@ -56,7 +121,8 @@ private fun ShoppingListRoute(
             Column(
                 modifier = Modifier
                     .fillMaxSize().padding(horizontal = 24.dp)
-                    .padding(top=24.dp)) {
+                    .padding(top = 24.dp)
+            ) {
                 // Filter + Map row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -70,7 +136,7 @@ private fun ShoppingListRoute(
                         modifier = Modifier.weight(1f)
                     )
 
-                    IconButton(onClick = { showMap = true }) {
+                    IconButton(onClick = { onOpenMap() }) {
                         Icon(Icons.Default.Map, contentDescription = "Open Map")
                     }
                 }
