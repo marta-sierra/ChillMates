@@ -52,7 +52,9 @@
         <receiver
             android:name=".HomeReminderReceiver"
             android:exported="false" />
-
+        <receiver
+            android:name=".ChoreReminderReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

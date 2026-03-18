@@ -1,5 +1,10 @@
 package es.uc3m.android.chillmates
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,19 +16,36 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 
 @Composable
 fun RepairPage(navController: NavController) {
+    // Standard reparations data
     val repairs = listOf(
         Repair("Bathroom door", "Loose hinge. Landlord notified.", "Pending"),
         Repair("Washing machine", "Makes weird noise when spinning.", "In progress"),
         Repair("Sofa", "New sofa delivery completed.", "Resolved")
     )
 
+    // State to hold user input and selected image URI
     var requestText by remember { mutableStateOf("") }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+
+    // Context needed to launch intents and show toasts
+    val context = LocalContext.current
+
+    // Launcher to pick a single image from storage/camera via system picker
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        selectedImageUri = uri
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         RepairHeaderSection(title = "Repairs")
@@ -34,7 +56,7 @@ fun RepairPage(navController: NavController) {
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // --- SECCIÓN: CURRENT REPARATIONS ---
+            // --- SECTION: CURRENT REPARATIONS ---
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -54,7 +76,7 @@ fun RepairPage(navController: NavController) {
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // --- SECCIÓN: SEND A NEW REQUEST ---
+            // --- SECTION: SEND A NEW REQUEST ---
             item {
                 Text(
                     text = "Send a new request",
@@ -64,6 +86,7 @@ fun RepairPage(navController: NavController) {
                 )
             }
 
+            // Text input for describing the issue
             item {
                 OutlinedTextField(
                     value = requestText,
@@ -76,17 +99,34 @@ fun RepairPage(navController: NavController) {
                 )
             }
 
+            // Functional button to add or retake an image
             item {
                 TextButton(
-                    onClick = { /* Acción para abrir la cámara/galería */ },
+                    onClick = { imagePickerLauncher.launch("image/*") },
                     modifier = Modifier.padding(top = 4.dp)
                 ) {
                     Text("📷", style = MaterialTheme.typography.bodyLarge)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Add images")
+                    Text(if (selectedImageUri == null) "Add images" else "Retake photo")
                 }
             }
 
+            // If an image is selected/captured, display it using AsyncImage (Coil)
+            if (selectedImageUri != null) {
+                item {
+                    AsyncImage(
+                        model = selectedImageUri,
+                        contentDescription = "Selected issue photo",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(MaterialTheme.shapes.medium),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+
+            // Action buttons section
             item {
                 Row(
                     modifier = Modifier
@@ -95,7 +135,7 @@ fun RepairPage(navController: NavController) {
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     OutlinedButton(
-                        onClick = { /* Acción para revisión de IA */ },
+                        onClick = { /* AI Review logic */ },
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(
@@ -108,7 +148,37 @@ fun RepairPage(navController: NavController) {
                     }
 
                     Button(
-                        onClick = { /* Acción para enviar petición */ },
+                        onClick = {
+                            try {
+                                if (selectedImageUri != null) {
+                                    // Intent with image attachment
+                                    val emailIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "message/rfc822"
+                                        putExtra(Intent.EXTRA_EMAIL, arrayOf("jimenofernandezf@gmail.com"))
+                                        putExtra(Intent.EXTRA_SUBJECT, "Repair Request: Shared Flat")
+                                        putExtra(Intent.EXTRA_TEXT, "Issue description:\n$requestText")
+                                        putExtra(Intent.EXTRA_STREAM, selectedImageUri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(emailIntent, "Send email..."))
+                                } else {
+                                    // Robust Intent with text only
+                                    val uriText = "mailto:landlord@chillmates.app" +
+                                            "?subject=" + Uri.encode("Repair Request: Shared Flat") +
+                                            "&body=" + Uri.encode("Issue description:\n$requestText")
+                                    val uri = Uri.parse(uriText)
+                                    val emailIntent = Intent(Intent.ACTION_SENDTO, uri)
+                                    context.startActivity(emailIntent)
+                                }
+                            } catch (e: Exception) {
+                                // Fallback if no email app is installed
+                                Toast.makeText(
+                                    context,
+                                    "No email app installed to handle this request.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        },
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(
@@ -135,7 +205,7 @@ private fun RepairHeaderSection(title: String) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .padding(top = 24.dp, bottom = 16.dp) // Ajustado para que respire bien sin la flecha
+                .padding(top = 24.dp, bottom = 16.dp)
         ) {
             Text(
                 text = title,
@@ -186,7 +256,7 @@ fun RepairCard(repair: Repair) {
                     containerColor = when(repair.status) {
                         "Resolved" -> MaterialTheme.colorScheme.tertiary
                         "In progress" -> MaterialTheme.colorScheme.secondary
-                        else -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.error // Error red for pending
                     }
                 ) {
                     Text(
