@@ -1,6 +1,5 @@
-package es.uc3m.android.chillmates
+package es.uc3m.android.chillmates.expensestracker
 
-import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -16,18 +15,22 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.ui.theme.ChillMatesTheme
 
+/**
+ * Activity for creating or editing an expense.
+ * Can be initialized via an intent with data from a Shopping List item to pre-fill fields.
+ */
 class AddExpenseActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // 1. Extraemos los datos del Intent que viene de la ShoppingListPage
-        val availableFlatmates = intent.getStringArrayListExtra("FLATMATES_LIST") ?: arrayListOf()
+        val availableFlatmates = intent.getStringArrayListExtra("flatmatesList") ?: arrayListOf()
         val initialTitle = intent.getStringExtra(EXTRA_TITLE) ?: ""
         val initialPaidBy = intent.getStringExtra(EXTRA_PAID_BY) ?: ""
         val initialSplit = intent.getStringArrayListExtra(EXTRA_SPLIT_BETWEEN) ?: emptyList<String>()
@@ -36,12 +39,11 @@ class AddExpenseActivity : ComponentActivity() {
             ChillMatesTheme {
                 AddExpenseScreen(
                     availableFlatmates = availableFlatmates,
-                    // 2. Pasamos los valores iniciales al Composable
                     initialTitle = initialTitle,
                     initialPaidBy = initialPaidBy,
                     initialSplit = initialSplit,
                     onBack = {
-                        setResult(Activity.RESULT_CANCELED)
+                        setResult(RESULT_CANCELED)
                         finish()
                     },
                     onSave = { title, amount, paidBy, splitBetween ->
@@ -51,7 +53,7 @@ class AddExpenseActivity : ComponentActivity() {
                             putExtra(EXTRA_PAID_BY, paidBy)
                             putStringArrayListExtra(EXTRA_SPLIT_BETWEEN, ArrayList(splitBetween))
                         }
-                        setResult(Activity.RESULT_OK, data)
+                        setResult(RESULT_OK, data)
                         finish()
                     }
                 )
@@ -60,29 +62,31 @@ class AddExpenseActivity : ComponentActivity() {
     }
 
     companion object {
-        const val EXTRA_TITLE = "extra_title"
-        const val EXTRA_AMOUNT = "extra_amount"
-        const val EXTRA_PAID_BY = "extra_paid_by"
-        const val EXTRA_SPLIT_BETWEEN = "extra_split_between"
+        const val EXTRA_TITLE = "extraTitle"
+        const val EXTRA_AMOUNT = "extraAmount"
+        const val EXTRA_PAID_BY = "extraPaidBy"
+        const val EXTRA_SPLIT_BETWEEN = "extraSplitBetween"
     }
 }
 
+/**
+ * Main form for entering expense details.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddExpenseScreen(
     availableFlatmates: List<String>,
-    initialTitle: String,      // 👈 Nuevo
-    initialPaidBy: String,    // 👈 Nuevo
-    initialSplit: List<String>, // 👈 Nuevo
+    initialTitle: String,
+    initialPaidBy: String,
+    initialSplit: List<String>,
     onBack: () -> Unit,
     onSave: (String, Double, String, List<String>) -> Unit
 ) {
-    // 3. Inicializamos los estados con los valores recibidos
     var title by rememberSaveable { mutableStateOf(initialTitle) }
     var amountText by rememberSaveable { mutableStateOf("") }
     var paidBy by rememberSaveable { mutableStateOf(initialPaidBy) }
 
-    // Si initialSplit está vacío, seleccionamos a todos por defecto; si no, solo a los recibidos
+    // Default to all flatmates if no specific split was provided
     var selectedFlatmates by remember {
         mutableStateOf(if (initialSplit.isEmpty()) availableFlatmates.toSet() else initialSplit.toSet())
     }
@@ -93,10 +97,13 @@ private fun AddExpenseScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Add expense") },
+                title = { Text(stringResource(R.string.title_add_expense)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = stringResource(R.string.cd_back)
+                        )
                     }
                 }
             )
@@ -110,14 +117,17 @@ private fun AddExpenseScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.Top
         ) {
-            Text(text = "Fill the details", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = stringResource(R.string.label_fill_details),
+                style = MaterialTheme.typography.titleMedium
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text("Title") },
+                label = { Text(stringResource(R.string.label_title)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -127,7 +137,7 @@ private fun AddExpenseScreen(
             OutlinedTextField(
                 value = amountText,
                 onValueChange = { amountText = it },
-                label = { Text("Amount (€)") },
+                label = { Text(stringResource(R.string.label_amount_currency)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -138,14 +148,17 @@ private fun AddExpenseScreen(
             OutlinedTextField(
                 value = paidBy,
                 onValueChange = { paidBy = it },
-                label = { Text("Paid by") },
+                label = { Text(stringResource(R.string.label_paid_by)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            Text(text = "Split between", fontWeight = FontWeight.Bold)
+            Text(
+                text = stringResource(R.string.label_split_between),
+                fontWeight = FontWeight.Bold
+            )
             availableFlatmates.forEach { person ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -171,7 +184,7 @@ private fun AddExpenseScreen(
                 enabled = canSave,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Save")
+                Text(stringResource(R.string.btn_save))
             }
         }
     }

@@ -15,13 +15,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import es.uc3m.android.chillmates.R
 
+/**
+ * Activity that displays a map for selecting a supermarket, until map works we have a placeholder.
+ * It returns the selected location to the caller.
+ */
 class MapActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Window configuration for pop-up aesthetics
         window.setLayout(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
@@ -29,8 +33,10 @@ class MapActivity : ComponentActivity() {
         window.setGravity(Gravity.BOTTOM)
 
         setContent {
-            val supermarkets = listOf("Mercadona", "Lidl", "Carrefour", "Dia")
-            var selectedLocation by remember { mutableStateOf("Mercadona") }
+            // TODO: Read data from DB.
+            val supermarkets = listOf( "Mercadona", "Lidl", "Carrefour", "Dia")
+            var selectedLocation by remember { mutableStateOf(supermarkets[0]) }
+
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.surface,
@@ -44,13 +50,13 @@ class MapActivity : ComponentActivity() {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Select Supermarket",
+                        text = stringResource(R.string.select_supermarket),
                         style = MaterialTheme.typography.headlineSmall
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // MAP CONTAINER (mimicking map behaviour with filter chip)
+                    // Selection chips simulating map behaviour
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -60,13 +66,12 @@ class MapActivity : ComponentActivity() {
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                "[Map Placeholder]",
+                                text = "Map Placeholder",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = Color.DarkGray
                             )
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // Chips to simulate clicking a marker on a map
                             supermarkets.forEach { market ->
                                 FilterChip(
                                     selected = selectedLocation == market,
@@ -80,32 +85,29 @@ class MapActivity : ComponentActivity() {
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // ACTION BUTTONS
+                    // Action buttons for cancelling or confirming selection
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Cancel -> close activity without sending data
                         OutlinedButton(
                             onClick = { finish() },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Cancel")
+                            Text(stringResource(R.string.btn_cancel))
                         }
 
-                        // Confirm -> close activity sending data back to parent
                         Button(
                             onClick = {
-                                // Create result intent with selected location
                                 val resultIntent = Intent().apply {
-                                    putExtra("selected_location", selectedLocation)
+                                    putExtra("selectedLocation", selectedLocation)
                                 }
                                 setResult(Activity.RESULT_OK, resultIntent)
                                 finish()
                             },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Confirm")
+                            Text(stringResource(R.string.btn_confirm))
                         }
                     }
                 }

@@ -5,38 +5,26 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.*
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.*
+import es.uc3m.android.chillmates.chores.ChoresPage
+import es.uc3m.android.chillmates.home.HomePage
+import es.uc3m.android.chillmates.expensestracker.ExpensesTrackerPage
+import es.uc3m.android.chillmates.repairs.RepairPage
+import es.uc3m.android.chillmates.settings.SettingsPage
 import es.uc3m.android.chillmates.shoppinglist.ShoppingListPage
 import es.uc3m.android.chillmates.ui.theme.ChillMatesTheme
 import es.uc3m.android.chillmates.user.UserPage
@@ -45,12 +33,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // For handling invitation links to the app
-        val intent = intent
+        // Parse incoming URIs (e.g., chillmates.app/join/{flatId}) to handle invitations.
         val data: Uri? = intent?.data
         if (data != null && data.pathSegments.contains("join")) {
             val flatId = data.lastPathSegment
-            println("Joining flat: $flatId")
+            // TODO: Pass this flatId
         }
 
         enableEdgeToEdge()
@@ -62,6 +49,10 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * Root Composable that manages the Navigation Suite (Bottom Bar / Rail)
+ * and the main Navigation Graph.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChillMatesApp() {
@@ -69,12 +60,12 @@ fun ChillMatesApp() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
-    // Detectamos si estamos en la pantalla de Login
-    val isLoginScreen = currentDestination?.route == "login"
+    // Check if the current route is the login screen to hide global navigation bars
+    val loginRoute = stringResource(R.string.login_route)
+    val isLoginScreen = currentDestination?.route == loginRoute
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
-            // Solo mostramos los iconos de abajo si NO estamos en la pantalla de login
             if (!isLoginScreen) {
                 NavGraph.bottomBarItems.forEach { screen ->
                     item(
@@ -95,17 +86,15 @@ fun ChillMatesApp() {
     ) {
         Scaffold(
             topBar = {
-                // Solo mostramos la barra de arriba si NO estamos en la pantalla de login
                 if (!isLoginScreen) {
                     TopAppBar(
-                        title = { Text("ChillMates") },
+                        title = { Text(stringResource(R.string.app_name)) },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         ),
                         actions = {
-                            // Aquí integramos los botones de ajustes y perfil
-                            SettingsTopBarButton(onClick =  { navController.navigate(NavGraph.Settings.route) })
+                            SettingsTopBarButton(onClick = { navController.navigate(NavGraph.Settings.route) })
                             Spacer(modifier = Modifier.width(4.dp))
                             ProfileTopBarButton(onClick = { navController.navigate(NavGraph.User.route) })
                             Spacer(modifier = Modifier.width(8.dp))
@@ -122,9 +111,9 @@ fun ChillMatesApp() {
             ) {
                 NavHost(
                     navController = navController,
-                    startDestination = "login"
+                    startDestination = loginRoute
                 ) {
-                    composable("login") { LoginPage(navController) }
+                    composable(loginRoute) { LoginPage(navController) }
                     composable(NavGraph.Home.route) { HomePage(navController) }
                     composable(NavGraph.Chores.route) { ChoresPage(navController) }
                     composable(NavGraph.Expenses.route) { ExpensesTrackerPage(navController) }
@@ -146,13 +135,10 @@ private fun ProfileTopBarButton(onClick: () -> Unit) {
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 2.dp
         ) {
-            Box(
-                modifier = Modifier.size(34.dp),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(modifier = Modifier.size(34.dp), contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Default.Person,
-                    contentDescription = "User profile",
+                    contentDescription = stringResource(R.string.nav_cd_profile),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -168,24 +154,13 @@ private fun SettingsTopBarButton(onClick: () -> Unit) {
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 2.dp
         ) {
-            Box(
-                modifier = Modifier.size(34.dp),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(modifier = Modifier.size(34.dp), contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
+                    contentDescription = stringResource(R.string.nav_cd_settings),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun AppPreview() {
-    ChillMatesTheme {
-        ChillMatesApp()
     }
 }

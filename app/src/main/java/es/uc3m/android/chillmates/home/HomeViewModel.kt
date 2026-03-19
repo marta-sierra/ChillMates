@@ -1,10 +1,11 @@
-package es.uc3m.android.chillmates
+package es.uc3m.android.chillmates.home
 
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import es.uc3m.android.chillmates.R
 import java.util.Calendar
 import java.util.Locale
 
@@ -40,7 +41,7 @@ data class HomeUiState(
 )
 
 class HomeViewModel : ViewModel() {
-
+    // TODO: Read from DB
     var uiState by mutableStateOf(
         HomeUiState(
             notices = listOf(
@@ -80,8 +81,6 @@ class HomeViewModel : ViewModel() {
         private set
 
     sealed class HomeAction {
-        // upcoming events block ---
-        // request Calendar insertion with computed date/time
         data class AddToCalendar(
             val title: String,
             val description: String,
@@ -89,7 +88,6 @@ class HomeViewModel : ViewModel() {
             val endMillis: Long
         ) : HomeAction()
 
-        // schedule a reminder (notification)
         data class ScheduleReminder(
             val requestCode: Int,
             val title: String,
@@ -97,15 +95,12 @@ class HomeViewModel : ViewModel() {
             val triggerAtMillis: Long
         ) : HomeAction()
 
-        // cancel a previously scheduled reminder
         data class CancelReminder(val requestCode: Int) : HomeAction()
     }
 
-    // action channel
     var action: HomeAction? by mutableStateOf(null)
         private set
 
-    // action consumption from UI
     fun onActionConsumed() {
         action = null
     }
@@ -131,20 +126,22 @@ class HomeViewModel : ViewModel() {
         )
     }
 
+    /**
+     * Toggles the visibility of all notices in the News Board.
+     */
     fun onShowAllNotices() {
-        // NEW: news board block - toggle in-place expansion instead of opening a new screen
         uiState = uiState.copy(showAllNotices = !uiState.showAllNotices)
     }
 
+    /**
+     * Prepares data for calendar insertion based on the selected event.
+     */
     fun onAddToCalendar(eventId: String) {
         val e = uiState.upcomingEvents.firstOrNull { it.id == eventId } ?: return
 
-        // upcoming events block ---
-        // compute next occurrence
         val beginMillis = computeNextOccurrenceMillis(e.dateLabel, durationMinutes = 60)
         val endMillis = beginMillis + 60L * 60L * 1000L
 
-        // emit action to insert an event in Calendar with begin/end time
         action = HomeAction.AddToCalendar(
             title = e.description,
             description = "${e.dateLabel} • ${e.location}",
@@ -153,13 +150,18 @@ class HomeViewModel : ViewModel() {
         )
     }
 
+    /**
+     * Handles the expansion/collapse state of an event row.
+     */
     fun onViewMoreDetails(eventId: String) {
-        // expand/collapse the event row in-place
         uiState = uiState.copy(
             expandedEventId = if (uiState.expandedEventId == eventId) null else eventId
         )
     }
 
+    /**
+     * Toggles reminders and emits actions to schedule or cancel system alarms.
+     */
     fun onToggleRemindMe(eventId: String) {
         uiState = uiState.copy(
             upcomingEvents = uiState.upcomingEvents.map { e ->
@@ -171,7 +173,6 @@ class HomeViewModel : ViewModel() {
         val requestCode = eventId.hashCode()
 
         if (updated.isRemindMeEnabled) {
-            // compute trigger time one day before the event start
             val eventStart = computeNextOccurrenceMillis(updated.dateLabel, durationMinutes = 60)
             val triggerAtMillis = eventStart - 24L * 60L * 60L * 1000L
 
@@ -186,7 +187,9 @@ class HomeViewModel : ViewModel() {
         }
     }
 
-    // add a new event and keep lists ordered
+    /**
+     * Creates a new event, sorts the list by date, and adds a notice to the News Board.
+     */
     fun onAddEvent(dateLabel: String, description: String, location: String) {
         val cleanDateLabel = dateLabel.trim()
         val cleanDescription = description.trim()
@@ -194,7 +197,6 @@ class HomeViewModel : ViewModel() {
 
         if (cleanDateLabel.isBlank() || cleanDescription.isBlank()) return
 
-        // create event and sort upcoming events by nearest occurrence
         val newEvent = UpcomingEventUi(
             id = "e_${System.currentTimeMillis()}",
             dateLabel = cleanDateLabel,
@@ -207,24 +209,22 @@ class HomeViewModel : ViewModel() {
         val sortedEvents = (uiState.upcomingEvents + newEvent)
             .sortedBy { e -> computeNextOccurrenceMillis(e.dateLabel, durationMinutes = 60) }
 
-        // create a notice so News Board shows latest added first
         val newNotice = NoticeUi(
             id = "n_${System.currentTimeMillis()}",
-            title = "New event added",
+            title = "New event added", // Internal notification title
             details = "${newEvent.description} • ${newEvent.dateLabel}",
             acceptedBy = emptyList()
         )
 
-        // News Board: most recent first
-        val orderedNotices = listOf(newNotice) + uiState.notices
-
         uiState = uiState.copy(
             upcomingEvents = sortedEvents,
-            notices = orderedNotices
+            notices = listOf(newNotice) + uiState.notices
         )
     }
 
-    // parses labels like "Fri 20:00" using Calendar
+    /**
+     * Parses custom date labels to find the next chronological occurrence.
+     */
     private fun computeNextOccurrenceMillis(dateLabel: String, durationMinutes: Int): Long {
         val parts = dateLabel.trim().split(" ")
         val dayPart = parts.getOrNull(0).orEmpty()
@@ -252,15 +252,10 @@ class HomeViewModel : ViewModel() {
             set(Calendar.MINUTE, minute)
         }
 
-        // Move to the next matching weekday
         val currentDow = cal.get(Calendar.DAY_OF_WEEK)
         var delta = (dayOfWeek - currentDow + 7) % 7
         if (delta == 0 && cal.timeInMillis <= now.timeInMillis) delta = 7
         cal.add(Calendar.DAY_OF_YEAR, delta)
-
-        // Keep durationMinutes
-        @Suppress("UNUSED_VARIABLE")
-        val _durationMinutes = durationMinutes
 
         return cal.timeInMillis
     }

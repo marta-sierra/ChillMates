@@ -1,4 +1,4 @@
-package es.uc3m.android.chillmates
+package es.uc3m.android.chillmates.repairs
 
 import android.content.Intent
 import android.net.Uri
@@ -19,28 +19,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import es.uc3m.android.chillmates.R
 
 @Composable
 fun RepairPage(navController: NavController) {
-    // Standard reparations data
+    //TODO: Read from DB
     val repairs = listOf(
         Repair("Bathroom door", "Loose hinge. Landlord notified.", "Pending"),
         Repair("Washing machine", "Makes weird noise when spinning.", "In progress"),
         Repair("Sofa", "New sofa delivery completed.", "Resolved")
     )
 
-    // State to hold user input and selected image URI
     var requestText by remember { mutableStateOf("") }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
-
-    // Context needed to launch intents and show toasts
     val context = LocalContext.current
 
-    // Launcher to pick a single image from storage/camera via system picker
+    // Launcher to pick a single image from storage/camera via system picker.
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -48,7 +47,7 @@ fun RepairPage(navController: NavController) {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        RepairHeaderSection(title = "Repairs")
+        RepairHeaderSection(title = stringResource(R.string.repairs_title))
 
         LazyColumn(
             modifier = Modifier
@@ -56,16 +55,16 @@ fun RepairPage(navController: NavController) {
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // --- SECTION: CURRENT REPARATIONS ---
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Current reparations",
+                    text = stringResource(R.string.repairs_section_current),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
+
             items(repairs) { repair ->
                 RepairCard(repair)
             }
@@ -76,17 +75,15 @@ fun RepairPage(navController: NavController) {
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // --- SECTION: SEND A NEW REQUEST ---
             item {
                 Text(
-                    text = "Send a new request",
+                    text = stringResource(R.string.repairs_section_new_request),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
 
-            // Text input for describing the issue
             item {
                 OutlinedTextField(
                     value = requestText,
@@ -94,12 +91,11 @@ fun RepairPage(navController: NavController) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(120.dp),
-                    placeholder = { Text("Describe the issue...") },
+                    placeholder = { Text(stringResource(R.string.repairs_placeholder_describe)) },
                     shape = MaterialTheme.shapes.medium
                 )
             }
 
-            // Functional button to add or retake an image
             item {
                 TextButton(
                     onClick = { imagePickerLauncher.launch("image/*") },
@@ -107,16 +103,19 @@ fun RepairPage(navController: NavController) {
                 ) {
                     Text("📷", style = MaterialTheme.typography.bodyLarge)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (selectedImageUri == null) "Add images" else "Retake photo")
+                    val label = if (selectedImageUri == null)
+                        stringResource(R.string.repairs_btn_add_images)
+                    else
+                        stringResource(R.string.repairs_btn_retake_photo)
+                    Text(label)
                 }
             }
 
-            // If an image is selected/captured, display it using AsyncImage (Coil)
             if (selectedImageUri != null) {
                 item {
                     AsyncImage(
                         model = selectedImageUri,
-                        contentDescription = "Selected issue photo",
+                        contentDescription = null,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(180.dp)
@@ -126,7 +125,6 @@ fun RepairPage(navController: NavController) {
                 }
             }
 
-            // Action buttons section
             item {
                 Row(
                     modifier = Modifier
@@ -135,43 +133,44 @@ fun RepairPage(navController: NavController) {
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     OutlinedButton(
-                        onClick = { /* AI Review logic */ },
+                        onClick = { /* TODO: Implement AI Review logic */ },
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Star,
-                            contentDescription = "AI Review",
+                            contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("AI Review")
+                        Text(stringResource(R.string.repairs_btn_ai_review))
                     }
+
+                    //Sends the repair request via an Email Intent.
 
                     Button(
                         onClick = {
                             try {
+                                val subject = "Repair Request: Shared Flat"
+                                val body = "Issue description:\\n$requestText"
+
                                 if (selectedImageUri != null) {
-                                    // Intent with image attachment
                                     val emailIntent = Intent(Intent.ACTION_SEND).apply {
                                         type = "message/rfc822"
-                                        putExtra(Intent.EXTRA_EMAIL, arrayOf("jimenofernandezf@gmail.com"))
-                                        putExtra(Intent.EXTRA_SUBJECT, "Repair Request: Shared Flat")
-                                        putExtra(Intent.EXTRA_TEXT, "Issue description:\n$requestText")
+                                        putExtra(Intent.EXTRA_EMAIL, arrayOf("landlord@chillmates.app"))
+                                        putExtra(Intent.EXTRA_SUBJECT, subject)
+                                        putExtra(Intent.EXTRA_TEXT, body)
                                         putExtra(Intent.EXTRA_STREAM, selectedImageUri)
                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                     }
                                     context.startActivity(Intent.createChooser(emailIntent, "Send email..."))
                                 } else {
-                                    // Robust Intent with text only
                                     val uriText = "mailto:landlord@chillmates.app" +
-                                            "?subject=" + Uri.encode("Repair Request: Shared Flat") +
-                                            "&body=" + Uri.encode("Issue description:\n$requestText")
-                                    val uri = Uri.parse(uriText)
-                                    val emailIntent = Intent(Intent.ACTION_SENDTO, uri)
+                                            "?subject=" + Uri.encode(subject) +
+                                            "&body=" + Uri.encode(body)
+                                    val emailIntent = Intent(Intent.ACTION_SENDTO, Uri.parse(uriText))
                                     context.startActivity(emailIntent)
                                 }
                             } catch (e: Exception) {
-                                // Fallback if no email app is installed
                                 Toast.makeText(
                                     context,
                                     "No email app installed to handle this request.",
@@ -183,11 +182,11 @@ fun RepairPage(navController: NavController) {
                     ) {
                         Icon(
                             imageVector = Icons.Default.Send,
-                            contentDescription = "Send",
+                            contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("Send")
+                        Text(stringResource(R.string.repairs_btn_send))
                     }
                 }
             }
@@ -220,9 +219,7 @@ private fun RepairHeaderSection(title: String) {
 fun RepairCard(repair: Repair) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -233,7 +230,7 @@ fun RepairCard(repair: Repair) {
         ) {
             Icon(
                 imageVector = Icons.Filled.Build,
-                contentDescription = "Tool icon",
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .size(40.dp)
@@ -256,7 +253,7 @@ fun RepairCard(repair: Repair) {
                     containerColor = when(repair.status) {
                         "Resolved" -> MaterialTheme.colorScheme.tertiary
                         "In progress" -> MaterialTheme.colorScheme.secondary
-                        else -> MaterialTheme.colorScheme.error // Error red for pending
+                        else -> MaterialTheme.colorScheme.error
                     }
                 ) {
                     Text(

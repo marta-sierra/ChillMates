@@ -1,4 +1,4 @@
-package es.uc3m.android.chillmates
+package es.uc3m.android.chillmates.home
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -8,6 +8,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import es.uc3m.android.chillmates.MainActivity
+import es.uc3m.android.chillmates.R
 
 class HomeReminderReceiver : BroadcastReceiver() {
 
@@ -16,22 +18,28 @@ class HomeReminderReceiver : BroadcastReceiver() {
         val message = intent.getStringExtra(EXTRA_MESSAGE).orEmpty()
         val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, 1001)
 
-        // notify me block ---
-        // create a notification channel
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        /**
+         * Create the notification channel.
+         */
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channelName = context.getString(R.string.notif_channel_reminders_name)
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "ChillMates reminders",
+                channelName,
                 NotificationManager.IMPORTANCE_DEFAULT
             )
             manager.createNotificationChannel(channel)
         }
 
-        // tapping the notification returns to the app
+        /**
+         * Configure the intent to open the app when the notification is tapped.
+         */
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
+
         val openAppPendingIntent = PendingIntent.getActivity(
             context,
             notificationId,
@@ -39,14 +47,16 @@ class HomeReminderReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // notification stays until user dismisses it
+        /**
+         * Build and display the notification.
+         */
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setContentIntent(openAppPendingIntent)
-            .setAutoCancel(false)
+            .setAutoCancel(false) // Notification persists until manually dismissed
             .build()
 
         manager.notify(notificationId, notification)

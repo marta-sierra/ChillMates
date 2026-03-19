@@ -1,4 +1,4 @@
-package es.uc3m.android.chillmates
+package es.uc3m.android.chillmates.settings
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,16 +10,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import es.uc3m.android.chillmates.R
 
 @Composable
 fun SettingsPage(navController: NavController) {
     val vm: SettingsViewModel = viewModel()
 
-    // Assuming the viewModel and uiState are updated to handle the new settings
     SettingsRoute(
         state = vm.uiState,
         onBackClick = { navController.popBackStack() },
@@ -27,10 +28,14 @@ fun SettingsPage(navController: NavController) {
         onDarkModeToggle = vm::onDarkModeToggle,
         onSoundToggle = vm::onSoundToggle,
         onLanguageChange = vm::onLanguageChange,
+        onApplyChanges = vm::applyChanges,
         onLogoutClick = vm::onLogout
     )
 }
 
+/**
+ * Main layout for the Settings screen, organizing items into subsections.
+ */
 @Composable
 private fun SettingsRoute(
     state: SettingsUiState,
@@ -39,13 +44,11 @@ private fun SettingsRoute(
     onDarkModeToggle: (Boolean) -> Unit,
     onSoundToggle: (Boolean) -> Unit,
     onLanguageChange: (String) -> Unit,
+    onApplyChanges: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        // 🔹 Header
-        Surface(
-            color = MaterialTheme.colorScheme.primaryContainer
-        ) {
+        Surface(color = MaterialTheme.colorScheme.primaryContainer) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -55,55 +58,50 @@ private fun SettingsRoute(
                 IconButton(onClick = onBackClick) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(R.string.settings_cd_back),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Settings",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold
-                    ),
+                    text = stringResource(R.string.settings_title),
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
         }
 
-        // 🔹 Content
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-
-            item { SectionHeader(title = "General") }
+            item { SectionHeader(title = stringResource(R.string.settings_section_general)) }
             item {
                 SettingsCard {
                     SettingsSwitchItem(
-                        title = "Enable notifications",
+                        title = stringResource(R.string.settings_label_notifications),
                         checked = state.notificationsEnabled,
                         onCheckedChange = onNotificationsToggle
                     )
-                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     SettingsSwitchItem(
-                        title = "Sound effects",
+                        title = stringResource(R.string.settings_label_sound),
                         checked = state.soundEnabled,
                         onCheckedChange = onSoundToggle
                     )
                 }
             }
 
-            item { SectionHeader(title = "Appearance") }
+            item { SectionHeader(title = stringResource(R.string.settings_section_appearance)) }
             item {
                 SettingsCard {
                     SettingsSwitchItem(
-                        title = "Dark mode",
+                        title = stringResource(R.string.settings_label_dark_mode),
                         checked = state.darkModeEnabled,
                         onCheckedChange = onDarkModeToggle
                     )
-                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     LanguageSettingItem(
-                        // Assuming language is part of the state
                         currentLanguage = state.language,
                         onLanguageChange = onLanguageChange
                     )
@@ -111,7 +109,19 @@ private fun SettingsRoute(
             }
 
             item {
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(32.dp))
+                Button(
+                    onClick = onApplyChanges,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(text = stringResource(R.string.settings_btn_apply))
+                }
+                
+                Spacer(Modifier.height(12.dp))
+                
                 Button(
                     onClick = onLogoutClick,
                     modifier = Modifier
@@ -123,7 +133,7 @@ private fun SettingsRoute(
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(text = "LOGOUT")
+                    Text(text = stringResource(R.string.settings_btn_logout))
                 }
             }
         }
@@ -136,28 +146,25 @@ private fun SectionHeader(title: String) {
         text = title,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier
-            .padding(start = 20.dp, top = 24.dp, bottom = 8.dp)
+        modifier = Modifier.padding(start = 20.dp, top = 24.dp, bottom = 8.dp)
     )
 }
 
-
 @Composable
-private fun SettingsCard(
-    content: @Composable ColumnScope.() -> Unit
-) {
+private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Column(
-            content = content
-        )
+        Column(content = content)
     }
 }
 
+/**
+ * Common layout for a toggle-based setting item.
+ */
 @Composable
 private fun SettingsSwitchItem(
     title: String,
@@ -171,26 +178,22 @@ private fun SettingsSwitchItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge
-        )
-
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange
-        )
+        Text(text = title, style = MaterialTheme.typography.bodyLarge)
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
+/**
+ * Setting item that triggers a dropdown menu to select the application language.
+ */
 @Composable
 fun LanguageSettingItem(
     currentLanguage: String,
     onLanguageChange: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    // Example languages, ideally from a shared source
-    val languages = listOf("English", "Español")
+    // Added "System Default" and "Català" to the options list
+    val languages = listOf("System Default", "English", "Español", "Català")
 
     Box {
         Row(
@@ -202,16 +205,14 @@ fun LanguageSettingItem(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "Language",
+                text = stringResource(R.string.settings_label_language),
                 style = MaterialTheme.typography.bodyLarge,
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = currentLanguage,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
+            Text(
+                text = currentLanguage,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
         DropdownMenu(
             expanded = expanded,
