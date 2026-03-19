@@ -1,6 +1,5 @@
 package es.uc3m.android.chillmates.shoppinglist
 
-import android.app.Activity
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -8,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,15 +19,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Undo
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
-import es.uc3m.android.chillmates.AddExpenseActivity
+import es.uc3m.android.chillmates.expensestracker.AddExpenseActivity
 import es.uc3m.android.chillmates.LargeSectionHeader
 import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
@@ -36,70 +34,64 @@ import es.uc3m.android.chillmates.R
 fun ShoppingListPage(navController: NavController) {
     val vm: ShoppingViewModel = viewModel()
     val context = LocalContext.current
-
-    // Estado para el ítem que se acaba de marcar (disparador del diálogo)
+    // State for item prompted for expense addition
     var itemToPrompt by remember { mutableStateOf<ShoppingItemUi?>(null) }
-
-    // Launcher para abrir AddExpenseActivity y esperar el resultado
+    // Result launcher for AddExpenseActivity
     val expenseLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
-    ) { /* No necesitamos lógica especial al volver */ }
+    ) { }
 
     ShoppingListRoute(
         state = vm.uiState,
         onFilter = vm::onFilterSupermarket,
         onToggleBought = { itemId ->
-            vm.onToggleBought(itemId) // Cambia el estado en el ViewModel
-
-            // Buscamos cómo ha quedado el ítem
+            vm.onToggleBought(itemId)
             val item = vm.uiState.items.find { it.id == itemId }
-
-            // Si el resultado de la pulsación es que está comprado, preguntamos SIEMPRE
             if (item?.isBought == true) {
                 itemToPrompt = item
             }
         },
         onDelete = vm::onDeleteItem,
         onAddItem = vm::addItem,
-        onOpenMap = { /* Lógica del mapa que ya tenías */ }
+        onOpenMap = { }
     )
 
-    // Diálogo de confirmación
+    // Add expense confirmation dialog
     if (itemToPrompt != null) {
         AlertDialog(
             onDismissRequest = { itemToPrompt = null },
-            title = { Text("Add to Expenses?") },
-            text = { Text("Do you want to create an expense for '${itemToPrompt?.name}'?") },
+            title = { Text(stringResource(R.string.dialog_add_expense_title)) },
+            text = {
+                Text(stringResource(R.string.dialog_add_expense_text, itemToPrompt?.name ?: ""))
+            },
             confirmButton = {
                 Button(onClick = {
                     val item = itemToPrompt!!
                     val intent = Intent(context, AddExpenseActivity::class.java).apply {
-                        // Pasamos los datos pre-rellenados
                         putExtra(AddExpenseActivity.EXTRA_TITLE, item.name)
                         putExtra(AddExpenseActivity.EXTRA_AMOUNT, 0.0)
                         putExtra(AddExpenseActivity.EXTRA_PAID_BY, "ME")
-
-                        // Lista de compañeros para los checkboxes
-                        putStringArrayListExtra("FLATMATES_LIST", ArrayList(vm.uiState.availableFlatmates))
-                        // Pre-seleccionamos los que necesitaban el producto
-                        putStringArrayListExtra(AddExpenseActivity.EXTRA_SPLIT_BETWEEN, ArrayList(item.neededBy))
+                        putStringArrayListExtra("flatmatesList", ArrayList(vm.uiState.availableFlatmates))
+                        putExtra(AddExpenseActivity.EXTRA_SPLIT_BETWEEN, ArrayList(item.neededBy))
                     }
                     expenseLauncher.launch(intent)
-                    itemToPrompt = null // Reset para la próxima vez
+                    itemToPrompt = null
                 }) {
-                    Text("Yes, create expense")
+                    Text(stringResource(R.string.btn_create_expense))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { itemToPrompt = null }) {
-                    Text("Not now")
+                    Text(stringResource(R.string.btn_not_now))
                 }
             }
         )
     }
 }
 
-
+/**
+ * Main layout for the Shopping List, including filters, the list, and action buttons.
+ */
 @Composable
 private fun ShoppingListRoute(
     state: ShoppingUiState,
@@ -113,17 +105,15 @@ private fun ShoppingListRoute(
     var showBoughtItems by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        LargeSectionHeader(title = "Shopping List")
+    Column(modifier = Modifier.fillMaxSize()) {
+        LargeSectionHeader(title = stringResource(R.string.shopping_list_title))
         PageContentWrapper {
             Column(
                 modifier = Modifier
-                    .fillMaxSize().padding(horizontal = 24.dp)
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp)
                     .padding(top = 24.dp)
             ) {
-                // Filter + Map row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -137,13 +127,15 @@ private fun ShoppingListRoute(
                     )
 
                     IconButton(onClick = { onOpenMap() }) {
-                        Icon(Icons.Default.Map, contentDescription = "Open Map")
+                        Icon(
+                            Icons.Default.Map,
+                            contentDescription = stringResource(R.string.cd_open_map)
+                        )
                     }
                 }
 
                 Spacer(Modifier.height(16.dp))
 
-                // 🔹 LIST TAKES ALL AVAILABLE SPACE
                 Box(modifier = Modifier.weight(1f)) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -171,7 +163,6 @@ private fun ShoppingListRoute(
                     }
                 }
 
-                // 🔹 ALWAYS AT BOTTOM
                 Column(
                     modifier = Modifier.padding(top = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -183,7 +174,7 @@ private fun ShoppingListRoute(
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Add new item")
+                        Text(stringResource(R.string.btn_add_new_item))
                     }
 
                     OutlinedButton(
@@ -192,8 +183,8 @@ private fun ShoppingListRoute(
                         shape = MaterialTheme.shapes.large
                     ) {
                         Text(
-                            if (showBoughtItems) "Hide recently bought items"
-                            else "See recently bought items"
+                            if (showBoughtItems) stringResource(R.string.btn_hide_bought)
+                            else stringResource(R.string.btn_see_bought)
                         )
                     }
                 }
@@ -202,6 +193,7 @@ private fun ShoppingListRoute(
     }
 
     if (showAddDialog) {
+        // TODO: Read data from DB.
         AddItemDialog(
             supermarkets = state.availableSupermarkets,
             flatmates = listOf("Marta", "Alex", "John"),
@@ -214,6 +206,9 @@ private fun ShoppingListRoute(
     }
 }
 
+/**
+ * Dropdown selector to filter the shopping list by specific supermarkets.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SupermarketDropdown(
@@ -227,7 +222,7 @@ private fun SupermarketDropdown(
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = !expanded},
-        modifier=modifier
+        modifier = modifier
     ) {
         TextField(
             value = selected ?: stringResource(R.string.filter_all),
@@ -235,13 +230,12 @@ private fun SupermarketDropdown(
             readOnly = true,
             label = { Text(stringResource(R.string.filter_label)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.menuAnchor().fillMaxWidth(),
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
         )
         ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            // Reset filter
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.filter_all)) },
                 onClick = {
@@ -249,7 +243,6 @@ private fun SupermarketDropdown(
                     expanded = false
                 }
             )
-            // Supermarket options
             supermarkets.forEach { name ->
                 DropdownMenuItem(
                     text = { Text(name) },
@@ -263,19 +256,17 @@ private fun SupermarketDropdown(
     }
 }
 
+/**
+ * UI row representing a single shopping item with status and delete actions.
+ */
 @Composable
 private fun ShoppingItemRow(
     item: ShoppingItemUi,
     onToggleBought: (String) -> Unit,
     onDelete: (String) -> Unit
 ) {
-    val textDecoration =
-        if (item.isBought) TextDecoration.LineThrough
-        else TextDecoration.None
-
-    val alpha =
-        if (item.isBought) 0.6f
-        else 1f
+    val textDecoration = if (item.isBought) TextDecoration.LineThrough else TextDecoration.None
+    val alpha = if (item.isBought) 0.6f else 1f
 
     Row(
         modifier = Modifier
@@ -285,14 +276,10 @@ private fun ShoppingItemRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-
-        // 🔹 LEFT SIDE (Info)
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-
-            // Name + Quantity
             Text(
                 text = "${item.name} (${item.quantity})",
                 style = MaterialTheme.typography.titleMedium,
@@ -300,10 +287,11 @@ private fun ShoppingItemRow(
                 textDecoration = textDecoration
             )
 
-            // Needed By
-            val neededByText =
-                if (item.neededBy.isEmpty()) "for all"
-                else "for ${item.neededBy.joinToString(", ")}"
+            val neededByText = if (item.neededBy.isEmpty()) {
+                stringResource(R.string.needed_by_all)
+            } else {
+                stringResource(R.string.needed_by_format, item.neededBy.joinToString(", "))
+            }
 
             Text(
                 text = neededByText,
@@ -314,33 +302,26 @@ private fun ShoppingItemRow(
 
         Spacer(Modifier.width(12.dp))
 
-        // 🔹 RIGHT SIDE (Actions)
         Row {
-            IconButton(
-                onClick = { onToggleBought(item.id) }
-            ) {
+            IconButton(onClick = { onToggleBought(item.id) }) {
                 Icon(
-                    imageVector =
-                        if (item.isBought)
-                            Icons.Default.Undo
-                        else
-                            Icons.Default.Check,
-                    contentDescription = "Toggle Bought"
+                    imageVector = if (item.isBought) Icons.AutoMirrored.Filled.Undo else Icons.Default.Check,
+                    contentDescription = stringResource(R.string.cd_toggle_bought)
                 )
             }
-            IconButton(
-                onClick = { onDelete(item.id) }
-            ) {
+            IconButton(onClick = { onDelete(item.id) }) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete"
+                    contentDescription = stringResource(R.string.cd_delete)
                 )
             }
         }
     }
 }
 
-// ADD NEW ITEM POP-UP
+/**
+ * Dialog for creating a new shopping item with supermarket and flatmate assignments.
+ */
 @Composable
 private fun AddItemDialog(
     supermarkets: List<String>,
@@ -348,13 +329,10 @@ private fun AddItemDialog(
     onDismiss: () -> Unit,
     onAdd: (ShoppingItemUi) -> Unit
 ) {
-
     var name by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
-
     var selectedSupermarkets by remember { mutableStateOf(setOf<String>()) }
     var anySupermarket by remember { mutableStateOf(true) }
-
     var selectedFlatmates by remember { mutableStateOf(setOf<String>()) }
 
     AlertDialog(
@@ -365,49 +343,40 @@ private fun AddItemDialog(
                     if (name.isNotBlank()) {
                         onAdd(
                             ShoppingItemUi(
-                                id = System.currentTimeMillis().toString(),
-                                name = name,
-                                quantity = quantity,
-                                neededBy = selectedFlatmates.toList(),
-                                supermarkets =
-                                    if (anySupermarket) emptyList()
-                                    else selectedSupermarkets.toList()
+                                id = System.currentTimeMillis().toString(), name = name,
+                                quantity = quantity, neededBy = selectedFlatmates.toList(),
+                                supermarkets = if (anySupermarket) emptyList() else selectedSupermarkets.toList()
                             )
                         )
                     }
                 }
             ) {
-                Text("Add")
+                Text(stringResource(R.string.btn_add))
             }
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.btn_cancel))
             }
         },
-        title = { Text("Add New Item") },
+        title = { Text(stringResource(R.string.dialog_add_item_title)) },
         text = {
-
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Product Name") },
+                    label = { Text(stringResource(R.string.label_product_name)) },
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 OutlinedTextField(
                     value = quantity,
                     onValueChange = { quantity = it },
-                    label = { Text("Quantity") },
+                    label = { Text(stringResource(R.string.label_quantity)) },
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // 🔹 SUPERMARKETS
-                Text("Supermarkets", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.label_supermarkets), fontWeight = FontWeight.Bold)
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
@@ -417,7 +386,7 @@ private fun AddItemDialog(
                             if (it) selectedSupermarkets = emptySet()
                         }
                     )
-                    Text("Any")
+                    Text(stringResource(R.string.label_any))
                 }
 
                 if (!anySupermarket) {
@@ -426,9 +395,7 @@ private fun AddItemDialog(
                             Checkbox(
                                 checked = market in selectedSupermarkets,
                                 onCheckedChange = {
-                                    selectedSupermarkets =
-                                        if (it) selectedSupermarkets + market
-                                        else selectedSupermarkets - market
+                                    selectedSupermarkets = if (it) selectedSupermarkets + market else selectedSupermarkets - market
                                 }
                             )
                             Text(market)
@@ -436,23 +403,18 @@ private fun AddItemDialog(
                     }
                 }
 
-                // 🔹 FLATMATES
-                Text("For who", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.label_for_who), fontWeight = FontWeight.Bold)
 
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    TextButton(onClick = {
-                        selectedFlatmates = flatmates.toSet()
-                    }) {
-                        Text("Select All")
+                    TextButton(onClick = { selectedFlatmates = flatmates.toSet() }) {
+                        Text(stringResource(R.string.btn_select_all))
                     }
 
-                    TextButton(onClick = {
-                        selectedFlatmates = emptySet()
-                    }) {
-                        Text("Unselect All")
+                    TextButton(onClick = { selectedFlatmates = emptySet() }) {
+                        Text(stringResource(R.string.btn_unselect_all))
                     }
                 }
 
@@ -461,50 +423,11 @@ private fun AddItemDialog(
                         Checkbox(
                             checked = person in selectedFlatmates,
                             onCheckedChange = {
-                                selectedFlatmates =
-                                    if (it) selectedFlatmates + person
-                                    else selectedFlatmates - person
+                                selectedFlatmates = if (it) selectedFlatmates + person else selectedFlatmates - person
                             }
                         )
                         Text(person)
                     }
-                }
-            }
-        }
-    )
-}
-
-// TODO: PLACE MAP HERE
-@Composable
-private fun MapPopup(onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {},
-        dismissButton = {},
-        text = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(500.dp)
-            ) {
-                // Placeholder for future Map
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("🗺 Map Placeholder")
-                }
-
-                // Close button (X)
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.TopEnd)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close"
-                    )
                 }
             }
         }

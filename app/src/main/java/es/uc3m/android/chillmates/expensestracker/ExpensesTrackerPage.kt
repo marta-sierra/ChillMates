@@ -1,6 +1,14 @@
-// ExpensesTrackerPage.kt
-package es.uc3m.android.chillmates
+package es.uc3m.android.chillmates.expensestracker
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.ImageView
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,44 +18,31 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import kotlin.math.absoluteValue
-import android.app.Activity
-import android.content.ActivityNotFoundException
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.widget.Toast
-import android.widget.ImageView
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.viewinterop.AndroidView
 
 @Composable
 fun ExpensesTrackerPage(navController: NavController) {
     val vm: ExpensesViewModel = viewModel()
     val context = LocalContext.current
 
-    // stores which expense requested the picker
+    // Expense is waiting for a ticket image upload
     var pendingExpenseId by remember { mutableStateOf<String?>(null) }
-    // stores which ticket we want to view
+    // Which ticket URI is currently being previewed in the dialog
     var ticketToView by remember { mutableStateOf<Uri?>(null) }
 
-    // image picker
+    // Launcher for selecting a document/image from the system picker
     val getImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
@@ -55,14 +50,12 @@ fun ExpensesTrackerPage(navController: NavController) {
         pendingExpenseId = null
 
         if (uri != null && expenseId != null) {
-            // persist read permission so we can open it later
             try {
                 context.contentResolver.takePersistableUriPermission(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
             } catch (_: SecurityException) {
-                // Some providers may not allow persistable permissions; ignore
             }
 
             vm.onTicketSelected(expenseId, uri)
@@ -72,7 +65,7 @@ fun ExpensesTrackerPage(navController: NavController) {
         }
     }
 
-    // launcher to add an expense
+    // Launcher to handle the result returned from AddExpenseActivity
     val addExpenseLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -83,7 +76,7 @@ fun ExpensesTrackerPage(navController: NavController) {
             val paidBy = data?.getStringExtra(AddExpenseActivity.EXTRA_PAID_BY)
 
             if (!title.isNullOrBlank() && amount != null && !amount.isNaN() && !paidBy.isNullOrBlank()) {
-                val splitBetween = result.data?.getStringArrayListExtra("EXTRA_SPLIT_BETWEEN") ?: emptyList<String>()
+                val splitBetween = data.getStringArrayListExtra(AddExpenseActivity.EXTRA_SPLIT_BETWEEN) ?: emptyList<String>()
                 vm.onExpenseAdded(title, amount, paidBy, splitBetween)
                 Toast.makeText(context, "Expense added ✅", Toast.LENGTH_SHORT).show()
             } else {
@@ -94,7 +87,7 @@ fun ExpensesTrackerPage(navController: NavController) {
         }
     }
 
-    // in-app ticket viewer
+    // Displays the image preview dialog if a ticket is selected
     if (ticketToView != null) {
         TicketViewerDialog(
             uri = ticketToView!!,
@@ -102,27 +95,23 @@ fun ExpensesTrackerPage(navController: NavController) {
         )
     }
 
-    // events
     ExpensesRoute(
         state = vm.uiState,
         onBackClick = { navController.popBackStack() },
         onAddExpenseClick = {
-            // AddExpenseActivity
+            // Prepare intent for AddExpenseActivity with current flatmate list
             val intent = Intent(context, AddExpenseActivity::class.java).apply {
-                putStringArrayListExtra("FLATMATES_LIST", ArrayList(vm.uiState.availableFlatmates))
+                putStringArrayListExtra("flatmatesList", ArrayList(vm.uiState.availableFlatmates))
             }
             addExpenseLauncher.launch(intent)
         },
         onTicketClick = { expenseId ->
             when (val action = vm.onTicketRequested(expenseId)) {
                 is TicketAction.PickTicketImage -> {
-                    // open gallery/file picker
                     pendingExpenseId = expenseId
                     getImageLauncher.launch(arrayOf("image/*"))
                 }
-
                 is TicketAction.ViewTicket -> {
-                    // show the image
                     ticketToView = action.uri
                 }
             }
@@ -130,6 +119,9 @@ fun ExpensesTrackerPage(navController: NavController) {
     )
 }
 
+/**
+ * In-app dialog to preview an attached receipt image.
+ */
 @Composable
 private fun TicketViewerDialog(
     uri: Uri,
@@ -155,6 +147,7 @@ private fun TicketViewerDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // Legacy ImageView for URI rendering
                 AndroidView(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -166,7 +159,6 @@ private fun TicketViewerDialog(
                         }
                     },
                     update = { imageView ->
-                        // This will work as long as we have persisted permission (OpenDocument)
                         imageView.setImageURI(uri)
                     }
                 )
@@ -182,7 +174,6 @@ private fun ExpensesRoute(
     onAddExpenseClick: () -> Unit,
     onTicketClick: (String) -> Unit
 ) {
-    // Screen layout: header + content (list and balances)
     Column(modifier = Modifier.fillMaxSize()) {
         ExpensesHeaderSection(
             title = state.title,
@@ -192,7 +183,6 @@ private fun ExpensesRoute(
         ExpensesContentSection(
             expenses = state.expenses,
             balances = state.balances,
-            // actions
             onAddExpenseClick = onAddExpenseClick,
             onTicketClick = onTicketClick
         )
@@ -204,7 +194,6 @@ private fun ExpensesHeaderSection(
     title: String,
     onBackClick: () -> Unit
 ) {
-    // Header area under the app-level TopBar: back arrow + "Expenses" title
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer,
         tonalElevation = 0.dp
@@ -212,10 +201,8 @@ private fun ExpensesHeaderSection(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(top = 12.dp, bottom = 14.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            // back arrow
             IconButton(
                 onClick = onBackClick,
                 modifier = Modifier.size(36.dp)
@@ -229,7 +216,6 @@ private fun ExpensesHeaderSection(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Title
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
@@ -246,7 +232,6 @@ private fun ExpensesContentSection(
     onAddExpenseClick: () -> Unit,
     onTicketClick: (String) -> Unit
 ) {
-    // Main content area: scrollable expenses list + add button + balances summary
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -267,7 +252,6 @@ private fun ExpensesContentSection(
                 DividerThin()
             }
 
-            // "Add expense" button
             item {
                 Spacer(modifier = Modifier.height(6.dp))
                 AddExpenseAction(
@@ -291,7 +275,6 @@ private fun ExpenseRowItem(
     expense: ExpenseUi,
     onTicketClick: () -> Unit
 ) {
-    // Expense list row: item name/ticket on the left, amount/payer on the right
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top
@@ -310,7 +293,6 @@ private fun ExpenseRowItem(
                 )
             }
 
-            // "see ticket"/"Add ticket"
             Text(
                 text = expense.ticketLabel,
                 style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
@@ -336,7 +318,6 @@ private fun ExpenseRowItem(
 
 @Composable
 private fun AddExpenseAction(onAddClick: () -> Unit) {
-    // Add expense action: full-width button centered under the list
     OutlinedButton(
         onClick = onAddClick,
         modifier = Modifier
@@ -355,7 +336,6 @@ private fun BalancesFooterSection(
     balances: List<BalanceUi>,
     modifier: Modifier = Modifier
 ) {
-    // Footer area: per-user balance summary cards
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -376,7 +356,6 @@ private fun BalanceCardItem(
     balance: Double,
     modifier: Modifier = Modifier
 ) {
-    // Balance card: user name + signed amount (positive/negative)
     val isPositive = balance >= 0.0
     val amountText =
         (if (isPositive) "+" else "-") +
@@ -412,7 +391,6 @@ private fun BalanceCardItem(
 
 @Composable
 private fun DividerThin() {
-    // List separator between expense items
     HorizontalDivider(
         thickness = 1.dp,
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
@@ -422,9 +400,10 @@ private fun DividerThin() {
 private fun formatMoney(amount: Double): String =
     "€" + String.format("%.2f", amount)
 
-// NEW: opens the ticket using an implicit intent (ACTION_VIEW)
+/**
+ * Opens a ticket URI using an implicit ACTION_VIEW intent.
+ */
 private fun openTicket(context: Context, uri: Uri) {
-    // NEW: try to resolve the mime type from ContentResolver
     val mimeType = context.contentResolver.getType(uri) ?: "image/*"
 
     val intent = Intent(Intent.ACTION_VIEW).apply {

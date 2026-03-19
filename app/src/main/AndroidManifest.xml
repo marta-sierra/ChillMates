@@ -2,7 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- NEW: notify me block - runtime permission for Android 13+ notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
@@ -13,7 +12,8 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.ChillMates">
+        android:theme="@style/Theme.ChillMates"
+        android:localeConfig="@xml/locales_config">
 
         <!-- MAIN UI ACTIVITY -->
         <activity
@@ -44,16 +44,15 @@
             android:theme="@style/Theme.MapDialog"
             android:exported="false" />
 
-        <activity android:name=".AddExpenseActivity" />
+        <activity android:name=".expensestracker.AddExpenseActivity" />
 
-        <!-- NEW: add event flow - activity that collects event data and returns it to Home [UI] -->
-        <activity android:name=".AddEventActivity" />
+        <activity android:name=".home.AddEventActivity" />
 
         <receiver
-            android:name=".HomeReminderReceiver"
+            android:name=".home.HomeReminderReceiver"
             android:exported="false" />
         <receiver
-            android:name=".ChoreReminderReceiver"
+            android:name=".chores.ChoreReminderReceiver"
             android:exported="false" />
     </application>
 

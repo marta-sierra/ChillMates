@@ -1,5 +1,6 @@
 package es.uc3m.android.chillmates.user
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.runtime.Immutable
@@ -7,24 +8,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import es.uc3m.android.chillmates.R
 
-// individual roommate
 @Immutable
 data class FlatMemberUi(
     val id: String,
     val name: String
 )
 
-// settings state
 @Immutable
 data class UserUiState(
     val fullName: String = "",
     val email: String = "",
-
     val draftFullName: String = "",
     val draftEmail: String = "",
     val isProfileEditing: Boolean = false,
-
     val flatName: String = "",
     val members: List<FlatMemberUi> = emptyList(),
     val profilePhotoUrl: String? = null,
@@ -32,16 +30,14 @@ data class UserUiState(
 )
 
 class UserViewModel : ViewModel() {
-
+    // TODO: read from DB
     var uiState by mutableStateOf(
         UserUiState(
             fullName = "Marta",
             email = "marta@email.com",
-
             draftFullName = "Marta",
             draftEmail = "marta@email.com",
             isProfileEditing = false,
-
             flatName = "ChillMates Flat",
             members = listOf(
                 FlatMemberUi("m1", "Marta"),
@@ -54,8 +50,10 @@ class UserViewModel : ViewModel() {
     )
         private set
 
+    /**
+     * Enters edit mode by copying current values into draft state.
+     */
     fun onEditProfileClick() {
-        // "Edit my info" button
         uiState = uiState.copy(
             isProfileEditing = true,
             draftFullName = uiState.fullName,
@@ -63,8 +61,10 @@ class UserViewModel : ViewModel() {
         )
     }
 
+    /**
+     * Finalizes changes by moving draft values into the primary state.
+     */
     fun onSaveProfileClick() {
-        // "Save changes" button
         uiState = uiState.copy(
             isProfileEditing = false,
             fullName = uiState.draftFullName,
@@ -73,47 +73,55 @@ class UserViewModel : ViewModel() {
     }
 
     fun onDraftNameChange(newValue: String) {
-        // Editing name value
         uiState = uiState.copy(draftFullName = newValue)
     }
 
     fun onDraftEmailChange(newValue: String) {
-        // Editing email value
         uiState = uiState.copy(draftEmail = newValue)
     }
 
     fun onFlatNameChange(newValue: String) {
-        // Editing flat name value
         uiState = uiState.copy(flatName = newValue)
     }
 
+    /**
+     * Toggles between read-only and editable modes for the flat name.
+     */
     fun onToggleFlatNameEditing() {
-        // Changes between blocked/editable. Manages item change
         uiState = uiState.copy(isFlatNameEditing = !uiState.isFlatNameEditing)
     }
 
     fun onChangePasswordClick() {
-        // "Password" button
+        // TODO: Navigation to password reset or change password dialog
     }
+
+    /**
+     * Updates the profile photo reference with a new URI.
+     */
     fun onChangePhotoClick(uri: Uri) {
         uiState = uiState.copy(profilePhotoUrl = uri.toString())
     }
 
-    fun onInviteClick(context: android.content.Context) {
-        val flatName = uiState.flatName
-        val inviteMsg = "Join my flat '$flatName' on ChillMates! Click here: https://chillmates.app/join/flat123"
+    /**
+     * Triggers a system share sheet to invite new members to the current flat.
+     */
+    fun onInviteClick(context: Context) {
+        val inviteMsg = "Join my flat on ChillMates! Click here: https://chillmates.app/join/flat123"
+        val chooserTitle = context.getString(R.string.user_invite_chooser_title)
 
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, inviteMsg)
         }
-        val chooser = Intent.createChooser(intent, "Invite roommate via...")
+        val chooser = Intent.createChooser(intent, chooserTitle)
         context.startActivity(chooser)
     }
+
     fun onLeaveFlatClick() {
-        // "Leave flat" button
+        // TODO: Implement logic to remove current user from the flat group
     }
+
     fun onCreateNewFlatClick() {
-        // "Create/join a new flat" button
+        // TODO: Implementation for creating a new flat entry or joining via code
     }
 }

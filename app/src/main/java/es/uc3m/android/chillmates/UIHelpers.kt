@@ -15,7 +15,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// Title for every page
+/**
+ * A standardized header for main feature pages.
+ * Designed to be used at the top of a Column, setting a colored background band.
+ *
+ * @param title The text to display in the header.
+ */
 @Composable
 fun LargeSectionHeader(title: String) {
     Surface(
@@ -38,15 +43,21 @@ fun LargeSectionHeader(title: String) {
     }
 }
 
-// Page content wrapper
+/**
+ * A container for the rounded effect.
+ * Uses a negative offset to overlap the [LargeSectionHeader].
+ *
+ * @param content The Composable content to be rendered inside the sheet.
+ */
 @Composable
 fun PageContentWrapper(content: @Composable () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxSize()
-            .offset(y = (-16).dp), // Make it appear on top of the header
+            .offset(y = (-16).dp), // Creates the overlap
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        color = MaterialTheme.colorScheme.surface, // Standard background color
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
         content = content
     )
 }

@@ -5,17 +5,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 
+/**
+ * Entry point of the application. Will handle user authentication.
+ */
 @Composable
 fun LoginPage(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-
-    // NEW: Paint an explicit background across the whole screen and apply system insets
     Surface(
         modifier = Modifier
             .fillMaxSize()
@@ -29,9 +31,9 @@ fun LoginPage(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Título de la App
+            // App Branding
             Text(
-                text = "ChillMates",
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.displayMedium,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
@@ -40,41 +42,39 @@ fun LoginPage(navController: NavController) {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Welcome to your shared flat",
+                text = stringResource(R.string.login_welcome_title),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            // Campo Email
+            // Email Input
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("Email") },
+                label = { Text(stringResource(R.string.login_label_email)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Campo Contraseña
+            // Password Input
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Password") },
+                label = { Text(stringResource(R.string.login_label_password)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                visualTransformation = PasswordVisualTransformation() // Oculta los caracteres
+                visualTransformation = PasswordVisualTransformation()
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Botón principal de Log In
+            // Primary Log In Action
             Button(
                 onClick = {
-                    // Al hacer Log In, navegamos a Home y borramos "login" del historial
-                    // para que al pulsar la flecha de atrás de Android no vuelva a esta pantalla
                     navController.navigate(NavGraph.Home.route) {
                         popUpTo("login") { inclusive = true }
                     }
@@ -83,14 +83,17 @@ fun LoginPage(navController: NavController) {
                     .fillMaxWidth()
                     .height(50.dp)
             ) {
-                Text("Log In", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = stringResource(R.string.login_btn_signin),
+                    style = MaterialTheme.typography.titleMedium
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Enlace para Sign Up
-            TextButton(onClick = { /* Acción para ir a la pantalla de registro */ }) {
-                Text("Don't have an account? Sign up")
+            // Secondary Sign Up Navigation
+            TextButton(onClick = { /* TODO: Implement Sign Up navigation */ }) {
+                Text(stringResource(R.string.login_footer_signup))
             }
         }
     }

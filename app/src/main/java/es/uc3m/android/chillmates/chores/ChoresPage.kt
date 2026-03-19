@@ -1,4 +1,4 @@
-package es.uc3m.android.chillmates
+package es.uc3m.android.chillmates.chores
 
 import android.content.Intent
 import androidx.compose.foundation.layout.*
@@ -13,17 +13,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import es.uc3m.android.chillmates.LargeSectionHeader
+import es.uc3m.android.chillmates.R
 
 @Composable
 fun ChoresPage(navController: NavController) {
-    // List of flatmates to use in dropdowns
+    // TODO: Read data from DB.
     val flatmates = listOf("Me", "Marta", "Lorena", "Everyone")
-
-    // Mutable state list for the chores
     val chores = remember {
         mutableStateListOf(
             Chore(1, "Clean the bathroom", "Marta", false),
@@ -33,15 +34,12 @@ fun ChoresPage(navController: NavController) {
         )
     }
 
-    // States to control the visibility of dialogs
     var showAddChoreDialog by remember { mutableStateOf(false) }
     var showReconfigureDialog by remember { mutableStateOf(false) }
-
-    // State to hold the chore currently being swapped (null means dialog is closed)
     var choreToSwap by remember { mutableStateOf<Chore?>(null) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        LargeSectionHeader(title = "Chores")
+        LargeSectionHeader(title = stringResource(R.string.chores_title))
 
         Column(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
@@ -54,7 +52,7 @@ fun ChoresPage(navController: NavController) {
                 item {
                     Spacer(modifier = Modifier.height(32.dp))
                     Text(
-                        text = "To make living together easier.",
+                        text = stringResource(R.string.chores_subtitle),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp)
@@ -69,12 +67,11 @@ fun ChoresPage(navController: NavController) {
                                 chores[index] = updatedChore
                             }
                         },
-                        onSwapRequest = { choreToSwap = it } // Open swap dialog for this chore
+                        onSwapRequest = { choreToSwap = it }
                     )
                 }
             }
 
-            // Bottom action buttons
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.background,
@@ -93,11 +90,11 @@ fun ChoresPage(navController: NavController) {
                     ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
-                            contentDescription = "Reconfigure",
+                            contentDescription = stringResource(R.string.cd_reconfigure),
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("Reconfigure Chores")
+                        Text(stringResource(R.string.btn_reconfigure_chores))
                     }
 
                     Button(
@@ -106,20 +103,17 @@ fun ChoresPage(navController: NavController) {
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
-                            contentDescription = "Add Chore",
+                            contentDescription = stringResource(R.string.cd_add_chore),
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("Add new chore")
+                        Text(stringResource(R.string.btn_add_new_chore))
                     }
                 }
             }
         }
     }
 
-    // --- DIALOGS ---
-
-    // 1. Add Chore Dialog
     if (showAddChoreDialog) {
         AddChoreDialog(
             flatmates = flatmates,
@@ -132,7 +126,6 @@ fun ChoresPage(navController: NavController) {
         )
     }
 
-    // 2. Swap Chore Dialog
     choreToSwap?.let { chore ->
         SwapChoreDialog(
             chore = chore,
@@ -148,7 +141,6 @@ fun ChoresPage(navController: NavController) {
         )
     }
 
-    // 3. Reconfigure Chores Dialog
     if (showReconfigureDialog) {
         ReconfigureChoresDialog(
             currentChores = chores,
@@ -163,8 +155,9 @@ fun ChoresPage(navController: NavController) {
     }
 }
 
-// --- SUB-COMPONENTS & DIALOGS ---
-
+/**
+ * Dialog to input details for a new chore assignment.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddChoreDialog(
@@ -177,13 +170,13 @@ fun AddChoreDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add New Chore") },
+        title = { Text(stringResource(R.string.dialog_add_chore_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Chore Title") },
+                    label = { Text(stringResource(R.string.label_chore_title)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -196,17 +189,18 @@ fun AddChoreDialog(
         },
         confirmButton = {
             Button(
-                onClick = {
-                    if (title.isNotBlank()) onAdd(title, assignee)
-                }
-            ) { Text("Add") }
+                onClick = { if (title.isNotBlank()) onAdd(title, assignee) }
+            ) { Text(stringResource(R.string.btn_add)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
         }
     )
 }
 
+/**
+ * Dialog to reassign a specific chore to a different flatmate.
+ */
 @Composable
 fun SwapChoreDialog(
     chore: Chore,
@@ -218,10 +212,10 @@ fun SwapChoreDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Swap Chore") },
+        title = { Text(stringResource(R.string.dialog_swap_chore_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("Who will take over '${chore.title}'?")
+                Text(stringResource(R.string.dialog_swap_chore_text, chore.title))
                 FlatmateDropdown(
                     selected = selectedAssignee,
                     flatmates = flatmates,
@@ -230,14 +224,19 @@ fun SwapChoreDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirmSwap(selectedAssignee) }) { Text("Swap") }
+            Button(onClick = { onConfirmSwap(selectedAssignee) }) {
+                Text(stringResource(R.string.btn_swap))
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
         }
     )
 }
 
+/**
+ * Screen-overlay to adjust all current chore assignments at once.
+ */
 @Composable
 fun ReconfigureChoresDialog(
     currentChores: List<Chore>,
@@ -245,12 +244,11 @@ fun ReconfigureChoresDialog(
     onDismiss: () -> Unit,
     onSave: (List<Chore>) -> Unit
 ) {
-    // Create a temporary working copy of the chores for the dialog
     val tempChores = remember { mutableStateListOf(*currentChores.toTypedArray()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Reconfigure Chores") },
+        title = { Text(stringResource(R.string.btn_reconfigure_chores)) },
         text = {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 items(tempChores.size) { index ->
@@ -270,14 +268,19 @@ fun ReconfigureChoresDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onSave(tempChores.toList()) }) { Text("Save") }
+            Button(onClick = { onSave(tempChores.toList()) }) {
+                Text(stringResource(R.string.btn_save))
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
         }
     )
 }
 
+/**
+ * Custom dropdown menu for selecting a flatmate from a list.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FlatmateDropdown(
@@ -317,13 +320,16 @@ fun FlatmateDropdown(
     }
 }
 
-
+/**
+ * Card representing an individual chore with status toggles and reminder actions.
+ */
 @Composable
 fun ChoreCard(
     chore: Chore,
     onUpdateChore: (Chore) -> Unit,
     onSwapRequest: (Chore) -> Unit
 ) {
+    // TODO: Read data from DB.
     val isMe = chore.assignee == "Me" || chore.assignee == "Everyone"
     val context = LocalContext.current
 
@@ -349,7 +355,7 @@ fun ChoreCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Assigned to: ${chore.assignee}",
+                    text = stringResource(R.string.label_assigned_to, chore.assignee),
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -364,28 +370,32 @@ fun ChoreCard(
                     TextButton(
                         onClick = { onUpdateChore(chore.copy(isDone = false)) }
                     ) {
-                        Text("Redo", color = MaterialTheme.colorScheme.error)
+                        Text(
+                            text = stringResource(R.string.btn_redo),
+                            color = MaterialTheme.colorScheme.error
+                        )
                     }
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(
-                            onClick = { onSwapRequest(chore) } // Triggers the Swap Dialog
+                            onClick = { onSwapRequest(chore) }
                         ) {
-                            Text("Swap")
+                            Text(stringResource(R.string.btn_swap))
                         }
 
                         IconButton(
                             onClick = {
                                 val intent = Intent(context, ChoreReminderReceiver::class.java).apply {
-                                    putExtra("CHORE_TITLE", chore.title)
-                                    putExtra("ASSIGNEE", chore.assignee)
+                                    // FLAG: Key naming fixed to camelCase
+                                    putExtra("choreTitle", chore.title)
+                                    putExtra("assignee", chore.assignee)
                                 }
                                 context.sendBroadcast(intent)
                             }
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Notifications,
-                                contentDescription = "Send Reminder",
+                                contentDescription = stringResource(R.string.cd_send_reminder),
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
