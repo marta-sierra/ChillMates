@@ -28,6 +28,7 @@ fun SettingsPage(navController: NavController) {
         onDarkModeToggle = vm::onDarkModeToggle,
         onSoundToggle = vm::onSoundToggle,
         onLanguageChange = vm::onLanguageChange,
+        onApplyChanges = vm::applyChanges,
         onLogoutClick = vm::onLogout
     )
 }
@@ -43,6 +44,7 @@ private fun SettingsRoute(
     onDarkModeToggle: (Boolean) -> Unit,
     onSoundToggle: (Boolean) -> Unit,
     onLanguageChange: (String) -> Unit,
+    onApplyChanges: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -107,7 +109,19 @@ private fun SettingsRoute(
             }
 
             item {
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(32.dp))
+                Button(
+                    onClick = onApplyChanges,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(text = stringResource(R.string.settings_btn_apply))
+                }
+                
+                Spacer(Modifier.height(12.dp))
+                
                 Button(
                     onClick = onLogoutClick,
                     modifier = Modifier

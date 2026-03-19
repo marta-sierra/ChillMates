@@ -130,6 +130,7 @@
     <string name="settings_label_dark_mode">Mode fosc</string>
     <string name="settings_label_language">Idioma</string>
     <string name="settings_btn_logout">TANCAR SESSIÓ</string>
+    <string name="settings_btn_apply">Aplicar canvis</string>
     <string name="settings_cd_back">Torna</string>
 
     <string name="user_section_profile">El meu perfil</string>

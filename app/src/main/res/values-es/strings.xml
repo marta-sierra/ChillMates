@@ -130,6 +130,7 @@
     <string name="settings_label_dark_mode">Modo oscuro</string>
     <string name="settings_label_language">Idioma</string>
     <string name="settings_btn_logout">CERRAR SESIÓN</string>
+    <string name="settings_btn_apply">Aplicar cambios</string>
     <string name="settings_cd_back">Volver</string>
 
     <string name="user_section_profile">Mi perfil</string>

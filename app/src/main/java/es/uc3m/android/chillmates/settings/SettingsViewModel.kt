@@ -17,7 +17,9 @@ data class SettingsUiState(
 class SettingsViewModel : ViewModel() {
 
     //UI state holding user preferences, initialized with default values.
-
+    private var _uiState by mutableStateOf(SettingsUiState())
+    
+    // Temporary state to hold changes before applying
     var uiState by mutableStateOf(SettingsUiState())
         private set
 
@@ -39,9 +41,13 @@ class SettingsViewModel : ViewModel() {
     //Updates the selected application language.
     fun onLanguageChange(language: String) {
         uiState = uiState.copy(language = language)
+    }
 
-        // Map the UI string to Android locale codes
-        val localeCode = when (language) {
+    fun applyChanges() {
+        _uiState = uiState
+        
+        // Apply Language
+        val localeCode = when (_uiState.language) {
             "Español" -> "es"
             "Català" -> "ca"
             "English" -> "en"
@@ -53,9 +59,17 @@ class SettingsViewModel : ViewModel() {
         } else {
             LocaleListCompat.forLanguageTags(localeCode)
         }
-
-        // Apply the locale change globally
         AppCompatDelegate.setApplicationLocales(appLocale)
+        
+        // Note: Dark mode logic usually relies on the theme observing a state.
+        // If ChillMatesTheme uses isSystemInDarkTheme(), you might need to 
+        // set AppCompatDelegate.setDefaultNightMode based on _uiState.darkModeEnabled
+        val nightMode = if (_uiState.darkModeEnabled) {
+            AppCompatDelegate.MODE_NIGHT_YES
+        } else {
+            AppCompatDelegate.MODE_NIGHT_NO
+        }
+        AppCompatDelegate.setDefaultNightMode(nightMode)
     }
 
     // TODO: Implement logout logic

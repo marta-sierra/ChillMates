@@ -131,6 +131,7 @@
     <string name="settings_label_dark_mode">Dark mode</string>
     <string name="settings_label_language">Language</string>
     <string name="settings_btn_logout">LOGOUT</string>
+    <string name="settings_btn_apply">Apply Changes</string>
     <string name="settings_cd_back">Back</string>
 
     <string name="user_section_profile">My profile</string>
