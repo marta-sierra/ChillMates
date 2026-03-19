@@ -22,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -30,6 +31,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import es.uc3m.android.chillmates.R
 import kotlin.math.absoluteValue
 
 @Composable
@@ -59,9 +61,9 @@ fun ExpensesTrackerPage(navController: NavController) {
             }
 
             vm.onTicketSelected(expenseId, uri)
-            Toast.makeText(context, "Ticket attached ✅", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.toast_ticket_attached), Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(context, "Cancelled", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.toast_cancelled), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -78,12 +80,12 @@ fun ExpensesTrackerPage(navController: NavController) {
             if (!title.isNullOrBlank() && amount != null && !amount.isNaN() && !paidBy.isNullOrBlank()) {
                 val splitBetween = data.getStringArrayListExtra(AddExpenseActivity.EXTRA_SPLIT_BETWEEN) ?: emptyList<String>()
                 vm.onExpenseAdded(title, amount, paidBy, splitBetween)
-                Toast.makeText(context, "Expense added ✅", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.toast_expense_added), Toast.LENGTH_SHORT).show()
             } else {
-                Toast.makeText(context, "Invalid data", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.toast_invalid_data), Toast.LENGTH_SHORT).show()
             }
         } else {
-            Toast.makeText(context, "Cancelled", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.toast_cancelled), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -138,11 +140,11 @@ private fun TicketViewerDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Ticket",
+                        text = stringResource(R.string.label_ticket),
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.weight(1f)
                     )
-                    TextButton(onClick = onDismiss) { Text("Close") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_close)) }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -176,7 +178,12 @@ private fun ExpensesRoute(
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         ExpensesHeaderSection(
-            title = state.title,
+            title = stringResource(
+                id = when (state.title) {
+                    "expenses_title" -> R.string.expenses_title
+                    else -> R.string.expenses_title
+                }
+            ),
             onBackClick = onBackClick
         )
 
@@ -209,7 +216,7 @@ private fun ExpensesHeaderSection(
             ) {
                 Icon(
                     imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.cd_back),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
@@ -275,6 +282,14 @@ private fun ExpenseRowItem(
     expense: ExpenseUi,
     onTicketClick: () -> Unit
 ) {
+    val ticketText = stringResource(
+        id = when (expense.ticketLabel) {
+            "ticket_add_label" -> R.string.ticket_add_label
+            "ticket_see_label" -> R.string.ticket_see_label
+            else -> R.string.ticket_add_label
+        }
+    )
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top
@@ -287,14 +302,14 @@ private fun ExpenseRowItem(
 
             if (expense.splitBetween.isNotEmpty()) {
                 Text(
-                    text = "For: ${expense.splitBetween.joinToString(", ")}",
+                    text = stringResource(R.string.label_for_members, expense.splitBetween.joinToString(", ")),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary
                 )
             }
 
             Text(
-                text = expense.ticketLabel,
+                text = ticketText,
                 style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
                 modifier = Modifier
                     .clickable(onClick = onTicketClick)
@@ -325,9 +340,9 @@ private fun AddExpenseAction(onAddClick: () -> Unit) {
             .height(44.dp),
         shape = RoundedCornerShape(10.dp)
     ) {
-        Icon(imageVector = Icons.Default.Add, contentDescription = "Add expense")
+        Icon(imageVector = Icons.Default.Add, contentDescription = stringResource(R.string.cd_add_expense))
         Spacer(modifier = Modifier.width(6.dp))
-        Text(text = "Add expense")
+        Text(text = stringResource(R.string.btn_add_expense))
     }
 }
 
@@ -414,6 +429,6 @@ private fun openTicket(context: Context, uri: Uri) {
     try {
         context.startActivity(intent)
     } catch (e: ActivityNotFoundException) {
-        Toast.makeText(context, "No app found to open this file", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, context.getString(R.string.toast_no_app_found_open_file), Toast.LENGTH_LONG).show()
     }
 }

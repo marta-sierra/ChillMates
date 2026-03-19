@@ -35,7 +35,7 @@ data class BalanceUi(
  */
 @Immutable
 data class ExpensesUiState(
-    val title: String = "Expenses",
+    val title: String = "expenses_title",
     val expenses: List<ExpenseUi> = emptyList(),
     val balances: List<BalanceUi> = emptyList(),
     // TODO: Read from DB
@@ -55,10 +55,10 @@ class ExpensesViewModel : ViewModel() {
         ExpensesUiState(
             // TODO: Read from DB
             expenses = listOf(
-                ExpenseUi("1", "Weekly Bread & Milk", "see ticket", 5.50, "MARTA", splitBetween = listOf("MARTA", "FRAN", "LORENA", "ALEX", "ME")),
-                ExpenseUi("2", "IKEA Cutlery Set", "add ticket", 45.63, "MARTA", splitBetween = listOf("MARTA", "FRAN", "LORENA", "ALEX", "ME")),
-                ExpenseUi("3", "Groceries (Mercadona)", "see ticket", 82.20, "FRAN", splitBetween = listOf("FRAN", "LORENA", "ME")),
-                ExpenseUi("4", "Fiber Internet", "add ticket", 29.99, "LORENA", splitBetween = listOf("MARTA", "FRAN", "LORENA", "ALEX", "ME"))
+                ExpenseUi("1", "Weekly Bread & Milk", "ticket_see_label", 5.50, "MARTA", splitBetween = listOf("MARTA", "FRAN", "LORENA", "ALEX", "ME")),
+                ExpenseUi("2", "IKEA Cutlery Set", "ticket_add_label", 45.63, "MARTA", splitBetween = listOf("MARTA", "FRAN", "LORENA", "ALEX", "ME")),
+                ExpenseUi("3", "Groceries (Mercadona)", "ticket_see_label", 82.20, "FRAN", splitBetween = listOf("FRAN", "LORENA", "ME")),
+                ExpenseUi("4", "Fiber Internet", "ticket_add_label", 29.99, "LORENA", splitBetween = listOf("MARTA", "FRAN", "LORENA", "ALEX", "ME"))
             )
         )
     )
@@ -77,7 +77,7 @@ class ExpensesViewModel : ViewModel() {
         val newExpense = ExpenseUi(
             id = newId,
             title = title,
-            ticketLabel = "add ticket",
+            ticketLabel = "ticket_add_label",
             amount = amount,
             paidBy = paidBy,
             splitBetween = splitBetween
@@ -110,7 +110,7 @@ class ExpensesViewModel : ViewModel() {
                 if (e.id == expenseId) {
                     e.copy(
                         ticketUri = uri.toString(),
-                        ticketLabel = "see ticket"
+                        ticketLabel = "ticket_see_label"
                     )
                 } else e
             }

@@ -92,6 +92,9 @@
     <string name="cd_reconfigure">Reconfigura</string>
     <string name="cd_send_reminder">Envia recordatori</string>
 
+    <string name="expenses_title">Despeses</string>
+    <string name="ticket_add_label">afegeix tiquet</string>
+    <string name="ticket_see_label">veure tiquet</string>
     <string name="title_add_expense">Afegeix despesa</string>
     <string name="label_fill_details">Omple els detalls</string>
     <string name="label_title">Títol</string>
@@ -104,6 +107,7 @@
     <string name="toast_ticket_attached">Tiquet adjuntat ✅</string>
     <string name="toast_expense_added">Despesa afegida ✅</string>
     <string name="cd_add_expense">Afegeix despesa</string>
+    <string name="toast_no_app_found_open_file">No s\'ha trobat cap aplicació per obrir aquest fitxer</string>
 
     <string name="repairs_title">Avaries</string>
     <string name="repairs_section_current">Reparacions actuals</string>

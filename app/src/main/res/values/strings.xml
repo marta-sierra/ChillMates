@@ -93,6 +93,9 @@
     <string name="cd_reconfigure">Reconfigure</string>
     <string name="cd_send_reminder">Send Reminder</string>
 
+    <string name="expenses_title">Expenses</string>
+    <string name="ticket_add_label">add ticket</string>
+    <string name="ticket_see_label">see ticket</string>
     <string name="title_add_expense">Add expense</string>
     <string name="label_fill_details">Fill the details</string>
     <string name="label_title">Title</string>
@@ -105,6 +108,7 @@
     <string name="toast_ticket_attached">Ticket attached ✅</string>
     <string name="toast_expense_added">Expense added ✅</string>
     <string name="cd_add_expense">Add expense</string>
+    <string name="toast_no_app_found_open_file">No app found to open this file</string>
 
     <string name="repairs_title">Repairs</string>
     <string name="repairs_section_current">Current reparations</string>
