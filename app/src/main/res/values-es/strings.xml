@@ -14,8 +14,16 @@
     <string name="login_label_password">Contraseña</string>
     <string name="login_btn_signin">Iniciar sesión</string>
     <string name="login_footer_signup">¿No tienes cuenta? Regístrate</string>
+    <string name="signup_welcome_title">Crea tu cuenta</string>
+    <string name="login_label_name">Nombre</string>
+    <string name="login_label_confirm_password">Confirmar contraseña</string>
+    <string name="signup_btn_signup">Regístrate</string>
+    <string name="signup_footer_login">¿Ya tienes cuenta? Inicia sesión</string>
     <string name="nav_cd_profile">Perfil de usuario</string>
     <string name="nav_cd_settings">Ajustes</string>
+
+    <string name="welcome_back_continue">Continuar</string>
+    <string name="welcome_back_change_account">Cambiar cuenta</string>
 
     <string name="home_section_news_board">Tablón de anuncios</string>
     <string name="home_section_upcoming_events">Próximos eventos  →</string>

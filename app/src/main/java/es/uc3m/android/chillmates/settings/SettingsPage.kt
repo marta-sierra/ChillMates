@@ -16,9 +16,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import es.uc3m.android.chillmates.R
+import es.uc3m.android.chillmates.viewmodel.AuthViewModel
 
 @Composable
-fun SettingsPage(navController: NavController) {
+fun SettingsPage(
+    navController: NavController,
+    authViewModel: AuthViewModel
+) {
     val vm: SettingsViewModel = viewModel()
 
     SettingsRoute(
@@ -29,7 +33,7 @@ fun SettingsPage(navController: NavController) {
         onSoundToggle = vm::onSoundToggle,
         onLanguageChange = vm::onLanguageChange,
         onApplyChanges = vm::applyChanges,
-        onLogoutClick = vm::onLogout
+        onLogoutClick = { authViewModel.logout() }
     )
 }
 

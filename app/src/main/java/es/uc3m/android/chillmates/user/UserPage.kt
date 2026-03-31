@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -18,9 +19,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -31,8 +35,8 @@ import es.uc3m.android.chillmates.R
 fun UserPage(navController: NavController) {
     val vm: UserViewModel = viewModel()
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Launcher for selecting a profile picture from the gallery.
     val pickMedia = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -44,68 +48,98 @@ fun UserPage(navController: NavController) {
         }
     }
 
-    UserRoute(
-        state = vm.uiState,
-        onBackClick = { navController.popBackStack() },
-        onEditProfileClick = vm::onEditProfileClick,
-        onSaveProfileClick = vm::onSaveProfileClick,
-        onDraftNameChange = vm::onDraftNameChange,
-        onDraftEmailChange = vm::onDraftEmailChange,
-        onFlatNameChange = vm::onFlatNameChange,
-        onToggleFlatNameEditing = vm::onToggleFlatNameEditing,
-        onChangePasswordClick = vm::onChangePasswordClick,
-        onChangePhotoClick = {
-            pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-        },
-        onInviteClick = { vm.onInviteClick(context) },
-        onLeaveFlatClick = vm::onLeaveFlatClick,
-        onCreateNewFlatClick = vm::onCreateNewFlatClick
-    )
+    LaunchedEffect(vm.uiState.successMessage) {
+        vm.uiState.successMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            vm.clearSuccessMessage()
+        }
+    }
+
+    LaunchedEffect(vm.uiState.errorMessage) {
+        vm.uiState.errorMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            vm.clearError()
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            UserRoute(
+                state = vm.uiState,
+                onBackClick = { navController.popBackStack() },
+                onChangePhotoClick = {
+                    pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                },
+                onInviteClick = { vm.onInviteClick(context) },
+                onLeaveFlatClick = { vm.onLeaveFlat() },
+                onCreateNewFlatClick = { vm.onShowCreateJoinDialog() },
+                onShowCreateJoinDialog = { vm.onShowCreateJoinDialog() },
+                onDismissCreateJoinDialog = { vm.onDismissCreateJoinDialog() },
+                onCreateJoinModeChange = { vm.onCreateJoinModeChange(it) },
+                onDialogFlatNameChange = { vm.onDialogFlatNameChange(it) },
+                onDialogInviteCodeChange = { vm.onDialogInviteCodeChange(it) },
+                onConfirmCreateJoin = { vm.onConfirmCreateJoin() },
+                onUpdateProfile = { vm.onUpdateProfile(it) }
+            )
+        }
+    }
+
+    if (vm.uiState.showCreateJoinDialog) {
+        CreateJoinFlatDialog(
+            mode = vm.uiState.createJoinMode,
+            flatName = vm.uiState.dialogFlatName,
+            inviteCode = vm.uiState.dialogInviteCode,
+            isLoading = vm.uiState.isLoading,
+            errorMessage = vm.uiState.errorMessage,
+            onModeChange = { vm.onCreateJoinModeChange(it) },
+            onFlatNameChange = { vm.onDialogFlatNameChange(it) },
+            onInviteCodeChange = { vm.onDialogInviteCodeChange(it) },
+            onConfirm = { vm.onConfirmCreateJoin() },
+            onDismiss = { vm.onDismissCreateJoinDialog() }
+        )
+    }
 }
 
 @Composable
 private fun UserRoute(
     state: UserUiState,
     onBackClick: () -> Unit,
-    onEditProfileClick: () -> Unit,
-    onSaveProfileClick: () -> Unit,
-    onDraftNameChange: (String) -> Unit,
-    onDraftEmailChange: (String) -> Unit,
-    onFlatNameChange: (String) -> Unit,
-    onToggleFlatNameEditing: () -> Unit,
-    onChangePasswordClick: () -> Unit,
     onChangePhotoClick: () -> Unit,
     onInviteClick: () -> Unit,
     onLeaveFlatClick: () -> Unit,
-    onCreateNewFlatClick: () -> Unit
+    onCreateNewFlatClick: () -> Unit,
+    onShowCreateJoinDialog: () -> Unit,
+    onDismissCreateJoinDialog: () -> Unit,
+    onCreateJoinModeChange: (CreateJoinMode) -> Unit,
+    onDialogFlatNameChange: (String) -> Unit,
+    onDialogInviteCodeChange: (String) -> Unit,
+    onConfirmCreateJoin: () -> Unit,
+    onUpdateProfile: (String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         UserHeaderSection(
-            title = state.fullName,
+            title = state.user?.displayName ?: "",
+            photoUri = state.user?.avatarUrl,
             onBackClick = onBackClick,
-            photoUri = state.profilePhotoUrl,
             onProfilePhotoClick = onChangePhotoClick
         )
 
         UserContentSection(
             state = state,
-            onEditProfileClick = onEditProfileClick,
-            onSaveProfileClick = onSaveProfileClick,
-            onDraftNameChange = onDraftNameChange,
-            onDraftEmailChange = onDraftEmailChange,
-            onChangePasswordClick = onChangePasswordClick,
-            onFlatNameChange = onFlatNameChange,
-            onToggleFlatNameEditing = onToggleFlatNameEditing,
             onInviteClick = onInviteClick,
             onLeaveFlatClick = onLeaveFlatClick,
-            onCreateNewFlatClick = onCreateNewFlatClick
+            onCreateNewFlatClick = onCreateNewFlatClick,
+            onUpdateProfile = onUpdateProfile
         )
     }
 }
 
-/**
- * Top app bar area showing user's name and profile picture.
- */
 @Composable
 private fun UserHeaderSection(
     title: String,
@@ -138,7 +172,7 @@ private fun UserHeaderSection(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = title,
+                    text = title.ifEmpty { "User" },
                     style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold)
                 )
 
@@ -198,16 +232,10 @@ private fun ProfilePhotoLarge(
 @Composable
 private fun UserContentSection(
     state: UserUiState,
-    onEditProfileClick: () -> Unit,
-    onSaveProfileClick: () -> Unit,
-    onDraftNameChange: (String) -> Unit,
-    onDraftEmailChange: (String) -> Unit,
-    onChangePasswordClick: () -> Unit,
-    onFlatNameChange: (String) -> Unit,
-    onToggleFlatNameEditing: () -> Unit,
     onInviteClick: () -> Unit,
     onLeaveFlatClick: () -> Unit,
-    onCreateNewFlatClick: () -> Unit
+    onCreateNewFlatClick: () -> Unit,
+    onUpdateProfile: (String) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -218,28 +246,23 @@ private fun UserContentSection(
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
         item {
-            PersonalSectionCard(
-                isEditing = state.isProfileEditing,
-                fullNameValue = if (state.isProfileEditing) state.draftFullName else state.fullName,
-                emailValue = if (state.isProfileEditing) state.draftEmail else state.email,
-                onNameChange = onDraftNameChange,
-                onEmailChange = onDraftEmailChange,
-                onEditProfileClick = onEditProfileClick,
-                onSaveProfileClick = onSaveProfileClick,
-                onChangePasswordClick = onChangePasswordClick
+            ProfileSectionCard(
+                displayName = state.user?.displayName ?: "",
+                email = state.user?.email ?: "",
+                isLoading = state.isLoading,
+                onUpdateProfile = onUpdateProfile
             )
         }
 
-        item {
-            FlatSectionCard(
-                flatName = state.flatName,
-                isFlatNameEditing = state.isFlatNameEditing,
-                members = state.members,
-                onFlatNameChange = onFlatNameChange,
-                onToggleFlatNameEditing = onToggleFlatNameEditing,
-                onInviteClick = onInviteClick,
-                onLeaveFlatClick = onLeaveFlatClick
-            )
+        if (state.flat != null) {
+            item {
+                FlatSectionCard(
+                    flat = state.flat,
+                    members = state.members,
+                    onInviteClick = onInviteClick,
+                    onLeaveFlatClick = onLeaveFlatClick
+                )
+            }
         }
 
         item {
@@ -248,26 +271,30 @@ private fun UserContentSection(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Text(stringResource(R.string.user_btn_create_join))
+                Icon(Icons.Default.Home, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    if (state.flat != null) {
+                        stringResource(R.string.user_btn_create_join)
+                    } else {
+                        stringResource(R.string.flat_setup_title)
+                    }
+                )
             }
         }
     }
 }
 
-/**
- * Card for viewing and editing personal profile information.
- */
 @Composable
-private fun PersonalSectionCard(
-    isEditing: Boolean,
-    fullNameValue: String,
-    emailValue: String,
-    onNameChange: (String) -> Unit,
-    onEmailChange: (String) -> Unit,
-    onEditProfileClick: () -> Unit,
-    onSaveProfileClick: () -> Unit,
-    onChangePasswordClick: () -> Unit
+private fun ProfileSectionCard(
+    displayName: String,
+    email: String,
+    isLoading: Boolean,
+    onUpdateProfile: (String) -> Unit
 ) {
+    var isEditing by remember { mutableStateOf(false) }
+    var draftName by remember(displayName) { mutableStateOf(displayName) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp)
@@ -282,21 +309,23 @@ private fun PersonalSectionCard(
             )
 
             OutlinedTextField(
-                value = fullNameValue,
-                onValueChange = { if (isEditing) onNameChange(it) },
+                value = if (isEditing) draftName else displayName,
+                onValueChange = { if (isEditing) draftName = it },
                 label = { Text(stringResource(R.string.user_label_fullname)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                readOnly = !isEditing
+                readOnly = !isEditing,
+                enabled = !isLoading
             )
 
             OutlinedTextField(
-                value = emailValue,
-                onValueChange = { if (isEditing) onEmailChange(it) },
+                value = email,
+                onValueChange = { },
                 label = { Text(stringResource(R.string.user_label_email)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                readOnly = !isEditing
+                readOnly = true,
+                enabled = false
             )
 
             Row(
@@ -304,9 +333,15 @@ private fun PersonalSectionCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 FilledTonalButton(
-                    onClick = { if (isEditing) onSaveProfileClick() else onEditProfileClick() },
+                    onClick = {
+                        if (isEditing) {
+                            onUpdateProfile(draftName)
+                        }
+                        isEditing = !isEditing
+                    },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = !isLoading
                 ) {
                     Icon(
                         imageVector = if (isEditing) Icons.Default.Check else Icons.Default.Edit,
@@ -317,9 +352,10 @@ private fun PersonalSectionCard(
                 }
 
                 FilledTonalButton(
-                    onClick = onChangePasswordClick,
+                    onClick = { },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = false
                 ) {
                     Icon(Icons.Default.Lock, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
@@ -330,19 +366,16 @@ private fun PersonalSectionCard(
     }
 }
 
-/**
- * Card displaying flat details and management options for roommates.
- */
 @Composable
 private fun FlatSectionCard(
-    flatName: String,
-    isFlatNameEditing: Boolean,
+    flat: es.uc3m.android.chillmates.model.Flat,
     members: List<FlatMemberUi>,
-    onFlatNameChange: (String) -> Unit,
-    onToggleFlatNameEditing: () -> Unit,
     onInviteClick: () -> Unit,
     onLeaveFlatClick: () -> Unit
 ) {
+    val clipboardManager = LocalClipboardManager.current
+    var showCopiedSnackbar by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp)
@@ -356,22 +389,71 @@ private fun FlatSectionCard(
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
             )
 
-            OutlinedTextField(
-                value = flatName,
-                onValueChange = { if (isFlatNameEditing) onFlatNameChange(it) },
-                label = { Text(stringResource(R.string.user_label_flat_name)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                readOnly = !isFlatNameEditing,
-                trailingIcon = {
-                    IconButton(onClick = onToggleFlatNameEditing) {
-                        Icon(
-                            imageVector = if (isFlatNameEditing) Icons.Default.Check else Icons.Default.Edit,
-                            contentDescription = null
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Home,
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = flat.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
-            )
+            }
+
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Group,
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.flat_setup_invite_code),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
+                            text = flat.inviteCode,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    IconButton(onClick = {
+                        clipboardManager.setText(AnnotatedString(flat.inviteCode))
+                        showCopiedSnackbar = true
+                    }) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy code")
+                    }
+                }
+            }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
@@ -380,21 +462,29 @@ private fun FlatSectionCard(
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
             )
 
-            members.forEach { member ->
-                ListItem(
-                    headlineContent = { Text(member.name) },
-                    leadingContent = {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
+            if (members.isEmpty()) {
+                Text(
+                    text = "Loading...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                members.forEach { member ->
+                    ListItem(
+                        headlineContent = { Text(member.name) },
+                        leadingContent = {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
+                                }
                             }
                         }
-                    }
-                )
+                    )
+                }
             }
 
             Row(
@@ -418,5 +508,120 @@ private fun FlatSectionCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CreateJoinFlatDialog(
+    mode: CreateJoinMode,
+    flatName: String,
+    inviteCode: String,
+    isLoading: Boolean,
+    errorMessage: String?,
+    onModeChange: (CreateJoinMode) -> Unit,
+    onFlatNameChange: (String) -> Unit,
+    onInviteCodeChange: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                if (mode == CreateJoinMode.CREATE) {
+                    stringResource(R.string.flat_setup_create)
+                } else {
+                    stringResource(R.string.flat_setup_join)
+                }
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = mode == CreateJoinMode.CREATE,
+                        onClick = { onModeChange(CreateJoinMode.CREATE) },
+                        label = { Text(stringResource(R.string.flat_setup_create)) },
+                        leadingIcon = { Icon(Icons.Default.Home, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = mode == CreateJoinMode.JOIN,
+                        onClick = { onModeChange(CreateJoinMode.JOIN) },
+                        label = { Text(stringResource(R.string.flat_setup_join)) },
+                        leadingIcon = { Icon(Icons.Default.Group, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                when (mode) {
+                    CreateJoinMode.CREATE -> {
+                        OutlinedTextField(
+                            value = flatName,
+                            onValueChange = onFlatNameChange,
+                            label = { Text(stringResource(R.string.flat_setup_flat_name_label)) },
+                            placeholder = { Text(stringResource(R.string.flat_setup_flat_name_placeholder)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            enabled = !isLoading
+                        )
+                    }
+                    CreateJoinMode.JOIN -> {
+                        OutlinedTextField(
+                            value = inviteCode,
+                            onValueChange = onInviteCodeChange,
+                            label = { Text(stringResource(R.string.flat_setup_invite_code_label)) },
+                            placeholder = { Text(stringResource(R.string.flat_setup_invite_code_placeholder)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            enabled = !isLoading
+                        )
+                    }
+                }
+
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = !isLoading
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(stringResource(R.string.flat_setup_continue))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.btn_cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun Box(modifier: Modifier, contentAlignment: Alignment, content: @Composable () -> Unit) {
+    androidx.compose.foundation.layout.Box(
+        modifier = modifier,
+        contentAlignment = contentAlignment
+    ) {
+        content()
     }
 }

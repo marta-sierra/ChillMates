@@ -15,8 +15,16 @@
     <string name="login_label_password">Password</string>
     <string name="login_btn_signin">Log In</string>
     <string name="login_footer_signup">Don\'t have an account? Sign up</string>
+    <string name="signup_welcome_title">Create your account</string>
+    <string name="login_label_name">Display Name</string>
+    <string name="login_label_confirm_password">Confirm Password</string>
+    <string name="signup_btn_signup">Sign Up</string>
+    <string name="signup_footer_login">Already have an account? Log in</string>
     <string name="nav_cd_profile">User profile</string>
     <string name="nav_cd_settings">Settings</string>
+
+    <string name="welcome_back_continue">Continue</string>
+    <string name="welcome_back_change_account">Change account</string>
 
     <string name="home_section_news_board">News Board</string>
     <string name="home_section_upcoming_events">Upcoming Events  →</string>
@@ -154,4 +162,20 @@
     <string name="cd_back">Back</string>
     <string name="cd_delete">Delete</string>
     <string name="cd_close">Close</string>
+
+    <string name="flat_setup_title">Set up your flat</string>
+    <string name="flat_setup_subtitle">Create a new flat or join an existing one using an invite code</string>
+    <string name="flat_setup_create">Create new flat</string>
+    <string name="flat_setup_join">Join existing flat</string>
+    <string name="flat_setup_flat_name_label">Flat name</string>
+    <string name="flat_setup_flat_name_placeholder">e.g., Beach House, Downtown Flat</string>
+    <string name="flat_setup_invite_code_label">Invite code</string>
+    <string name="flat_setup_invite_code_placeholder">Enter 8-character code</string>
+    <string name="flat_setup_select_option">Please select an option above</string>
+    <string name="flat_setup_continue">Continue</string>
+    <string name="flat_setup_success">Flat created!</string>
+    <string name="flat_setup_invite_code">Invite code</string>
+    <string name="flat_setup_share_code">Share this code with your flatmates so they can join!</string>
+    <string name="login_button">Log In</string>
+    <string name="signup_button">sign up</string>
 </resources>
