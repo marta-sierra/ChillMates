@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,13 +25,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import es.uc3m.android.chillmates.LargeSectionHeader
-import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
 import kotlin.math.absoluteValue
 
@@ -177,14 +177,56 @@ private fun ExpensesRoute(
     onTicketClick: (String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        LargeSectionHeader(title = stringResource(R.string.expenses_title))
+        ExpensesHeaderSection(
+            title = stringResource(
+                id = when (state.title) {
+                    "expenses_title" -> R.string.expenses_title
+                    else -> R.string.expenses_title
+                }
+            ),
+            onBackClick = onBackClick
+        )
 
-        PageContentWrapper {
-            ExpensesContentSection(
-                expenses = state.expenses,
-                balances = state.balances,
-                onAddExpenseClick = onAddExpenseClick,
-                onTicketClick = onTicketClick
+        ExpensesContentSection(
+            expenses = state.expenses,
+            balances = state.balances,
+            onAddExpenseClick = onAddExpenseClick,
+            onTicketClick = onTicketClick
+        )
+    }
+}
+
+@Composable
+private fun ExpensesHeaderSection(
+    title: String,
+    onBackClick: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer,
+        tonalElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = stringResource(R.string.cd_back),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
     }
@@ -200,13 +242,13 @@ private fun ExpensesContentSection(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp)
-            .padding(top = 24.dp)
+            .padding(top = 8.dp)
     ) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(expenses, key = { it.id }) { expense ->
@@ -229,7 +271,8 @@ private fun ExpensesContentSection(
             balances = balances,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 16.dp, bottom = 16.dp)
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp)
         )
     }
 }
@@ -347,7 +390,7 @@ private fun BalanceCardItem(
             Text(
                 text = name,
                 style = MaterialTheme.typography.labelLarge,
-
+                textAlign = TextAlign.Start
             )
 
             Text(

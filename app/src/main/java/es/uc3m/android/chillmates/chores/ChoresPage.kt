@@ -17,26 +17,29 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import es.uc3m.android.chillmates.LargeSectionHeader
 import es.uc3m.android.chillmates.R
+import es.uc3m.android.chillmates.model.Chore
 
 @Composable
-fun ChoresPage(navController: NavController) {
-    // TODO: Read data from DB.
-    val flatmates = listOf("Me", "Marta", "Lorena", "Everyone")
-    val chores = remember {
-        mutableStateListOf(
-            Chore(1, "Clean the bathroom", "Marta", false),
-            Chore(2, "Take out the trash", "Me", false),
-            Chore(3, "Wash the dishes", "Lorena", true),
-            Chore(4, "Sweep the living room", "Everyone", false)
-        )
-    }
-
+fun ChoresPage(
+    navController: NavController,
+    // Inject the ViewModel here
+    viewModel: ChoresViewModel = viewModel()
+) {
+    // 1. Observe the real-time data from the ViewModel
+    val chores by viewModel.chores.collectAsState()
+    val flatmates by viewModel.flatmates.collectAsState()
+    val currentUserName by viewModel.currentUserName.collectAsState()
+    // UI Dialog States
     var showAddChoreDialog by remember { mutableStateOf(false) }
     var showReconfigureDialog by remember { mutableStateOf(false) }
     var choreToSwap by remember { mutableStateOf<Chore?>(null) }
+
+    // Optional: Load data if you haven't passed the flatId already from navigation
+    // LaunchedEffect(Unit) { viewModel.loadFlatData("SOME_FLAT_ID") }
 
     Column(modifier = Modifier.fillMaxSize()) {
         LargeSectionHeader(title = stringResource(R.string.chores_title))
@@ -51,21 +54,15 @@ fun ChoresPage(navController: NavController) {
             ) {
                 item {
                     Spacer(modifier = Modifier.height(32.dp))
-                    Text(
-                        text = stringResource(R.string.chores_subtitle),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
                 }
+
+                // Use the database-backed 'chores' list
                 items(chores) { chore ->
                     ChoreCard(
                         chore = chore,
+                        currentUserName = currentUserName,
                         onUpdateChore = { updatedChore ->
-                            val index = chores.indexOfFirst { it.id == updatedChore.id }
-                            if (index != -1) {
-                                chores[index] = updatedChore
-                            }
+                            viewModel.updateChoreStatus(updatedChore.id, updatedChore.isDone)
                         },
                         onSwapRequest = { choreToSwap = it }
                     )
@@ -114,13 +111,15 @@ fun ChoresPage(navController: NavController) {
         }
     }
 
+    // --- DIALOGS ---
+
     if (showAddChoreDialog) {
         AddChoreDialog(
             flatmates = flatmates,
             onDismiss = { showAddChoreDialog = false },
             onAdd = { title, assignee ->
-                val newId = (chores.maxOfOrNull { it.id } ?: 0) + 1
-                chores.add(Chore(newId, title, assignee, false))
+                // Call the ViewModel to save in Firebase
+                viewModel.addChore(title, assignee)
                 showAddChoreDialog = false
             }
         )
@@ -132,10 +131,8 @@ fun ChoresPage(navController: NavController) {
             flatmates = flatmates,
             onDismiss = { choreToSwap = null },
             onConfirmSwap = { newAssignee ->
-                val index = chores.indexOfFirst { it.id == chore.id }
-                if (index != -1) {
-                    chores[index] = chore.copy(assignee = newAssignee)
-                }
+                // Call ViewModel to update assignee
+                viewModel.swapChore(chore.id, newAssignee)
                 choreToSwap = null
             }
         )
@@ -147,8 +144,8 @@ fun ChoresPage(navController: NavController) {
             flatmates = flatmates,
             onDismiss = { showReconfigureDialog = false },
             onSave = { updatedList ->
-                chores.clear()
-                chores.addAll(updatedList)
+                // Save the whole reconfigured list to Firebase
+                viewModel.saveReconfiguredChores(updatedList)
                 showReconfigureDialog = false
             }
         )
@@ -166,7 +163,8 @@ fun AddChoreDialog(
     onAdd: (String, String) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
-    var assignee by remember { mutableStateOf(flatmates.first()) }
+    // Ensure assignee has a default fallback
+    var assignee by remember { mutableStateOf(flatmates.firstOrNull() ?: "Me") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -208,7 +206,10 @@ fun SwapChoreDialog(
     onDismiss: () -> Unit,
     onConfirmSwap: (String) -> Unit
 ) {
-    var selectedAssignee by remember { mutableStateOf(flatmates.first { it != chore.assignee }) }
+    // Determine the initially selected assignee safely
+    var selectedAssignee by remember {
+        mutableStateOf(flatmates.firstOrNull { it != chore.assignee } ?: chore.assignee)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -326,11 +327,12 @@ fun FlatmateDropdown(
 @Composable
 fun ChoreCard(
     chore: Chore,
+    currentUserName: String,
     onUpdateChore: (Chore) -> Unit,
     onSwapRequest: (Chore) -> Unit
 ) {
-    // TODO: Read data from DB.
-    val isMe = chore.assignee == "Me" || chore.assignee == "Everyone"
+    // TODO: Connect "Me" logic to the actual User ID if using authentication later
+    val isMe = chore.assignee == currentUserName || chore.assignee == "Everyone" || chore.assignee == "Me"
     val context = LocalContext.current
 
     Card(
@@ -386,7 +388,6 @@ fun ChoreCard(
                         IconButton(
                             onClick = {
                                 val intent = Intent(context, ChoreReminderReceiver::class.java).apply {
-                                    // FLAG: Key naming fixed to camelCase
                                     putExtra("choreTitle", chore.title)
                                     putExtra("assignee", chore.assignee)
                                 }
@@ -405,5 +406,3 @@ fun ChoreCard(
         }
     }
 }
-
-data class Chore(val id: Int, val title: String, val assignee: String, val isDone: Boolean)

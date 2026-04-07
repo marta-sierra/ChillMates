@@ -2,6 +2,7 @@ package es.uc3m.android.chillmates.repository
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FieldValue
+import es.uc3m.android.chillmates.model.Chore // Make sure to import Chore
 import es.uc3m.android.chillmates.model.Flat
 import es.uc3m.android.chillmates.model.FLATS_COLLECTION
 import es.uc3m.android.chillmates.model.USERS_COLLECTION
@@ -29,9 +30,9 @@ class FlatRepository {
             )
             val docRef = firestore.collection(FLATS_COLLECTION).document()
             flat.id = docRef.id
-            
+
             docRef.set(flat).await()
-            
+
             firestore.collection(USERS_COLLECTION).document(creatorId)
                 .update(
                     mapOf(
@@ -39,7 +40,7 @@ class FlatRepository {
                         "flatName" to name
                     )
                 ).await()
-            
+
             Result.success(flat)
         } catch (e: Exception) {
             Result.failure(e)
@@ -53,15 +54,15 @@ class FlatRepository {
                 .whereEqualTo("inviteCode", normalizedCode)
                 .get()
                 .await()
-            
+
             if (snapshot.isEmpty) {
                 return Result.failure(Exception("Flat not found with code: $normalizedCode"))
             }
-            
+
             val doc = snapshot.documents.first()
             val flat = doc.toObject(Flat::class.java)?.apply { id = doc.id }
                 ?: return Result.failure(Exception("Failed to parse flat data"))
-            
+
             Result.success(flat)
         } catch (e: Exception) {
             Result.failure(e)
@@ -75,15 +76,15 @@ class FlatRepository {
             if (flatResult.isFailure) {
                 return flatResult
             }
-            
+
             val flat = flatResult.getOrThrow()
             if (flat.memberIds.contains(userId)) {
                 return Result.failure(Exception("You are already a member of this flat"))
             }
-            
+
             firestore.collection(FLATS_COLLECTION).document(flat.id!!)
                 .update("memberIds", FieldValue.arrayUnion(userId)).await()
-            
+
             firestore.collection(USERS_COLLECTION).document(userId)
                 .update(
                     mapOf(
@@ -91,7 +92,7 @@ class FlatRepository {
                         "flatName" to flat.name
                     )
                 ).await()
-            
+
             val updatedFlat = flat.copy(memberIds = flat.memberIds + userId)
             Result.success(updatedFlat)
         } catch (e: Exception) {
@@ -116,19 +117,19 @@ class FlatRepository {
             if (flatResult.isFailure) {
                 return Result.failure(flatResult.exceptionOrNull()!!)
             }
-            
+
             val flat = flatResult.getOrThrow()
-            
+
             firestore.collection(FLATS_COLLECTION).document(flatId)
                 .update("memberIds", FieldValue.arrayRemove(userId)).await()
-            
+
             firestore.collection(USERS_COLLECTION).document(userId)
                 .update("flatId", null).await()
-            
+
             if (flat.memberIds.size == 1) {
                 firestore.collection(FLATS_COLLECTION).document(flatId).delete().await()
             }
-            
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -174,6 +175,17 @@ class FlatRepository {
                 }
             }
             Result.success(members)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // --- NEW FUNCTION: Update the chores array in Firebase ---
+    suspend fun updateChores(flatId: String, chores: List<Chore>): Result<Unit> {
+        return try {
+            firestore.collection(FLATS_COLLECTION).document(flatId)
+                .update("chores", chores).await()
+            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
