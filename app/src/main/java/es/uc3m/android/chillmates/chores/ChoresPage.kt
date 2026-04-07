@@ -6,6 +6,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
@@ -26,20 +29,48 @@ import es.uc3m.android.chillmates.model.Chore
 @Composable
 fun ChoresPage(
     navController: NavController,
-    // Inject the ViewModel here
     viewModel: ChoresViewModel = viewModel()
 ) {
-    // 1. Observe the real-time data from the ViewModel
     val chores by viewModel.chores.collectAsState()
     val flatmates by viewModel.flatmates.collectAsState()
     val currentUserName by viewModel.currentUserName.collectAsState()
-    // UI Dialog States
+
     var showAddChoreDialog by remember { mutableStateOf(false) }
     var showReconfigureDialog by remember { mutableStateOf(false) }
     var choreToSwap by remember { mutableStateOf<Chore?>(null) }
 
-    // Optional: Load data if you haven't passed the flatId already from navigation
-    // LaunchedEffect(Unit) { viewModel.loadFlatData("SOME_FLAT_ID") }
+    // --- NEW: State to track which week we are looking at (0 = Current) ---
+    var weekOffset by remember { mutableIntStateOf(0) }
+
+    // --- NEW: Calculate the chores to display based on the selected week ---
+    val displayedChores = remember(chores, flatmates, weekOffset) {
+        if (weekOffset == 0) {
+            chores // Current week: show actual database state
+        } else {
+            // Preview past/future weeks mathematically without changing the DB
+            val mates = flatmates.filter { it != "Everyone" }
+            if (mates.isEmpty()) {
+                chores
+            } else {
+                chores.map { chore ->
+                    if (chore.assignee == "Everyone") {
+                        chore.copy(isDone = false)
+                    } else {
+                        val currentIndex = mates.indexOf(chore.assignee)
+                        val newAssignee = if (currentIndex != -1) {
+                            // Kotlin math to handle negative offsets (past weeks) safely
+                            val size = mates.size
+                            val shiftedIndex = (((currentIndex + weekOffset) % size) + size) % size
+                            mates[shiftedIndex]
+                        } else {
+                            chore.assignee
+                        }
+                        chore.copy(assignee = newAssignee, isDone = false)
+                    }
+                }
+            }
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         LargeSectionHeader(title = stringResource(R.string.chores_title))
@@ -52,15 +83,45 @@ fun ChoresPage(
                     .padding(horizontal = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+
+                // --- NEW: Week Navigator Header ---
                 item {
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        IconButton(onClick = { weekOffset-- }) {
+                            Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Previous Week")
+                        }
+
+                        Text(
+                            text = when {
+                                weekOffset == 0 -> "Current Week"
+                                weekOffset == 1 -> "Next Week"
+                                weekOffset == -1 -> "Last Week"
+                                weekOffset > 1 -> "In $weekOffset weeks"
+                                else -> "${-weekOffset} weeks ago"
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (weekOffset == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        IconButton(onClick = { weekOffset++ }) {
+                            Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Next Week")
+                        }
+                    }
                 }
 
-                // Use the database-backed 'chores' list
-                items(chores) { chore ->
+                // Show the preview or current chores
+                items(displayedChores) { chore ->
                     ChoreCard(
                         chore = chore,
                         currentUserName = currentUserName,
+                        isPreview = weekOffset != 0, // Flag to disable buttons if we are looking at the past/future
                         onUpdateChore = { updatedChore ->
                             viewModel.updateChoreStatus(updatedChore.id, updatedChore.isDone)
                         },
@@ -81,6 +142,7 @@ fun ChoresPage(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+
                     OutlinedButton(
                         onClick = { showReconfigureDialog = true },
                         modifier = Modifier.fillMaxWidth()
@@ -111,14 +173,13 @@ fun ChoresPage(
         }
     }
 
-    // --- DIALOGS ---
+    // --- DIALOGS (Add, Swap, Reconfigure) remain the same ---
 
     if (showAddChoreDialog) {
         AddChoreDialog(
             flatmates = flatmates,
             onDismiss = { showAddChoreDialog = false },
             onAdd = { title, assignee ->
-                // Call the ViewModel to save in Firebase
                 viewModel.addChore(title, assignee)
                 showAddChoreDialog = false
             }
@@ -131,7 +192,6 @@ fun ChoresPage(
             flatmates = flatmates,
             onDismiss = { choreToSwap = null },
             onConfirmSwap = { newAssignee ->
-                // Call ViewModel to update assignee
                 viewModel.swapChore(chore.id, newAssignee)
                 choreToSwap = null
             }
@@ -144,7 +204,6 @@ fun ChoresPage(
             flatmates = flatmates,
             onDismiss = { showReconfigureDialog = false },
             onSave = { updatedList ->
-                // Save the whole reconfigured list to Firebase
                 viewModel.saveReconfiguredChores(updatedList)
                 showReconfigureDialog = false
             }
@@ -152,101 +211,46 @@ fun ChoresPage(
     }
 }
 
-/**
- * Dialog to input details for a new chore assignment.
- */
+// ... Dialog Sub-components (AddChoreDialog, SwapChoreDialog, ReconfigureChoresDialog, FlatmateDropdown) stay exactly the same ...
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddChoreDialog(
-    flatmates: List<String>,
-    onDismiss: () -> Unit,
-    onAdd: (String, String) -> Unit
-) {
+fun AddChoreDialog(flatmates: List<String>, onDismiss: () -> Unit, onAdd: (String, String) -> Unit) {
     var title by remember { mutableStateOf("") }
-    // Ensure assignee has a default fallback
     var assignee by remember { mutableStateOf(flatmates.firstOrNull() ?: "Me") }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.dialog_add_chore_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text(stringResource(R.string.label_chore_title)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                FlatmateDropdown(
-                    selected = assignee,
-                    flatmates = flatmates,
-                    onSelected = { assignee = it }
-                )
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text(stringResource(R.string.label_chore_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                FlatmateDropdown(selected = assignee, flatmates = flatmates, onSelected = { assignee = it })
             }
         },
-        confirmButton = {
-            Button(
-                onClick = { if (title.isNotBlank()) onAdd(title, assignee) }
-            ) { Text(stringResource(R.string.btn_add)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
-        }
+        confirmButton = { Button(onClick = { if (title.isNotBlank()) onAdd(title, assignee) }) { Text(stringResource(R.string.btn_add)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) } }
     )
 }
 
-/**
- * Dialog to reassign a specific chore to a different flatmate.
- */
 @Composable
-fun SwapChoreDialog(
-    chore: Chore,
-    flatmates: List<String>,
-    onDismiss: () -> Unit,
-    onConfirmSwap: (String) -> Unit
-) {
-    // Determine the initially selected assignee safely
-    var selectedAssignee by remember {
-        mutableStateOf(flatmates.firstOrNull { it != chore.assignee } ?: chore.assignee)
-    }
-
+fun SwapChoreDialog(chore: Chore, flatmates: List<String>, onDismiss: () -> Unit, onConfirmSwap: (String) -> Unit) {
+    var selectedAssignee by remember { mutableStateOf(flatmates.firstOrNull { it != chore.assignee } ?: chore.assignee) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.dialog_swap_chore_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(stringResource(R.string.dialog_swap_chore_text, chore.title))
-                FlatmateDropdown(
-                    selected = selectedAssignee,
-                    flatmates = flatmates,
-                    onSelected = { selectedAssignee = it }
-                )
+                FlatmateDropdown(selected = selectedAssignee, flatmates = flatmates, onSelected = { selectedAssignee = it })
             }
         },
-        confirmButton = {
-            Button(onClick = { onConfirmSwap(selectedAssignee) }) {
-                Text(stringResource(R.string.btn_swap))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
-        }
+        confirmButton = { Button(onClick = { onConfirmSwap(selectedAssignee) }) { Text(stringResource(R.string.btn_swap)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) } }
     )
 }
 
-/**
- * Screen-overlay to adjust all current chore assignments at once.
- */
 @Composable
-fun ReconfigureChoresDialog(
-    currentChores: List<Chore>,
-    flatmates: List<String>,
-    onDismiss: () -> Unit,
-    onSave: (List<Chore>) -> Unit
-) {
+fun ReconfigureChoresDialog(currentChores: List<Chore>, flatmates: List<String>, onDismiss: () -> Unit, onSave: (List<Chore>) -> Unit) {
     val tempChores = remember { mutableStateListOf(*currentChores.toTypedArray()) }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.btn_reconfigure_chores)) },
@@ -257,82 +261,38 @@ fun ReconfigureChoresDialog(
                     Column {
                         Text(text = chore.title, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(4.dp))
-                        FlatmateDropdown(
-                            selected = chore.assignee,
-                            flatmates = flatmates,
-                            onSelected = { newAssignee ->
-                                tempChores[index] = chore.copy(assignee = newAssignee)
-                            }
-                        )
+                        FlatmateDropdown(selected = chore.assignee, flatmates = flatmates, onSelected = { newAssignee -> tempChores[index] = chore.copy(assignee = newAssignee) })
                     }
                 }
             }
         },
-        confirmButton = {
-            Button(onClick = { onSave(tempChores.toList()) }) {
-                Text(stringResource(R.string.btn_save))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
-        }
+        confirmButton = { Button(onClick = { onSave(tempChores.toList()) }) { Text(stringResource(R.string.btn_save)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) } }
     )
 }
 
-/**
- * Custom dropdown menu for selecting a flatmate from a list.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FlatmateDropdown(
-    selected: String,
-    flatmates: List<String>,
-    onSelected: (String) -> Unit
-) {
+fun FlatmateDropdown(selected: String, flatmates: List<String>, onSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded }
-    ) {
-        OutlinedTextField(
-            value = selected,
-            onValueChange = {},
-            readOnly = true,
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .menuAnchor()
-                .fillMaxWidth()
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            flatmates.forEach { mate ->
-                DropdownMenuItem(
-                    text = { Text(mate) },
-                    onClick = {
-                        onSelected(mate)
-                        expanded = false
-                    }
-                )
-            }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
+        OutlinedTextField(value = selected, onValueChange = {}, readOnly = true, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }, modifier = Modifier.menuAnchor().fillMaxWidth())
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            flatmates.forEach { mate -> DropdownMenuItem(text = { Text(mate) }, onClick = { onSelected(mate); expanded = false }) }
         }
     }
 }
 
-/**
- * Card representing an individual chore with status toggles and reminder actions.
- */
 @Composable
 fun ChoreCard(
     chore: Chore,
     currentUserName: String,
+    isPreview: Boolean, // --- NEW FLAG ---
     onUpdateChore: (Chore) -> Unit,
     onSwapRequest: (Chore) -> Unit
 ) {
-    // TODO: Connect "Me" logic to the actual User ID if using authentication later
-    val isMe = chore.assignee == currentUserName || chore.assignee == "Everyone" || chore.assignee == "Me"
+    // If we are looking at past/future weeks, we disable interactions
+    val isMe = (chore.assignee == currentUserName || chore.assignee == "Everyone" || chore.assignee == "Me") && !isPreview
     val context = LocalContext.current
 
     Card(
@@ -353,7 +313,7 @@ fun ChoreCard(
                     text = chore.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    textDecoration = if (chore.isDone) TextDecoration.LineThrough else null
+                    textDecoration = if (chore.isDone && !isPreview) TextDecoration.LineThrough else null
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -362,46 +322,40 @@ fun ChoreCard(
                 )
             }
 
-            if (isMe) {
-                Checkbox(
-                    checked = chore.isDone,
-                    onCheckedChange = { onUpdateChore(chore.copy(isDone = it)) }
-                )
-            } else {
-                if (chore.isDone) {
-                    TextButton(
-                        onClick = { onUpdateChore(chore.copy(isDone = false)) }
-                    ) {
-                        Text(
-                            text = stringResource(R.string.btn_redo),
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
+            // Only show interactive elements if we are in the "Current Week"
+            if (!isPreview) {
+                if (isMe) {
+                    Checkbox(
+                        checked = chore.isDone,
+                        onCheckedChange = { onUpdateChore(chore.copy(isDone = it)) }
+                    )
                 } else {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(
-                            onClick = { onSwapRequest(chore) }
-                        ) {
-                            Text(stringResource(R.string.btn_swap))
+                    if (chore.isDone) {
+                        TextButton(onClick = { onUpdateChore(chore.copy(isDone = false)) }) {
+                            Text(stringResource(R.string.btn_redo), color = MaterialTheme.colorScheme.error)
                         }
-
-                        IconButton(
-                            onClick = {
-                                val intent = Intent(context, ChoreReminderReceiver::class.java).apply {
-                                    putExtra("choreTitle", chore.title)
-                                    putExtra("assignee", chore.assignee)
-                                }
-                                context.sendBroadcast(intent)
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = { onSwapRequest(chore) }) {
+                                Text(stringResource(R.string.btn_swap))
                             }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Notifications,
-                                contentDescription = stringResource(R.string.cd_send_reminder),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+                            IconButton(
+                                onClick = {
+                                    val intent = Intent(context, ChoreReminderReceiver::class.java).apply {
+                                        putExtra("choreTitle", chore.title)
+                                        putExtra("assignee", chore.assignee)
+                                    }
+                                    context.sendBroadcast(intent)
+                                }
+                            ) {
+                                Icon(Icons.Default.Notifications, contentDescription = stringResource(R.string.cd_send_reminder), tint = MaterialTheme.colorScheme.primary)
+                            }
                         }
                     }
                 }
+            } else {
+                // If it's a preview, show a disabled checkbox just to indicate it's a pending chore
+                Checkbox(checked = false, onCheckedChange = null, enabled = false)
             }
         }
     }

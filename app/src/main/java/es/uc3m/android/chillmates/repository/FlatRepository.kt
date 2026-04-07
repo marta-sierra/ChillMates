@@ -181,10 +181,16 @@ class FlatRepository {
     }
 
     // --- NEW FUNCTION: Update the chores array in Firebase ---
-    suspend fun updateChores(flatId: String, chores: List<Chore>): Result<Unit> {
+    suspend fun updateChores(flatId: String, chores: List<Chore>, newRotationTimestamp: Long? = null): Result<Unit> {
         return try {
-            firestore.collection(FLATS_COLLECTION).document(flatId)
-                .update("chores", chores).await()
+            val updates = mutableMapOf<String, Any>("chores" to chores)
+
+            // If a timestamp is provided, update it in Firebase too
+            if (newRotationTimestamp != null) {
+                updates["lastRotationTimestamp"] = newRotationTimestamp
+            }
+
+            firestore.collection(FLATS_COLLECTION).document(flatId).update(updates).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

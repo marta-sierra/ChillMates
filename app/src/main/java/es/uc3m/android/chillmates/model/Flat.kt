@@ -17,5 +17,6 @@ data class Flat(
     val name: String = "",
     val inviteCode: String = "",
     val memberIds: List<String> = emptyList(),
-    val chores: List<Chore> = emptyList()
+    val chores: List<Chore> = emptyList(),
+    var lastRotationTimestamp: Long = 0L
 )
