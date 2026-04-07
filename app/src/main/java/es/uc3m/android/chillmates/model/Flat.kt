@@ -1,7 +1,11 @@
 package es.uc3m.android.chillmates.model
 
+import com.google.firebase.firestore.DocumentId
+import com.google.firebase.firestore.IgnoreExtraProperties
+
+@IgnoreExtraProperties
 data class Flat(
-    var id: String? = null,
+    @DocumentId var id: String? = null,
     val name: String = "",
     val inviteCode: String = "",
     val memberIds: List<String> = emptyList(),

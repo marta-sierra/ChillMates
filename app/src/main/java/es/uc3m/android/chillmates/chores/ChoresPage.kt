@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import es.uc3m.android.chillmates.LargeSectionHeader
+import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
 
 @Composable
@@ -41,73 +42,75 @@ fun ChoresPage(navController: NavController) {
     Column(modifier = Modifier.fillMaxSize()) {
         LargeSectionHeader(title = stringResource(R.string.chores_title))
 
-        Column(modifier = Modifier.fillMaxSize()) {
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item {
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Text(
-                        text = stringResource(R.string.chores_subtitle),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
-                items(chores) { chore ->
-                    ChoreCard(
-                        chore = chore,
-                        onUpdateChore = { updatedChore ->
-                            val index = chores.indexOfFirst { it.id == updatedChore.id }
-                            if (index != -1) {
-                                chores[index] = updatedChore
-                            }
-                        },
-                        onSwapRequest = { choreToSwap = it }
-                    )
-                }
-            }
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.background,
-                tonalElevation = 2.dp,
-                shadowElevation = 8.dp
-            ) {
-                Column(
+        PageContentWrapper {
+            Column(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
                     modifier = Modifier
+                        .weight(1f)
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(horizontal = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    OutlinedButton(
-                        onClick = { showReconfigureDialog = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = stringResource(R.string.cd_reconfigure),
-                            modifier = Modifier.size(18.dp)
+                    item {
+                        Spacer(modifier = Modifier.height(32.dp))
+                        Text(
+                            text = stringResource(R.string.chores_subtitle),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.btn_reconfigure_chores))
                     }
-
-                    Button(
-                        onClick = { showAddChoreDialog = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = stringResource(R.string.cd_add_chore),
-                            modifier = Modifier.size(18.dp)
+                    items(chores) { chore ->
+                        ChoreCard(
+                            chore = chore,
+                            onUpdateChore = { updatedChore ->
+                                val index = chores.indexOfFirst { it.id == updatedChore.id }
+                                if (index != -1) {
+                                    chores[index] = updatedChore
+                                }
+                            },
+                            onSwapRequest = { choreToSwap = it }
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.btn_add_new_chore))
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.background,
+                    tonalElevation = 2.dp,
+                    shadowElevation = 8.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { showReconfigureDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = stringResource(R.string.cd_reconfigure),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.btn_reconfigure_chores))
+                        }
+
+                        Button(
+                            onClick = { showAddChoreDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = stringResource(R.string.cd_add_chore),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.btn_add_new_chore))
+                        }
                     }
                 }
             }
@@ -300,7 +303,7 @@ fun FlatmateDropdown(
             readOnly = true,
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
-                .menuAnchor()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                 .fillMaxWidth()
         )
         ExposedDropdownMenu(

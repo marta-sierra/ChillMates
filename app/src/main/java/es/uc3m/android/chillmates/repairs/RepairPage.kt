@@ -24,11 +24,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import es.uc3m.android.chillmates.LargeSectionHeader
+import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
 
 @Composable
 fun RepairPage(navController: NavController) {
-    //TODO: Read from DB
     val repairs = listOf(
         Repair("Bathroom door", "Loose hinge. Landlord notified.", "Pending"),
         Repair("Washing machine", "Makes weird noise when spinning.", "In progress"),
@@ -39,7 +40,6 @@ fun RepairPage(navController: NavController) {
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     val context = LocalContext.current
 
-    // Launcher to pick a single image from storage/camera via system picker.
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -47,170 +47,138 @@ fun RepairPage(navController: NavController) {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        RepairHeaderSection(title = stringResource(R.string.repairs_title))
+        LargeSectionHeader(title = stringResource(R.string.repairs_title))
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.repairs_section_current),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            items(repairs) { repair ->
-                RepairCard(repair)
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            item {
-                Text(
-                    text = stringResource(R.string.repairs_section_new_request),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
-
-            item {
-                OutlinedTextField(
-                    value = requestText,
-                    onValueChange = { requestText = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp),
-                    placeholder = { Text(stringResource(R.string.repairs_placeholder_describe)) },
-                    shape = MaterialTheme.shapes.medium
-                )
-            }
-
-            item {
-                TextButton(
-                    onClick = { imagePickerLauncher.launch("image/*") },
-                    modifier = Modifier.padding(top = 4.dp)
-                ) {
-                    Text("📷", style = MaterialTheme.typography.bodyLarge)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    val label = if (selectedImageUri == null)
-                        stringResource(R.string.repairs_btn_add_images)
-                    else
-                        stringResource(R.string.repairs_btn_retake_photo)
-                    Text(label)
-                }
-            }
-
-            if (selectedImageUri != null) {
+        PageContentWrapper {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 item {
-                    AsyncImage(
-                        model = selectedImageUri,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp)
-                            .clip(MaterialTheme.shapes.medium),
-                        contentScale = ContentScale.Crop
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.repairs_section_current),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
-            }
 
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 32.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = { /* TODO: Implement AI Review logic */ },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.repairs_btn_ai_review))
+                items(repairs) { repair ->
+                    RepairCard(repair)
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                item {
+                    Text(
+                        text = stringResource(R.string.repairs_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
+                item {
+                    OutlinedTextField(
+                        value = requestText,
+                        onValueChange = { requestText = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp),
+                        placeholder = { Text(stringResource(R.string.repairs_placeholder_describe)) },
+                        shape = MaterialTheme.shapes.medium
+                    )
+                }
+
+                item {
+                    Column {
+                        TextButton(
+                            onClick = { imagePickerLauncher.launch("image/*") },
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            Text("📷", style = MaterialTheme.typography.bodyLarge)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            val label = if (selectedImageUri == null)
+                                stringResource(R.string.repairs_btn_add_images)
+                            else
+                                stringResource(R.string.repairs_btn_retake_photo)
+                            Text(label)
+                        }
+
+                        // Image Preview if selected
+                        selectedImageUri?.let { uri ->
+                            AsyncImage(
+                                model = uri,
+                                contentDescription = "Selected Image",
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .clip(MaterialTheme.shapes.small)
+                                    .padding(vertical = 8.dp),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
                     }
+                }
 
-                    //Sends the repair request via an Email Intent.
-
-                    Button(
-                        onClick = {
-                            try {
-                                val subject = "Repair Request: Shared Flat"
-                                val body = "Issue description:\\n$requestText"
-
-                                if (selectedImageUri != null) {
-                                    val emailIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "message/rfc822"
-                                        putExtra(Intent.EXTRA_EMAIL, arrayOf("landlord@chillmates.app"))
-                                        putExtra(Intent.EXTRA_SUBJECT, subject)
-                                        putExtra(Intent.EXTRA_TEXT, body)
-                                        putExtra(Intent.EXTRA_STREAM, selectedImageUri)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    context.startActivity(Intent.createChooser(emailIntent, "Send email..."))
-                                } else {
-                                    val uriText = "mailto:landlord@chillmates.app" +
-                                            "?subject=" + Uri.encode(subject) +
-                                            "&body=" + Uri.encode(body)
-                                    val emailIntent = Intent(Intent.ACTION_SENDTO, Uri.parse(uriText))
-                                    context.startActivity(emailIntent)
-                                }
-                            } catch (e: Exception) {
-                                Toast.makeText(
-                                    context,
-                                    "No email app installed to handle this request.",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
-                        },
-                        modifier = Modifier.weight(1f)
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp, bottom = 32.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Send,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.repairs_btn_send))
+                        OutlinedButton(
+                            onClick = { /* AI logic */ },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.repairs_btn_ai_review))
+                        }
+
+                        Button(
+                            onClick = {
+                                val subject = "Repair Request: ${requestText.take(30)}"
+                                val body = "Issue: $requestText\n\nSent from ChillMates app"
+
+                                try {
+                                    if (selectedImageUri != null) {
+                                        val emailIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "message/rfc822"
+                                            putExtra(Intent.EXTRA_EMAIL, arrayOf("landlord@chillmates.app"))
+                                            putExtra(Intent.EXTRA_SUBJECT, subject)
+                                            putExtra(Intent.EXTRA_TEXT, body)
+                                            putExtra(Intent.EXTRA_STREAM, selectedImageUri)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(Intent.createChooser(emailIntent, "Send email..."))
+                                    } else {
+                                        val uriText = "mailto:landlord@chillmates.app" +
+                                                "?subject=" + Uri.encode(subject) +
+                                                "&body=" + Uri.encode(body)
+                                        val emailIntent = Intent(Intent.ACTION_SENDTO, Uri.parse(uriText))
+                                        context.startActivity(emailIntent)
+                                    }
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "No email app installed.", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.repairs_btn_send))
+                        }
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun RepairHeaderSection(title: String) {
-    Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
-        tonalElevation = 0.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(top = 24.dp, bottom = 16.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
         }
     }
 }
@@ -249,16 +217,25 @@ fun RepairCard(repair: Repair) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Badge(
-                    containerColor = when(repair.status) {
-                        "Resolved" -> MaterialTheme.colorScheme.tertiary
-                        "In progress" -> MaterialTheme.colorScheme.secondary
-                        else -> MaterialTheme.colorScheme.error
+
+                // Fixed Badge implementation
+                Surface(
+                    shape = MaterialTheme.shapes.extraSmall,
+                    color = when(repair.status) {
+                        "Resolved" -> MaterialTheme.colorScheme.tertiaryContainer
+                        "In progress" -> MaterialTheme.colorScheme.secondaryContainer
+                        else -> MaterialTheme.colorScheme.errorContainer
                     }
                 ) {
                     Text(
                         text = repair.status,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        color = when(repair.status) {
+                            "Resolved" -> MaterialTheme.colorScheme.onTertiaryContainer
+                            "In progress" -> MaterialTheme.colorScheme.onSecondaryContainer
+                            else -> MaterialTheme.colorScheme.onErrorContainer
+                        }
                     )
                 }
             }
