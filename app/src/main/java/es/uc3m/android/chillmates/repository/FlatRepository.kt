@@ -2,9 +2,11 @@ package es.uc3m.android.chillmates.repository
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FieldValue
-import es.uc3m.android.chillmates.model.Chore // Make sure to import Chore
+import es.uc3m.android.chillmates.model.Chore
 import es.uc3m.android.chillmates.model.Expense
 import es.uc3m.android.chillmates.model.Flat
+import es.uc3m.android.chillmates.model.Notice
+import es.uc3m.android.chillmates.model.UpcomingEvent
 import es.uc3m.android.chillmates.model.FLATS_COLLECTION
 import es.uc3m.android.chillmates.model.USERS_COLLECTION
 import kotlinx.coroutines.channels.awaitClose
@@ -168,9 +170,10 @@ class FlatRepository {
         return try {
             val members = memberIds.mapNotNull { userId ->
                 try {
+                    // Avoid explicit casting by referencing your model properly
                     val doc = firestore.collection(USERS_COLLECTION).document(userId).get().await()
-                    val user = doc.toObject(es.uc3m.android.chillmates.model.User::class.java)
-                    user?.let { userId to it.displayName }
+                    val displayName = doc.getString("displayName") ?: "Unknown"
+                    userId to displayName
                 } catch (e: Exception) {
                     null
                 }
@@ -181,7 +184,11 @@ class FlatRepository {
         }
     }
 
-    // --- NEW FUNCTION: Update the chores array in Firebase ---
+    // =========================================================================
+    // FEATURE UPDATES (CHORES, EXPENSES, HOME)
+    // =========================================================================
+
+    // Update Chores (includes the optional rotation timestamp for auto-rotation)
     suspend fun updateChores(flatId: String, chores: List<Chore>, newRotationTimestamp: Long? = null): Result<Unit> {
         return try {
             val updates = mutableMapOf<String, Any>("chores" to chores)
@@ -197,10 +204,32 @@ class FlatRepository {
             Result.failure(e)
         }
     }
+
+    // Update Expenses
     suspend fun updateExpenses(flatId: String, expenses: List<Expense>): Result<Unit> {
         return try {
             firestore.collection(FLATS_COLLECTION).document(flatId)
                 .update("expenses", expenses).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // Update Home Notices
+    suspend fun updateNotices(flatId: String, notices: List<Notice>): Result<Unit> {
+        return try {
+            firestore.collection(FLATS_COLLECTION).document(flatId).update("notices", notices).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // Update Home Events
+    suspend fun updateEvents(flatId: String, events: List<UpcomingEvent>): Result<Unit> {
+        return try {
+            firestore.collection(FLATS_COLLECTION).document(flatId).update("events", events).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
