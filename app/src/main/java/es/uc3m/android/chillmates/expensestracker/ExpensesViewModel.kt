@@ -6,90 +6,112 @@ import androidx.lifecycle.ViewModel
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import es.uc3m.android.chillmates.model.Expense
+import es.uc3m.android.chillmates.model.USERS_COLLECTION
+import es.uc3m.android.chillmates.repository.FlatRepository
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
-/**
- * UI model representing an expense entry in the list.
- */
-@Immutable
-data class ExpenseUi(
-    val id: String,
-    val title: String,
-    val ticketLabel: String,
-    val amount: Double,
-    val paidBy: String,
-    val ticketUri: String? = null,
-    val splitBetween: List<String> = emptyList()
-)
-
-/**
- * UI model representing a flatmate's calculated debt or credit.
- */
 @Immutable
 data class BalanceUi(
     val name: String,
     val balance: Double
 )
 
-/**
- * State holder for the Expenses screen, managing the list, balances, and shared flatmate data.
- */
 @Immutable
 data class ExpensesUiState(
     val title: String = "expenses_title",
-    val expenses: List<ExpenseUi> = emptyList(),
+    val expenses: List<Expense> = emptyList(),
     val balances: List<BalanceUi> = emptyList(),
-    // TODO: Read from DB
-    val availableFlatmates: List<String> = listOf("MARTA", "FRAN", "LORENA", "ALEX", "ME")
+    val availableFlatmates: List<String> = emptyList()
 )
 
-/**
- * Sealed class defining actions triggered by ticket interaction.
- */
 sealed class TicketAction {
     data object PickTicketImage : TicketAction()
     data class ViewTicket(val uri: Uri) : TicketAction()
 }
 
-class ExpensesViewModel : ViewModel() {
-    var uiState by mutableStateOf(
-        ExpensesUiState(
-            // TODO: Read from DB
-            expenses = listOf(
-                ExpenseUi("1", "Weekly Bread & Milk", "ticket_see_label", 5.50, "MARTA", splitBetween = listOf("MARTA", "FRAN", "LORENA", "ALEX", "ME")),
-                ExpenseUi("2", "IKEA Cutlery Set", "ticket_add_label", 45.63, "MARTA", splitBetween = listOf("MARTA", "FRAN", "LORENA", "ALEX", "ME")),
-                ExpenseUi("3", "Groceries (Mercadona)", "ticket_see_label", 82.20, "FRAN", splitBetween = listOf("FRAN", "LORENA", "ME")),
-                ExpenseUi("4", "Fiber Internet", "ticket_add_label", 29.99, "LORENA", splitBetween = listOf("MARTA", "FRAN", "LORENA", "ALEX", "ME"))
-            )
-        )
-    )
+class ExpensesViewModel(
+    private val repository: FlatRepository = FlatRepository()
+) : ViewModel() {
+
+    var uiState by mutableStateOf(ExpensesUiState())
         private set
 
+    private var currentFlatId: String? = null
+
+    private val auth = FirebaseAuth.getInstance()
+    private val db = FirebaseFirestore.getInstance()
+
     init {
-        recalculateBalances()
+        loadUserAndFlatData()
     }
 
-    /**
-     * Adds a new expense provided by AddExpenseActivity and updates the financial balances.
-     */
-    fun onExpenseAdded(title: String, amount: Double, paidBy: String, splitBetween: List<String>) {
-        val newId = System.currentTimeMillis().toString() // Use timestamp for unique identification
+    private fun loadUserAndFlatData() {
+        viewModelScope.launch {
+            val userId = auth.currentUser?.uid ?: return@launch
+            try {
+                val userDoc = db.collection(USERS_COLLECTION).document(userId).get().await()
+                val flatId = userDoc.getString("flatId")
 
-        val newExpense = ExpenseUi(
+                if (flatId != null) {
+                    currentFlatId = flatId
+
+                    repository.observeFlat(flatId).collect { flat ->
+                        if (flat != null) {
+                            // Get real names for balances and split options
+                            val membersResult = repository.getMemberDetails(flat.memberIds)
+                            val memberNames = if (membersResult.isSuccess) {
+                                membersResult.getOrNull()?.map { it.second } ?: emptyList()
+                            } else {
+                                emptyList()
+                            }
+
+                            // Update UI state with real database info
+                            uiState = uiState.copy(
+                                expenses = flat.expenses,
+                                availableFlatmates = memberNames
+                            )
+
+                            // Calculate debts and credits dynamically
+                            recalculateBalances()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun onExpenseAdded(title: String, amount: Double, paidBy: String, splitBetween: List<String>) {
+        val flatId = currentFlatId ?: return
+        val newId = System.currentTimeMillis().toString()
+
+        val newExpense = Expense(
             id = newId,
             title = title,
-            ticketLabel = "ticket_add_label",
             amount = amount,
             paidBy = paidBy,
-            splitBetween = splitBetween
+            splitBetween = splitBetween,
+            ticketUri = null
         )
 
-        uiState = uiState.copy(expenses = uiState.expenses + newExpense)
+        val updatedList = uiState.expenses + newExpense
+
+        // OPTIMISTIC UPDATE
+        uiState = uiState.copy(expenses = updatedList)
         recalculateBalances()
+
+        // SAVE TO FIREBASE
+        viewModelScope.launch {
+            repository.updateExpenses(flatId, updatedList)
+        }
     }
 
-    /**
-     * Decides whether to open the gallery for a new upload or view an existing receipt.
-     */
     fun onTicketRequested(expenseId: String): TicketAction {
         val expense = uiState.expenses.firstOrNull { it.id == expenseId }
             ?: return TicketAction.PickTicketImage
@@ -101,30 +123,26 @@ class ExpensesViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Updates an expense with a newly selected receipt URI and toggles the UI label.
-     */
     fun onTicketSelected(expenseId: String, uri: Uri) {
-        uiState = uiState.copy(
-            expenses = uiState.expenses.map { e ->
-                if (e.id == expenseId) {
-                    e.copy(
-                        ticketUri = uri.toString(),
-                        ticketLabel = "ticket_see_label"
-                    )
-                } else e
-            }
-        )
+        val flatId = currentFlatId ?: return
+
+        val updatedList = uiState.expenses.map { e ->
+            if (e.id == expenseId) e.copy(ticketUri = uri.toString()) else e
+        }
+
+        // OPTIMISTIC UPDATE
+        uiState = uiState.copy(expenses = updatedList)
+
+        // SAVE TO FIREBASE
+        viewModelScope.launch {
+            repository.updateExpenses(flatId, updatedList)
+        }
     }
 
-    /**
-     * Core logic to calculate net balances across all flatmates.
-     * Creditors get positive values, debtors get negative values.
-     */
     private fun recalculateBalances() {
         val totals = mutableMapOf<String, Double>()
 
-        // Initialize every flatmate with zero
+        // Initialize everyone with 0
         uiState.availableFlatmates.forEach { totals[it] = 0.0 }
 
         uiState.expenses.forEach { expense ->
@@ -135,21 +153,48 @@ class ExpensesViewModel : ViewModel() {
             if (participants.isNotEmpty()) {
                 val share = amount / participants.size
 
-                // Payer gets credit for the full amount
                 totals[payer] = (totals[payer] ?: 0.0) + amount
-
-                // Everyone in the split owes their share
                 participants.forEach { person ->
                     totals[person] = (totals[person] ?: 0.0) - share
                 }
             }
         }
 
-        // Calculation results go to the UI state, sorted by highest balance
         val newBalances = totals.map { (name, balance) ->
             BalanceUi(name, balance)
         }.sortedByDescending { it.balance }
 
         uiState = uiState.copy(balances = newBalances)
+    }
+    // Add this function inside ExpensesViewModel class
+    fun addTestExpenses() {
+        val flatId = currentFlatId ?: return
+
+        // Create a list of sample expenses
+        val testExpenses = listOf(
+            Expense(
+                id = System.currentTimeMillis().toString() + "_1",
+                title = "Weekly Supermarket",
+                amount = 54.20,
+                paidBy = uiState.availableFlatmates.firstOrNull() ?: "Me",
+                splitBetween = uiState.availableFlatmates,
+                ticketUri = null
+            ),
+            Expense(
+                id = System.currentTimeMillis().toString() + "_2",
+                title = "Fiber Internet",
+                amount = 29.99,
+                paidBy = uiState.availableFlatmates.lastOrNull() ?: "Me",
+                splitBetween = uiState.availableFlatmates,
+                ticketUri = null
+            )
+        )
+
+        // Append the new test expenses to the current list and update Firebase
+        val updatedList = uiState.expenses + testExpenses
+
+        viewModelScope.launch {
+            repository.updateExpenses(flatId, updatedList)
+        }
     }
 }

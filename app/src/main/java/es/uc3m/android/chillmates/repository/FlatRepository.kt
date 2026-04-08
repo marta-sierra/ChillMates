@@ -3,6 +3,7 @@ package es.uc3m.android.chillmates.repository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FieldValue
 import es.uc3m.android.chillmates.model.Chore // Make sure to import Chore
+import es.uc3m.android.chillmates.model.Expense
 import es.uc3m.android.chillmates.model.Flat
 import es.uc3m.android.chillmates.model.FLATS_COLLECTION
 import es.uc3m.android.chillmates.model.USERS_COLLECTION
@@ -191,6 +192,15 @@ class FlatRepository {
             }
 
             firestore.collection(FLATS_COLLECTION).document(flatId).update(updates).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    suspend fun updateExpenses(flatId: String, expenses: List<Expense>): Result<Unit> {
+        return try {
+            firestore.collection(FLATS_COLLECTION).document(flatId)
+                .update("expenses", expenses).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

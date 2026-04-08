@@ -32,6 +32,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import es.uc3m.android.chillmates.R
+import es.uc3m.android.chillmates.model.Expense
 import kotlin.math.absoluteValue
 
 @Composable
@@ -234,7 +235,7 @@ private fun ExpensesHeaderSection(
 
 @Composable
 private fun ExpensesContentSection(
-    expenses: List<ExpenseUi>,
+    expenses: List<Expense>,
     balances: List<BalanceUi>,
     onAddExpenseClick: () -> Unit,
     onTicketClick: (String) -> Unit
@@ -279,15 +280,11 @@ private fun ExpensesContentSection(
 
 @Composable
 private fun ExpenseRowItem(
-    expense: ExpenseUi,
+    expense: Expense,
     onTicketClick: () -> Unit
 ) {
     val ticketText = stringResource(
-        id = when (expense.ticketLabel) {
-            "ticket_add_label" -> R.string.ticket_add_label
-            "ticket_see_label" -> R.string.ticket_see_label
-            else -> R.string.ticket_add_label
-        }
+        id = if (expense.ticketUri.isNullOrBlank()) R.string.ticket_add_label else R.string.ticket_see_label
     )
 
     Row(
