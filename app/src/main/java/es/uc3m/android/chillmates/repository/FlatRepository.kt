@@ -7,6 +7,9 @@ import es.uc3m.android.chillmates.model.Expense
 import es.uc3m.android.chillmates.model.Flat
 import es.uc3m.android.chillmates.model.Notice
 import es.uc3m.android.chillmates.model.UpcomingEvent
+import es.uc3m.android.chillmates.model.ShoppingItem
+import es.uc3m.android.chillmates.model.Supermarket
+import es.uc3m.android.chillmates.model.Repair
 import es.uc3m.android.chillmates.model.FLATS_COLLECTION
 import es.uc3m.android.chillmates.model.USERS_COLLECTION
 import kotlinx.coroutines.channels.awaitClose
@@ -166,6 +169,16 @@ class FlatRepository {
         }
     }
 
+    suspend fun updateRepairs(flatId: String, repairs: List<Repair>): Result<Unit> {
+        return try {
+            firestore.collection(FLATS_COLLECTION).document(flatId)
+                .update("repairs", repairs).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getMemberDetails(memberIds: List<String>): Result<List<Pair<String, String>>> {
         return try {
             val members = memberIds.mapNotNull { userId ->
@@ -179,6 +192,18 @@ class FlatRepository {
                 }
             }
             Result.success(members)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getSupermarkets(): Result<List<Supermarket>> {
+        return try {
+            val snapshot = firestore.collection("supermarkets").get().await()
+            val supermarkets = snapshot.documents.mapNotNull { doc ->
+                doc.toObject(Supermarket::class.java)?.apply { id = doc.id }
+            }
+            Result.success(supermarkets)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -230,6 +255,17 @@ class FlatRepository {
     suspend fun updateEvents(flatId: String, events: List<UpcomingEvent>): Result<Unit> {
         return try {
             firestore.collection(FLATS_COLLECTION).document(flatId).update("events", events).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // Update shopping list
+    suspend fun updateShoppingItems(flatId: String, items: List<ShoppingItem>): Result<Unit> {
+        return try {
+            firestore.collection(FLATS_COLLECTION).document(flatId)
+                .update("shoppingItems", items).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

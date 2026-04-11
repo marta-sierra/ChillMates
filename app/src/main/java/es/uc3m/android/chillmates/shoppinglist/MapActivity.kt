@@ -19,13 +19,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import es.uc3m.android.chillmates.R
 
-/**
- * Activity that displays a map for selecting a supermarket, until map works we have a placeholder.
- * It returns the selected location to the caller.
- */
 class MapActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val supermarkets = intent.getStringArrayListExtra("supermarketsList") ?: arrayListOf()
+        val safeList = if (supermarkets.isEmpty()) {
+            arrayListOf("Mercadona", "Lidl", "Carrefour")
+        } else {
+            supermarkets
+        }
+
         window.setLayout(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
@@ -33,9 +37,7 @@ class MapActivity : ComponentActivity() {
         window.setGravity(Gravity.BOTTOM)
 
         setContent {
-            // TODO: Read data from DB.
-            val supermarkets = listOf( "Mercadona", "Lidl", "Carrefour", "Dia")
-            var selectedLocation by remember { mutableStateOf(supermarkets[0]) }
+            var selectedLocation by remember { mutableStateOf(safeList[0]) }
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -56,7 +58,6 @@ class MapActivity : ComponentActivity() {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Selection chips simulating map behaviour
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -72,7 +73,7 @@ class MapActivity : ComponentActivity() {
                             )
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            supermarkets.forEach { market ->
+                            safeList.forEach { market ->
                                 FilterChip(
                                     selected = selectedLocation == market,
                                     onClick = { selectedLocation = market },
@@ -85,7 +86,6 @@ class MapActivity : ComponentActivity() {
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Action buttons for cancelling or confirming selection
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)

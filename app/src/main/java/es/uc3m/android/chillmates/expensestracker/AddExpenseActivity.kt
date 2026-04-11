@@ -27,8 +27,11 @@ class AddExpenseActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         val availableFlatmates = intent.getStringArrayListExtra("flatmatesList") ?: arrayListOf()
         val initialTitle = intent.getStringExtra(EXTRA_TITLE) ?: ""
+        val initialPaidBy = intent.getStringExtra(EXTRA_PAID_BY) ?: ""
+        val initialSplitBetween = intent.getStringArrayListExtra(EXTRA_SPLIT_BETWEEN) ?: arrayListOf()
 
         setContent {
             ChillMatesTheme {
@@ -47,6 +50,8 @@ class AddExpenseActivity : ComponentActivity() {
                     ExpenseFormContent(
                         modifier = Modifier.padding(innerPadding),
                         initialTitle = initialTitle,
+                        initialPaidBy = initialPaidBy,
+                        initialSplitBetween = initialSplitBetween,
                         availableFlatmates = availableFlatmates,
                         onSave = { title, amount, paidBy, splitBetween ->
                             val resultIntent = Intent().apply {
@@ -77,17 +82,32 @@ class AddExpenseActivity : ComponentActivity() {
 fun ExpenseFormContent(
     modifier: Modifier = Modifier,
     initialTitle: String,
+    initialPaidBy: String,
+    initialSplitBetween: List<String>,
     availableFlatmates: List<String>,
     onSave: (String, Double, String, List<String>) -> Unit
 ) {
     var title by rememberSaveable { mutableStateOf(initialTitle) }
     var amountStr by rememberSaveable { mutableStateOf("") }
 
-    // NEW: paidBy is now initialized with a value from the list
-    var paidBy by rememberSaveable { mutableStateOf(availableFlatmates.firstOrNull() ?: "") }
+    val defaultPaidBy = if (
+        initialPaidBy.isNotBlank() && availableFlatmates.contains(initialPaidBy)
+    ) {
+        initialPaidBy
+    } else {
+        availableFlatmates.firstOrNull() ?: ""
+    }
+
+    var paidBy by rememberSaveable { mutableStateOf(defaultPaidBy) }
     var expandedDropdown by remember { mutableStateOf(false) }
 
-    var selectedFlatmates by remember { mutableStateOf(availableFlatmates.toSet()) }
+    val initialSelection = if (initialSplitBetween.isNotEmpty()) {
+        initialSplitBetween.toSet()
+    } else {
+        availableFlatmates.toSet()
+    }
+
+    var selectedFlatmates by remember { mutableStateOf(initialSelection) }
 
     val amountValue = amountStr.toDoubleOrNull()
     val canSave = title.isNotBlank() && amountValue != null && amountValue > 0 && paidBy.isNotBlank()
@@ -119,7 +139,6 @@ fun ExpenseFormContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // --- NEW DROPDOWN FOR PAID BY ---
         Text(
             text = stringResource(R.string.label_paid_by),
             fontWeight = FontWeight.Bold,
@@ -154,7 +173,6 @@ fun ExpenseFormContent(
                 }
             }
         }
-        // ---------------------------------
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -162,6 +180,7 @@ fun ExpenseFormContent(
             text = stringResource(R.string.label_split_between),
             fontWeight = FontWeight.Bold
         )
+
         availableFlatmates.forEach { person ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -170,7 +189,9 @@ fun ExpenseFormContent(
                 Checkbox(
                     checked = person in selectedFlatmates,
                     onCheckedChange = { isChecked ->
-                        selectedFlatmates = if (isChecked) selectedFlatmates + person else selectedFlatmates - person
+                        selectedFlatmates =
+                            if (isChecked) selectedFlatmates + person
+                            else selectedFlatmates - person
                     }
                 )
                 Text(text = person)

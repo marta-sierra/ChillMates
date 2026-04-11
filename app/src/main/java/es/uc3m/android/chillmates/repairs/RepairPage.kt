@@ -2,191 +2,204 @@ package es.uc3m.android.chillmates.repairs
 
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import coil.compose.AsyncImage
-import es.uc3m.android.chillmates.R
+import es.uc3m.android.chillmates.LargeSectionHeader
+import es.uc3m.android.chillmates.PageContentWrapper
+
+private const val LANDLORD_EMAIL = "landlord@chillmates.app"
 
 @Composable
 fun RepairPage(navController: NavController) {
-    //TODO: Read from DB
-    val repairs = listOf(
-        Repair("Bathroom door", "Loose hinge. Landlord notified.", "Pending"),
-        Repair("Washing machine", "Makes weird noise when spinning.", "In progress"),
-        Repair("Sofa", "New sofa delivery completed.", "Resolved")
-    )
-
-    var requestText by remember { mutableStateOf("") }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    val vm: RepairViewModel = viewModel()
     val context = LocalContext.current
 
-    // Launcher to pick a single image from storage/camera via system picker.
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+    var requestText by rememberSaveable { mutableStateOf("") }
+    var reviewedText by rememberSaveable { mutableStateOf("") }
+    var selectedPhotoUri by rememberSaveable { mutableStateOf<String?>(null) }
+
+    val pickMedia = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
-        selectedImageUri = uri
+        selectedPhotoUri = uri?.toString()
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        RepairHeaderSection(title = stringResource(R.string.repairs_title))
+        LargeSectionHeader(title = "Repairs")
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.repairs_section_current),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
+        PageContentWrapper {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+            ) {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(vm.uiState.repairs) { repair ->
+                        RepairRequestCard(
+                            repair = repair,
+                            onStatusSelected = { status ->
+                                vm.updateRepairStatus(repair.id, status)
+                            }
+                        )
+                    }
+                }
 
-            items(repairs) { repair ->
-                RepairCard(repair)
-            }
-
-            item {
                 Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(modifier = Modifier.height(8.dp))
-            }
 
-            item {
                 Text(
-                    text = stringResource(R.string.repairs_section_new_request),
+                    text = "Send a new request",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    fontWeight = FontWeight.SemiBold
                 )
-            }
 
-            item {
-                OutlinedTextField(
-                    value = requestText,
-                    onValueChange = { requestText = it },
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(120.dp),
-                    placeholder = { Text(stringResource(R.string.repairs_placeholder_describe)) },
-                    shape = MaterialTheme.shapes.medium
-                )
-            }
-
-            item {
-                TextButton(
-                    onClick = { imagePickerLauncher.launch("image/*") },
-                    modifier = Modifier.padding(top = 4.dp)
+                        .height(120.dp)
+                        .border(
+                            width = 2.dp,
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .padding(12.dp)
                 ) {
-                    Text("📷", style = MaterialTheme.typography.bodyLarge)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    val label = if (selectedImageUri == null)
-                        stringResource(R.string.repairs_btn_add_images)
-                    else
-                        stringResource(R.string.repairs_btn_retake_photo)
-                    Text(label)
-                }
-            }
-
-            if (selectedImageUri != null) {
-                item {
-                    AsyncImage(
-                        model = selectedImageUri,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp)
-                            .clip(MaterialTheme.shapes.medium),
-                        contentScale = ContentScale.Crop
+                    androidx.compose.material3.OutlinedTextField(
+                        value = requestText,
+                        onValueChange = { requestText = it },
+                        modifier = Modifier.fillMaxSize(),
+                        placeholder = { Text("Describe the issue...") }
                     )
                 }
-            }
 
-            item {
+                Spacer(modifier = Modifier.height(10.dp))
+
+                TextButton(
+                    onClick = {
+                        pickMedia.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    }
+                ) {
+                    Icon(Icons.Default.Image, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        if (selectedPhotoUri == null) "Add images"
+                        else "Image added"
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 32.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     OutlinedButton(
-                        onClick = { /* TODO: Implement AI Review logic */ },
-                        modifier = Modifier.weight(1f)
+                        onClick = {
+                            reviewedText = vm.generateReviewedMessage(requestText)
+                            if (reviewedText.isNotBlank()) {
+                                requestText = reviewedText
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(50)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.repairs_btn_ai_review))
+                        Text("AI Review")
                     }
-
-                    //Sends the repair request via an Email Intent.
 
                     Button(
                         onClick = {
-                            try {
-                                val subject = "Repair Request: Shared Flat"
-                                val body = "Issue description:\\n$requestText"
+                            val finalRepair = vm.createAndMarkSent(
+                                rawDescription = requestText,
+                                finalMessage = requestText,
+                                photoUri = selectedPhotoUri
+                            ) ?: return@Button
 
-                                if (selectedImageUri != null) {
-                                    val emailIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "message/rfc822"
-                                        putExtra(Intent.EXTRA_EMAIL, arrayOf("landlord@chillmates.app"))
-                                        putExtra(Intent.EXTRA_SUBJECT, subject)
-                                        putExtra(Intent.EXTRA_TEXT, body)
-                                        putExtra(Intent.EXTRA_STREAM, selectedImageUri)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    context.startActivity(Intent.createChooser(emailIntent, "Send email..."))
-                                } else {
-                                    val uriText = "mailto:landlord@chillmates.app" +
-                                            "?subject=" + Uri.encode(subject) +
-                                            "&body=" + Uri.encode(body)
-                                    val emailIntent = Intent(Intent.ACTION_SENDTO, Uri.parse(uriText))
-                                    context.startActivity(emailIntent)
+                            val emailIntent = if (selectedPhotoUri != null) {
+                                Intent(Intent.ACTION_SEND).apply {
+                                    type = "image/*"
+                                    putExtra(Intent.EXTRA_EMAIL, arrayOf(LANDLORD_EMAIL))
+                                    putExtra(
+                                        Intent.EXTRA_SUBJECT,
+                                        "Repair Request: Shared Flat"
+                                    )
+                                    putExtra(Intent.EXTRA_TEXT, finalRepair.landlordMessage)
+                                    putExtra(Intent.EXTRA_STREAM, Uri.parse(selectedPhotoUri))
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 }
-                            } catch (e: Exception) {
-                                Toast.makeText(
-                                    context,
-                                    "No email app installed to handle this request.",
-                                    Toast.LENGTH_LONG
-                                ).show()
+                            } else {
+                                Intent(Intent.ACTION_SENDTO).apply {
+                                    data = Uri.parse("mailto:$LANDLORD_EMAIL")
+                                    putExtra(
+                                        Intent.EXTRA_SUBJECT,
+                                        "Repair Request: Shared Flat"
+                                    )
+                                    putExtra(Intent.EXTRA_TEXT, finalRepair.landlordMessage)
+                                }
                             }
+
+                            context.startActivity(
+                                Intent.createChooser(emailIntent, "Send repair request")
+                            )
+
+                            requestText = ""
+                            reviewedText = ""
+                            selectedPhotoUri = null
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(50),
+                        enabled = requestText.isNotBlank()
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Send,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.repairs_btn_send))
+                        Text("Send")
                     }
                 }
             }
@@ -195,75 +208,107 @@ fun RepairPage(navController: NavController) {
 }
 
 @Composable
-private fun RepairHeaderSection(title: String) {
-    Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
-        tonalElevation = 0.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(top = 24.dp, bottom = 16.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
-    }
-}
+private fun RepairRequestCard(
+    repair: RepairUi,
+    onStatusSelected: (String) -> Unit
+) {
+    var statusMenuExpanded by remember { mutableStateOf(false) }
 
-@Composable
-fun RepairCard(repair: Repair) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Filled.Build,
+                imageVector = Icons.Default.Build,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .size(40.dp)
-                    .padding(end = 12.dp)
+                modifier = Modifier.size(26.dp)
             )
-            Column {
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = repair.issue,
+                    text = repair.title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.SemiBold
                 )
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = repair.description,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
                 Spacer(modifier = Modifier.height(8.dp))
-                Badge(
-                    containerColor = when(repair.status) {
-                        "Resolved" -> MaterialTheme.colorScheme.tertiary
-                        "In progress" -> MaterialTheme.colorScheme.secondary
-                        else -> MaterialTheme.colorScheme.error
-                    }
-                ) {
-                    Text(
-                        text = repair.status,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+
+                Box {
+                    StatusChip(
+                        status = repair.status,
+                        onClick = { statusMenuExpanded = true }
                     )
+
+                    DropdownMenu(
+                        expanded = statusMenuExpanded,
+                        onDismissRequest = { statusMenuExpanded = false }
+                    ) {
+                        listOf(
+                            "PENDING",
+                            "SENT",
+                            "IN_PROGRESS",
+                            "ACCEPTED",
+                            "DENIED",
+                            "RESOLVED"
+                        ).forEach { status ->
+                            DropdownMenuItem(
+                                text = { Text(status) },
+                                onClick = {
+                                    onStatusSelected(status)
+                                    statusMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-data class Repair(val issue: String, val description: String, val status: String)
+@Composable
+private fun StatusChip(
+    status: String,
+    onClick: () -> Unit
+) {
+    val background = when (status) {
+        "PENDING" -> Color(0xFFD84C3E)
+        "SENT" -> Color(0xFF4F6DB8)
+        "IN_PROGRESS" -> Color(0xFF5A647A)
+        "ACCEPTED" -> Color(0xFF2E8B57)
+        "DENIED" -> Color(0xFF8B0000)
+        "RESOLVED" -> Color(0xFF7B5A7A)
+        else -> MaterialTheme.colorScheme.primary
+    }
+
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier
+            .background(background, RoundedCornerShape(50))
+            .padding(horizontal = 2.dp, vertical = 0.dp)
+    ) {
+        Text(
+            text = status.replace("_", " "),
+            color = Color.White,
+            style = MaterialTheme.typography.labelMedium
+        )
+    }
+}
