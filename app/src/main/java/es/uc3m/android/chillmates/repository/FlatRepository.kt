@@ -2,6 +2,7 @@ package es.uc3m.android.chillmates.repository
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.SetOptions
 import es.uc3m.android.chillmates.model.Chore
 import es.uc3m.android.chillmates.model.Expense
 import es.uc3m.android.chillmates.model.Flat
@@ -204,6 +205,63 @@ class FlatRepository {
                 doc.toObject(Supermarket::class.java)?.apply { id = doc.id }
             }
             Result.success(supermarkets)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getSupermarketsForFlat(flatId: String): Result<List<Supermarket>> {
+        return try {
+            val flatDoc = firestore.collection(FLATS_COLLECTION).document(flatId).get().await()
+            val idsRaw = flatDoc.get("supermarketIds") as? List<*>
+            val supermarketIds = idsRaw.orEmpty().mapNotNull { it as? String }
+
+            if (supermarketIds.isEmpty()) {
+                return Result.success(emptyList())
+            }
+
+            val supermarkets = supermarketIds.mapNotNull { supermarketId ->
+                val marketDoc = firestore.collection("supermarkets").document(supermarketId).get().await()
+                if (!marketDoc.exists()) {
+                    null
+                } else {
+                    marketDoc.toObject(Supermarket::class.java)?.apply { id = marketDoc.id }
+                }
+            }
+
+            Result.success(supermarkets)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun addSupermarket(supermarket: Supermarket): Result<Supermarket> {
+        return try {
+            val docRef = firestore.collection("supermarkets").document()
+            val toSave = supermarket.copy(id = docRef.id)
+            docRef.set(toSave).await()
+            Result.success(toSave)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun addSupermarketForFlat(flatId: String, supermarket: Supermarket): Result<Supermarket> {
+        return try {
+            val docRef = firestore.collection("supermarkets").document()
+            val toSave = supermarket.copy(id = docRef.id)
+            val flatRef = firestore.collection(FLATS_COLLECTION).document(flatId)
+
+            firestore.runBatch { batch ->
+                batch.set(docRef, toSave)
+                batch.set(
+                    flatRef,
+                    mapOf("supermarketIds" to FieldValue.arrayUnion(docRef.id)),
+                    SetOptions.merge()
+                )
+            }.await()
+
+            Result.success(toSave)
         } catch (e: Exception) {
             Result.failure(e)
         }

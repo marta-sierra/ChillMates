@@ -1,33 +1,66 @@
 package es.uc3m.android.chillmates.shoppinglist
 
-import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.view.Gravity
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.rememberCameraPositionState
 import es.uc3m.android.chillmates.R
+
+const val EXTRA_SUPERMARKET_IDS = "supermarketIds"
+const val EXTRA_SUPERMARKET_NAMES = "supermarketNames"
+const val EXTRA_SUPERMARKET_LATITUDES = "supermarketLatitudes"
+const val EXTRA_SUPERMARKET_LONGITUDES = "supermarketLongitudes"
+const val EXTRA_SELECTED_LOCATION = "selectedLocation"
+const val EXTRA_SELECTED_SUPERMARKETS = "selectedSupermarkets"
+
+private data class MapSupermarketUi(
+    val id: String,
+    val name: String,
+    val latitude: Double,
+    val longitude: Double
+)
 
 class MapActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val supermarkets = intent.getStringArrayListExtra("supermarketsList") ?: arrayListOf()
-        val safeList = if (supermarkets.isEmpty()) {
-            arrayListOf("Mercadona", "Lidl", "Carrefour")
-        } else {
-            supermarkets
+        val ids = intent.getStringArrayListExtra(EXTRA_SUPERMARKET_IDS).orEmpty()
+        val names = intent.getStringArrayListExtra(EXTRA_SUPERMARKET_NAMES).orEmpty()
+        val latitudes = intent.getDoubleArrayExtra(EXTRA_SUPERMARKET_LATITUDES) ?: doubleArrayOf()
+        val longitudes = intent.getDoubleArrayExtra(EXTRA_SUPERMARKET_LONGITUDES) ?: doubleArrayOf()
+
+        val supermarkets = ids.indices.mapNotNull { index ->
+            val name = names.getOrNull(index) ?: return@mapNotNull null
+            val latitude = latitudes.getOrNull(index) ?: return@mapNotNull null
+            val longitude = longitudes.getOrNull(index) ?: return@mapNotNull null
+            MapSupermarketUi(
+                id = ids.getOrNull(index) ?: name,
+                name = name,
+                latitude = latitude,
+                longitude = longitude
+            )
         }
 
         window.setLayout(
@@ -37,7 +70,16 @@ class MapActivity : ComponentActivity() {
         window.setGravity(Gravity.BOTTOM)
 
         setContent {
-            var selectedLocation by remember { mutableStateOf(safeList[0]) }
+            val initialCamera = supermarkets.firstOrNull()?.let {
+                LatLng(it.latitude, it.longitude)
+            } ?: LatLng(40.4168, -3.7038)
+
+            val cameraPositionState = rememberCameraPositionState {
+                position = CameraPosition.fromLatLngZoom(initialCamera, if (supermarkets.isNotEmpty()) 14f else 11f)
+            }
+
+            var selectedIds by remember { mutableStateOf(setOf<String>()) }
+            val selectedMarkets = supermarkets.filter { it.id in selectedIds }
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -62,23 +104,63 @@ class MapActivity : ComponentActivity() {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(480.dp)
-                            .background(Color.LightGray, shape = MaterialTheme.shapes.medium),
-                        contentAlignment = Alignment.Center
+                            .clip(MaterialTheme.shapes.medium)
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "Map Placeholder",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = Color.DarkGray
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
+                        if (supermarkets.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.map_no_supermarkets),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            GoogleMap(
+                                modifier = Modifier.fillMaxSize(),
+                                cameraPositionState = cameraPositionState
+                            ) {
+                                supermarkets.forEach { market ->
+                                    val isSelected = market.id in selectedIds
+                                    Marker(
+                                        state = MarkerState(position = LatLng(market.latitude, market.longitude)),
+                                        title = market.name,
+                                        snippet = market.id,
+                                        alpha = if (isSelected) 1f else 0.85f,
+                                        icon = BitmapDescriptorFactory.defaultMarker(
+                                            if (isSelected) BitmapDescriptorFactory.HUE_AZURE else BitmapDescriptorFactory.HUE_RED
+                                        ),
+                                        onClick = {
+                                            selectedIds = if (isSelected) {
+                                                selectedIds - market.id
+                                            } else {
+                                                selectedIds + market.id
+                                            }
+                                            true
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
 
-                            safeList.forEach { market ->
-                                FilterChip(
-                                    selected = selectedLocation == market,
-                                    onClick = { selectedLocation = market },
-                                    label = { Text(market) },
-                                    modifier = Modifier.padding(vertical = 4.dp)
+                    if (selectedMarkets.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(selectedMarkets, key = { it.id }) { market ->
+                                AssistChip(
+                                    onClick = {
+                                        selectedIds = selectedIds - market.id
+                                    },
+                                    label = { Text(market.name) },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null
+                                        )
+                                    }
                                 )
                             }
                         }
@@ -98,11 +180,17 @@ class MapActivity : ComponentActivity() {
                         }
 
                         Button(
+                            enabled = selectedIds.isNotEmpty(),
                             onClick = {
                                 val resultIntent = Intent().apply {
-                                    putExtra("selectedLocation", selectedLocation)
+                                    val selectedNames = supermarkets
+                                        .filter { it.id in selectedIds }
+                                        .map { it.name }
+                                        .toCollection(arrayListOf())
+                                    putStringArrayListExtra(EXTRA_SELECTED_SUPERMARKETS, selectedNames)
+                                    putExtra(EXTRA_SELECTED_LOCATION, selectedNames.firstOrNull())
                                 }
-                                setResult(Activity.RESULT_OK, resultIntent)
+                                setResult(RESULT_OK, resultIntent)
                                 finish()
                             },
                             modifier = Modifier.weight(1f)

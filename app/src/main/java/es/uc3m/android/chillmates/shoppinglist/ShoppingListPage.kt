@@ -10,9 +10,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,10 +28,17 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.model.Place
+import com.google.android.libraries.places.api.net.FetchPlaceRequest
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
+import es.uc3m.android.chillmates.BuildConfig
 import es.uc3m.android.chillmates.LargeSectionHeader
 import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.expensestracker.AddExpenseActivity
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 @Composable
 fun ShoppingListPage(navController: NavController) {
@@ -69,8 +78,17 @@ fun ShoppingListPage(navController: NavController) {
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            val selected = result.data?.getStringExtra("selectedLocation")
-            vm.onFilterSupermarket(selected)
+            val data = result.data
+            val selectedLocations = data?.getStringArrayListExtra(EXTRA_SELECTED_SUPERMARKETS)
+                ?: buildList {
+                    data?.getStringExtra(EXTRA_SELECTED_LOCATION)?.let { add(it) }
+                }
+
+            if (selectedLocations.size <= 1) {
+                vm.onFilterSupermarket(selectedLocations.firstOrNull())
+            } else {
+                vm.onFilterSupermarkets(selectedLocations.toSet())
+            }
         }
     }
 
@@ -86,11 +104,34 @@ fun ShoppingListPage(navController: NavController) {
         },
         onDelete = vm::onDeleteItem,
         onAddItem = vm::addItem,
+        onAddSupermarket = { alias, officialName, placeId, address, latitude, longitude, onResult ->
+            vm.addSupermarket(
+                alias = alias,
+                officialName = officialName,
+                placeId = placeId,
+                address = address,
+                latitude = latitude,
+                longitude = longitude,
+                onResult = onResult
+            )
+        },
         onOpenMap = {
             val intent = Intent(context, MapActivity::class.java).apply {
                 putStringArrayListExtra(
-                    "supermarketsList",
+                    EXTRA_SUPERMARKET_IDS,
+                    ArrayList(vm.uiState.availableSupermarkets.map { it.id })
+                )
+                putStringArrayListExtra(
+                    EXTRA_SUPERMARKET_NAMES,
                     ArrayList(vm.uiState.availableSupermarkets.map { it.name })
+                )
+                putExtra(
+                    EXTRA_SUPERMARKET_LATITUDES,
+                    vm.uiState.availableSupermarkets.map { it.latitude }.toDoubleArray()
+                )
+                putExtra(
+                    EXTRA_SUPERMARKET_LONGITUDES,
+                    vm.uiState.availableSupermarkets.map { it.longitude }.toDoubleArray()
                 )
             }
             mapLauncher.launch(intent)
@@ -144,10 +185,21 @@ private fun ShoppingListRoute(
     onBoughtAction: (ShoppingItemUi) -> Unit,
     onDelete: (String) -> Unit,
     onAddItem: (ShoppingItemUi) -> Unit,
+    onAddSupermarket: (String, String, String, String, Double, Double, (Result<SupermarketUi>) -> Unit) -> Unit,
     onOpenMap: () -> Unit
 ) {
     var showBoughtItems by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
+    val activeSupermarkets = when {
+        state.selectedSupermarkets.isNotEmpty() -> state.selectedSupermarkets
+        state.selectedSupermarket != null -> setOf(state.selectedSupermarket)
+        else -> emptySet()
+    }
+    val supermarketLabel = when {
+        activeSupermarkets.isEmpty() -> stringResource(R.string.filter_all)
+        activeSupermarkets.size == 1 -> activeSupermarkets.first()
+        else -> stringResource(R.string.filter_multi_format, activeSupermarkets.first(), activeSupermarkets.size - 1)
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         LargeSectionHeader(title = stringResource(R.string.shopping_list_title))
@@ -164,7 +216,7 @@ private fun ShoppingListRoute(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     SupermarketDropdown(
-                        selected = state.selectedSupermarket,
+                        selected = supermarketLabel,
                         onFilter = onFilter,
                         supermarkets = state.availableSupermarkets.map { it.name },
                         modifier = Modifier.weight(1f)
@@ -185,10 +237,12 @@ private fun ShoppingListRoute(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val filteredItems = if (state.selectedSupermarket == null) {
+                        val filteredItems = if (activeSupermarkets.isEmpty()) {
                             state.items
                         } else {
-                            state.items.filter { state.selectedSupermarket in it.supermarkets }
+                            state.items.filter { item ->
+                                item.supermarkets.any { it in activeSupermarkets }
+                            }
                         }
 
                         val itemsToShow = if (showBoughtItems) {
@@ -238,9 +292,10 @@ private fun ShoppingListRoute(
 
     if (showAddDialog) {
         AddItemDialog(
-            supermarkets = state.availableSupermarkets.map { it.name },
+            supermarkets = state.availableSupermarkets,
             flatmates = state.availableFlatmates,
             onDismiss = { showAddDialog = false },
+            onAddSupermarket = onAddSupermarket,
             onAdd = { newItem ->
                 onAddItem(newItem)
                 showAddDialog = false
@@ -249,7 +304,6 @@ private fun ShoppingListRoute(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SupermarketDropdown(
     supermarkets: List<String>,
@@ -259,23 +313,23 @@ private fun SupermarketDropdown(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
-        modifier = modifier
-    ) {
-        TextField(
+    Box(modifier = modifier) {
+        OutlinedTextField(
             value = selected ?: stringResource(R.string.filter_all),
             onValueChange = {},
             readOnly = true,
             label = { Text(stringResource(R.string.filter_label)) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            trailingIcon = {
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = null
+                )
+            },
             modifier = Modifier
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                 .fillMaxWidth()
         )
 
-        ExposedDropdownMenu(
+        DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
@@ -296,6 +350,13 @@ private fun SupermarketDropdown(
                 )
             }
         }
+
+        Surface(
+            modifier = Modifier
+                .matchParentSize(),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0f),
+            onClick = { expanded = true }
+        ) {}
     }
 }
 
@@ -361,16 +422,24 @@ private fun ShoppingItemRow(
 
 @Composable
 private fun AddItemDialog(
-    supermarkets: List<String>,
+    supermarkets: List<SupermarketUi>,
     flatmates: List<String>,
     onDismiss: () -> Unit,
+    onAddSupermarket: (String, String, String, String, Double, Double, (Result<SupermarketUi>) -> Unit) -> Unit,
     onAdd: (ShoppingItemUi) -> Unit
 ) {
+    val addSupermarketFailedText = stringResource(R.string.error_add_supermarket_failed)
     var name by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
     var selectedSupermarkets by remember { mutableStateOf(setOf<String>()) }
     var anySupermarket by remember { mutableStateOf(true) }
     var selectedFlatmates by remember { mutableStateOf(setOf<String>()) }
+    var showAddSupermarketDialog by remember { mutableStateOf(false) }
+    var addSupermarketError by remember { mutableStateOf<String?>(null) }
+    var localSupermarkets by remember(supermarkets) { mutableStateOf(supermarkets) }
+
+    val marketListMaxHeight = 164.dp
+    val flatmatesListHeight = 164.dp
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -430,18 +499,44 @@ private fun AddItemDialog(
                 }
 
                 if (!anySupermarket) {
-                    supermarkets.forEach { market ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = market in selectedSupermarkets,
-                                onCheckedChange = {
-                                    selectedSupermarkets =
-                                        if (it) selectedSupermarkets + market
-                                        else selectedSupermarkets - market
-                                }
-                            )
-                            Text(market)
+                    OutlinedButton(
+                        onClick = {
+                            addSupermarketError = null
+                            showAddSupermarketDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.btn_add_new_supermarket))
+                    }
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = marketListMaxHeight),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(localSupermarkets, key = { it.id.ifBlank { it.name } }) { market ->
+                            val marketName = market.name
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = marketName in selectedSupermarkets,
+                                    onCheckedChange = {
+                                        selectedSupermarkets =
+                                            if (it) selectedSupermarkets + marketName
+                                            else selectedSupermarkets - marketName
+                                    }
+                                )
+                                Text(market.displayLabel())
+                            }
                         }
+                    }
+
+                    addSupermarketError?.let {
+                        Text(
+                            text = it,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
 
@@ -460,20 +555,276 @@ private fun AddItemDialog(
                     }
                 }
 
-                flatmates.forEach { person ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = person in selectedFlatmates,
-                            onCheckedChange = {
-                                selectedFlatmates =
-                                    if (it) selectedFlatmates + person
-                                    else selectedFlatmates - person
-                            }
-                        )
-                        Text(person)
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(flatmatesListHeight),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(flatmates, key = { it }) { person ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = person in selectedFlatmates,
+                                onCheckedChange = {
+                                    selectedFlatmates =
+                                        if (it) selectedFlatmates + person
+                                        else selectedFlatmates - person
+                                }
+                            )
+                            Text(person)
+                        }
                     }
                 }
             }
         }
     )
+
+    if (showAddSupermarketDialog) {
+        AddSupermarketDialog(
+            existingAliases = localSupermarkets.map { it.name },
+            onDismiss = { showAddSupermarketDialog = false },
+            onConfirm = { alias, place ->
+                showAddSupermarketDialog = false
+                onAddSupermarket(
+                    alias,
+                    place.officialName,
+                    place.placeId,
+                    place.address,
+                    place.latitude,
+                    place.longitude
+                ) { result ->
+                    result.onSuccess { added ->
+                        localSupermarkets = (localSupermarkets + added).distinctBy { it.id }
+                        selectedSupermarkets = selectedSupermarkets + added.name
+                        addSupermarketError = null
+                    }.onFailure {
+                        addSupermarketError = it.message ?: addSupermarketFailedText
+                    }
+                }
+            }
+        )
+    }
+}
+
+private data class PlacePredictionUi(
+    val placeId: String,
+    val primaryText: String,
+    val secondaryText: String
+)
+
+private data class SelectedPlaceUi(
+    val placeId: String,
+    val officialName: String,
+    val address: String,
+    val latitude: Double,
+    val longitude: Double
+)
+
+@Composable
+private fun AddSupermarketDialog(
+    existingAliases: List<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (String, SelectedPlaceUi) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val noPlacesFoundText = stringResource(R.string.error_no_places_found)
+    val placesSearchFailedText = stringResource(R.string.error_places_search_failed)
+    val placeDetailsFailedText = stringResource(R.string.error_place_details_failed)
+    val placeMissingLocationText = stringResource(R.string.error_place_missing_location)
+
+    var alias by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf("") }
+    var isSearching by remember { mutableStateOf(false) }
+    var isLoadingPlace by remember { mutableStateOf(false) }
+    var searchError by remember { mutableStateOf<String?>(null) }
+    var predictions by remember { mutableStateOf<List<PlacePredictionUi>>(emptyList()) }
+    var selectedPlace by remember { mutableStateOf<SelectedPlaceUi?>(null) }
+
+    val aliasAlreadyExists = existingAliases.any { it.equals(alias.trim(), ignoreCase = true) }
+
+    val placesClient = remember {
+        if (!Places.isInitialized()) {
+            Places.initializeWithNewPlacesApiEnabled(context.applicationContext, BuildConfig.MAPS_API_KEY)
+        }
+        Places.createClient(context)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.dialog_add_supermarket_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = alias,
+                    onValueChange = { alias = it },
+                    label = { Text(stringResource(R.string.label_supermarket_alias)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                if (aliasAlreadyExists && alias.isNotBlank()) {
+                    Text(
+                        text = stringResource(R.string.error_supermarket_alias_exists),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text(stringResource(R.string.label_search_place)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Button(
+                    onClick = {
+                        if (query.isBlank()) return@Button
+                        isSearching = true
+                        searchError = null
+                        selectedPlace = null
+
+                        scope.launch {
+                            try {
+                                val request = FindAutocompletePredictionsRequest.builder()
+                                    .setQuery(query)
+                                    .build()
+                                val response = placesClient.findAutocompletePredictions(request).await()
+                                predictions = response.autocompletePredictions.map {
+                                    PlacePredictionUi(
+                                        placeId = it.placeId,
+                                        primaryText = it.getPrimaryText(null).toString(),
+                                        secondaryText = it.getSecondaryText(null).toString()
+                                    )
+                                }
+                                if (predictions.isEmpty()) {
+                                    searchError = noPlacesFoundText
+                                }
+                            } catch (_: Exception) {
+                                searchError = placesSearchFailedText
+                                predictions = emptyList()
+                            } finally {
+                                isSearching = false
+                            }
+                        }
+                    },
+                    enabled = !isSearching,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Search, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.btn_search_place))
+                }
+
+                if (isSearching || isLoadingPlace) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(predictions, key = { it.placeId }) { prediction ->
+                        ElevatedCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                isLoadingPlace = true
+                                searchError = null
+                                scope.launch {
+                                    try {
+                                        val fields = listOf(
+                                            Place.Field.ID,
+                                            Place.Field.DISPLAY_NAME,
+                                            Place.Field.FORMATTED_ADDRESS,
+                                            Place.Field.LOCATION
+                                        )
+                                        val request = FetchPlaceRequest.builder(prediction.placeId, fields).build()
+                                        val place = placesClient.fetchPlace(request).await().place
+                                        val location = place.location
+                                        if (location != null) {
+                                            selectedPlace = SelectedPlaceUi(
+                                                placeId = place.id.orEmpty(),
+                                                officialName = place.displayName ?: prediction.primaryText,
+                                                address = place.formattedAddress.orEmpty(),
+                                                latitude = location.latitude,
+                                                longitude = location.longitude
+                                            )
+                                        } else {
+                                            searchError = placeMissingLocationText
+                                        }
+                                    } catch (_: Exception) {
+                                        searchError = placeDetailsFailedText
+                                    } finally {
+                                        isLoadingPlace = false
+                                    }
+                                }
+                            }
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(prediction.primaryText, fontWeight = FontWeight.SemiBold)
+                                if (prediction.secondaryText.isNotBlank()) {
+                                    Text(
+                                        prediction.secondaryText,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                selectedPlace?.let {
+                    Text(
+                        text = stringResource(R.string.label_selected_place, it.officialName),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    if (it.address.isNotBlank()) {
+                        Text(
+                            text = it.address,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                searchError?.let {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val place = selectedPlace ?: return@Button
+                    onConfirm(alias.trim(), place)
+                },
+                enabled = alias.trim().isNotEmpty() && !aliasAlreadyExists && selectedPlace != null
+            ) {
+                Text(stringResource(R.string.btn_confirm_add_supermarket))
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text(stringResource(R.string.btn_cancel))
+            }
+        }
+    )
+}
+
+private fun SupermarketUi.displayLabel(): String {
+    return if (officialName.isNotBlank() && !officialName.equals(name, ignoreCase = true)) {
+        "$name ($officialName)"
+    } else {
+        name
+    }
 }

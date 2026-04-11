@@ -28,6 +28,8 @@ data class ShoppingItemUi(
 data class SupermarketUi(
     val id: String,
     val name: String,
+    val officialName: String,
+    val placeId: String,
     val latitude: Double,
     val longitude: Double,
     val address: String
@@ -36,6 +38,7 @@ data class SupermarketUi(
 data class ShoppingUiState(
     val items: List<ShoppingItemUi> = emptyList(),
     val selectedSupermarket: String? = null,
+    val selectedSupermarkets: Set<String> = emptySet(),
     val availableSupermarkets: List<SupermarketUi> = emptyList(),
     val availableFlatmates: List<String> = emptyList(),
     val currentUserName: String = "Me"
@@ -56,7 +59,6 @@ class ShoppingViewModel(
 
     init {
         loadUserAndFlatData()
-        loadSupermarkets()
     }
 
     private fun loadUserAndFlatData() {
@@ -82,9 +84,26 @@ class ShoppingViewModel(
                             emptyList()
                         }
 
+                        val supermarketsResult = repository.getSupermarketsForFlat(flatId)
+                        val supermarkets = if (supermarketsResult.isSuccess) {
+                            supermarketsResult.getOrNull().orEmpty().map { it.toUi() }
+                        } else {
+                            emptyList()
+                        }
+                        val selectedFilter = uiState.selectedSupermarket
+                        val selectedFilters = uiState.selectedSupermarkets.ifEmpty {
+                            selectedFilter?.let { setOf(it) } ?: emptySet()
+                        }
+                        val validFilters = selectedFilters.filter { selected ->
+                            supermarkets.any { it.name == selected }
+                        }.toSet()
+
                         uiState = uiState.copy(
                             items = flat.shoppingItems.map { it.toUi() },
-                            availableFlatmates = memberNames
+                            availableFlatmates = memberNames,
+                            availableSupermarkets = supermarkets,
+                            selectedSupermarket = validFilters.firstOrNull(),
+                            selectedSupermarkets = validFilters
                         )
                     }
                 }
@@ -94,18 +113,18 @@ class ShoppingViewModel(
         }
     }
 
-    private fun loadSupermarkets() {
-        viewModelScope.launch {
-            val result = repository.getSupermarkets()
-            if (result.isSuccess) {
-                val supermarkets = result.getOrNull().orEmpty().map { it.toUi() }
-                uiState = uiState.copy(availableSupermarkets = supermarkets)
-            }
-        }
+    fun onFilterSupermarket(name: String?) {
+        uiState = uiState.copy(
+            selectedSupermarket = name,
+            selectedSupermarkets = if (name == null) emptySet() else setOf(name)
+        )
     }
 
-    fun onFilterSupermarket(name: String?) {
-        uiState = uiState.copy(selectedSupermarket = name)
+    fun onFilterSupermarkets(names: Set<String>) {
+        uiState = uiState.copy(
+            selectedSupermarkets = names,
+            selectedSupermarket = names.firstOrNull()
+        )
     }
 
     fun onDeleteItem(id: String) {
@@ -141,6 +160,46 @@ class ShoppingViewModel(
 
         viewModelScope.launch {
             repository.updateShoppingItems(flatId, updatedItems.map { it.toDb() })
+        }
+    }
+
+    fun addSupermarket(
+        alias: String,
+        officialName: String,
+        placeId: String,
+        address: String,
+        latitude: Double,
+        longitude: Double,
+        onResult: (Result<SupermarketUi>) -> Unit
+    ) {
+        val flatId = currentFlatId
+        if (flatId == null) {
+            onResult(Result.failure(Exception("No flat selected")))
+            return
+        }
+
+        viewModelScope.launch {
+            val result = repository.addSupermarketForFlat(
+                flatId = flatId,
+                supermarket = Supermarket(
+                    name = alias,
+                    officialName = officialName,
+                    placeId = placeId,
+                    address = address,
+                    latitude = latitude,
+                    longitude = longitude
+                )
+            )
+
+            if (result.isSuccess) {
+                val created = result.getOrThrow().toUi()
+                uiState = uiState.copy(
+                    availableSupermarkets = (uiState.availableSupermarkets + created).distinctBy { it.id }
+                )
+                onResult(Result.success(created))
+            } else {
+                onResult(Result.failure(result.exceptionOrNull() ?: Exception("Failed to add supermarket")))
+            }
         }
     }
 
@@ -201,6 +260,8 @@ class ShoppingViewModel(
         SupermarketUi(
             id = id ?: "",
             name = name,
+            officialName = officialName,
+            placeId = placeId,
             latitude = latitude,
             longitude = longitude,
             address = address

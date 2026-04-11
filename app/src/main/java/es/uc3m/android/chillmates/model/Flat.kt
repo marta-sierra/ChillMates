@@ -33,6 +33,8 @@ data class ShoppingItem(
 data class Supermarket(
     @get:Exclude var id: String? = null,
     val name: String = "",
+    val officialName: String = "",
+    val placeId: String = "",
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
     val address: String = ""
@@ -71,6 +73,7 @@ data class Flat(
     val name: String = "",
     val inviteCode: String = "",
     val memberIds: List<String> = emptyList(),
+    val supermarketIds: List<String> = emptyList(),
     val chores: List<Chore> = emptyList(),
     val expenses: List<Expense> = emptyList(),
     val shoppingItems: List<ShoppingItem> = emptyList(),
