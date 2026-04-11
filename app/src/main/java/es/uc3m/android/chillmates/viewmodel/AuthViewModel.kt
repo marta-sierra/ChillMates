@@ -86,8 +86,20 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun loadUserFromFirestore(uid: String): User? {
         return try {
             val doc = firestore.collection(USERS_COLLECTION).document(uid).get().await()
-            doc.toObject(User::class.java)?.apply { id = uid }
+
+            println("DEBUG uid = $uid")
+            println("DEBUG exists = ${doc.exists()}")
+            println("DEBUG data = ${doc.data}")
+
+            val user = doc.toObject(User::class.java)?.apply { id = uid }
+
+            println("DEBUG user object = $user")
+            println("DEBUG user flatId = ${user?.flatId}")
+
+            user
         } catch (e: Exception) {
+            e.printStackTrace()
+            println("DEBUG firestore error = ${e.message}")
             null
         }
     }
@@ -236,7 +248,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun completeFlatSetup() {
         val currentState = _uiState.value
-        val userId = _currentUser.value?.id ?: return
+        val userId = _currentUser.value?.id
+        if (userId == null) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = "Current user could not be loaded from Firestore"
+            )
+            return
+        }
 
         when (currentState.flatSetupMode) {
             FlatSetupMode.CREATE -> {

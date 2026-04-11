@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -32,6 +33,7 @@ import androidx.navigation.NavController
 import es.uc3m.android.chillmates.LargeSectionHeader
 import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
+import es.uc3m.android.chillmates.model.Expense
 import kotlin.math.absoluteValue
 
 @Composable
@@ -99,7 +101,6 @@ fun ExpensesTrackerPage(navController: NavController) {
 
     ExpensesRoute(
         state = vm.uiState,
-        onBackClick = { navController.popBackStack() },
         onAddExpenseClick = {
             // Prepare intent for AddExpenseActivity with current flatmate list
             val intent = Intent(context, AddExpenseActivity::class.java).apply {
@@ -172,12 +173,18 @@ private fun TicketViewerDialog(
 @Composable
 private fun ExpensesRoute(
     state: ExpensesUiState,
-    onBackClick: () -> Unit,
     onAddExpenseClick: () -> Unit,
     onTicketClick: (String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        LargeSectionHeader(title = stringResource(R.string.expenses_title))
+        LargeSectionHeader(
+            title = stringResource(
+                id = when (state.title) {
+                    "expenses_title" -> R.string.expenses_title
+                    else -> R.string.expenses_title
+                }
+            )
+        )
 
         PageContentWrapper {
             ExpensesContentSection(
@@ -192,7 +199,7 @@ private fun ExpensesRoute(
 
 @Composable
 private fun ExpensesContentSection(
-    expenses: List<ExpenseUi>,
+    expenses: List<Expense>,
     balances: List<BalanceUi>,
     onAddExpenseClick: () -> Unit,
     onTicketClick: (String) -> Unit
@@ -203,10 +210,12 @@ private fun ExpensesContentSection(
             .padding(horizontal = 24.dp)
             .padding(top = 24.dp)
     ) {
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
+            contentPadding = PaddingValues(vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(expenses, key = { it.id }) { expense ->
@@ -229,22 +238,18 @@ private fun ExpensesContentSection(
             balances = balances,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 16.dp, bottom = 16.dp)
+                .padding(bottom = 16.dp)
         )
     }
 }
 
 @Composable
 private fun ExpenseRowItem(
-    expense: ExpenseUi,
+    expense: Expense,
     onTicketClick: () -> Unit
 ) {
     val ticketText = stringResource(
-        id = when (expense.ticketLabel) {
-            "ticket_add_label" -> R.string.ticket_add_label
-            "ticket_see_label" -> R.string.ticket_see_label
-            else -> R.string.ticket_add_label
-        }
+        id = if (expense.ticketUri.isNullOrBlank()) R.string.ticket_add_label else R.string.ticket_see_label
     )
 
     Row(
@@ -347,7 +352,7 @@ private fun BalanceCardItem(
             Text(
                 text = name,
                 style = MaterialTheme.typography.labelLarge,
-
+                textAlign = TextAlign.Start
             )
 
             Text(

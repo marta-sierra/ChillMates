@@ -18,15 +18,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -40,7 +43,6 @@ fun HomePage(navController: NavController) {
     val vm: HomeViewModel = viewModel()
     val context = LocalContext.current
 
-    // Launch AddEventActivity and process the returned data to update the ViewModel state.
     val addEventLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -103,6 +105,7 @@ fun HomePage(navController: NavController) {
         onAcceptNotice = vm::onAcceptNotice,
         onRejectNotice = vm::onRejectNotice,
         onShowAllNotices = vm::onShowAllNotices,
+        onAddNotice = vm::onAddNotice,
         onAddToCalendar = vm::onAddToCalendar,
         onViewMoreDetails = vm::onViewMoreDetails,
         onToggleRemindMe = vm::onToggleRemindMe,
@@ -119,6 +122,7 @@ private fun HomeRoute(
     onAcceptNotice: (String) -> Unit,
     onRejectNotice: (String) -> Unit,
     onShowAllNotices: () -> Unit,
+    onAddNotice: (String, String) -> Unit,
     onAddToCalendar: (String) -> Unit,
     onViewMoreDetails: (String) -> Unit,
     onToggleRemindMe: (String) -> Unit,
@@ -135,7 +139,8 @@ private fun HomeRoute(
                 showAll = state.showAllNotices,
                 onAcceptNotice = onAcceptNotice,
                 onRejectNotice = onRejectNotice,
-                onToggleShowAll = onShowAllNotices
+                onToggleShowAll = onShowAllNotices,
+                onAddNotice = onAddNotice
             )
         }
         item {
@@ -157,27 +162,106 @@ private fun NewsBoardSection(
     showAll: Boolean,
     onAcceptNotice: (String) -> Unit,
     onRejectNotice: (String) -> Unit,
-    onToggleShowAll: () -> Unit
+    onToggleShowAll: () -> Unit,
+    onAddNotice: (String, String) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            text = stringResource(R.string.home_section_news_board),
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-        )
+    var showAddNoticeDialog by remember { mutableStateOf(false) }
 
-        val visibleNotices = if (showAll) notices else listOfNotNull(notices.firstOrNull())
-        visibleNotices.forEach { notice ->
-            NewsBoardCard(
-                notice = notice,
-                onAccept = { onAcceptNotice(notice.id) },
-                onReject = { onRejectNotice(notice.id) }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = stringResource(R.string.home_section_news_board),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
             )
+
+            // ESTADO VACÍO: Cuadrado amarillo
+            if (notices.isEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF59D)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "No news right now.\nTap '+' to add something!",
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color(0xFF5D4037)
+                        )
+                    }
+                }
+            } else {
+                val visibleNotices = if (showAll) notices else listOfNotNull(notices.firstOrNull())
+                visibleNotices.forEach { notice ->
+                    NewsBoardCard(
+                        notice = notice,
+                        onAccept = { onAcceptNotice(notice.id) },
+                        onReject = { onRejectNotice(notice.id) }
+                    )
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    val label = if (showAll) stringResource(R.string.home_show_less) else stringResource(R.string.home_show_all)
+                    TextButton(onClick = onToggleShowAll) { Text(label) }
+                }
+            }
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            val label = if (showAll) stringResource(R.string.home_show_less) else stringResource(R.string.home_show_all)
-            TextButton(onClick = onToggleShowAll) { Text(label) }
+        // BOTÓN FLOTANTE (+)
+        SmallFloatingActionButton(
+            onClick = { showAddNoticeDialog = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset(y = (-40).dp), // Subido un poco para que no choque abajo
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Notice")
         }
+    }
+
+    // DIÁLOGO PARA AÑADIR NOTICIA
+    if (showAddNoticeDialog) {
+        var newTitle by remember { mutableStateOf("") }
+        var newDetails by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showAddNoticeDialog = false },
+            title = { Text("Add Notice") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newTitle,
+                        onValueChange = { newTitle = it },
+                        label = { Text("Title") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newDetails,
+                        onValueChange = { newDetails = it },
+                        label = { Text("Details") },
+                        modifier = Modifier.fillMaxWidth().height(100.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newTitle.isNotBlank()) {
+                            onAddNotice(newTitle, newDetails)
+                            showAddNoticeDialog = false
+                        }
+                    }
+                ) { Text("Add") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddNoticeDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
@@ -320,9 +404,6 @@ private fun UpcomingEventRow(
     }
 }
 
-/**
- * Triggers an intent to insert an event into the user's preferred calendar application.
- */
 private fun openCalendarInsert(context: Context, title: String, description: String, beginMillis: Long, endMillis: Long) {
     val intent = Intent(Intent.ACTION_INSERT).apply {
         data = CalendarContract.Events.CONTENT_URI
@@ -332,7 +413,6 @@ private fun openCalendarInsert(context: Context, title: String, description: Str
         putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endMillis)
         putExtra(CalendarContract.Events.CUSTOM_APP_PACKAGE, context.packageName)
     }
-
     try {
         context.startActivity(intent)
     } catch (e: ActivityNotFoundException) {
@@ -340,28 +420,21 @@ private fun openCalendarInsert(context: Context, title: String, description: Str
     }
 }
 
-/**
- * Registers an alarm with AlarmManager to trigger a notification via HomeReminderReceiver.
- */
 private fun scheduleReminder(context: Context, requestCode: Int, title: String, message: String, triggerAtMillis: Long) {
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     val intent = Intent(context, HomeReminderReceiver::class.java).apply {
-        putExtra(HomeReminderReceiver.Companion.EXTRA_TITLE, title)
-        putExtra(HomeReminderReceiver.Companion.EXTRA_MESSAGE, message)
-        putExtra(HomeReminderReceiver.Companion.EXTRA_NOTIFICATION_ID, requestCode)
+        putExtra(HomeReminderReceiver.EXTRA_TITLE, title)
+        putExtra(HomeReminderReceiver.EXTRA_MESSAGE, message)
+        putExtra(HomeReminderReceiver.EXTRA_NOTIFICATION_ID, requestCode)
     }
 
     val pendingIntent = PendingIntent.getBroadcast(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-
     val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) alarmManager.canScheduleExactAlarms() else true
 
     if (canExact) alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
     else alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
 }
 
-/**
- * Cancels a previously scheduled AlarmManager broadcast.
- */
 private fun cancelReminder(context: Context, requestCode: Int) {
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     val intent = Intent(context, HomeReminderReceiver::class.java)
