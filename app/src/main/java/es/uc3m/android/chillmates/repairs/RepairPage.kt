@@ -1,15 +1,20 @@
 package es.uc3m.android.chillmates.repairs
 
+import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,35 +28,52 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import es.uc3m.android.chillmates.LargeSectionHeader
 import es.uc3m.android.chillmates.PageContentWrapper
 
 private const val LANDLORD_EMAIL = "landlord@chillmates.app"
+private const val GMAIL_PACKAGE = "com.google.android.gm"
+private const val REPAIR_SUBJECT = "Repair Request: Shared Flat"
+
+private data class PendingRepairDraft(
+    val rawDescription: String,
+    val finalMessage: String,
+    val photoUris: List<String>
+)
 
 @Composable
 fun RepairPage(navController: NavController) {
@@ -60,12 +82,44 @@ fun RepairPage(navController: NavController) {
 
     var requestText by rememberSaveable { mutableStateOf("") }
     var reviewedText by rememberSaveable { mutableStateOf("") }
-    var selectedPhotoUri by rememberSaveable { mutableStateOf<String?>(null) }
 
-    val pickMedia = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri: Uri? ->
-        selectedPhotoUri = uri?.toString()
+    val selectedPhotoUris = rememberSaveable(
+        saver = listSaver(
+            save = { it.toList() },
+            restore = { restored -> mutableStateListOf<String>().apply { addAll(restored) } }
+        )
+    ) {
+        mutableStateListOf<String>()
+    }
+
+    var pendingDraft by remember { mutableStateOf<PendingRepairDraft?>(null) }
+    var showSentConfirmationDialog by remember { mutableStateOf(false) }
+
+    val pickImagesLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris: List<Uri> ->
+        uris.forEach { uri ->
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: SecurityException) {
+            }
+
+            val uriString = uri.toString()
+            if (uriString !in selectedPhotoUris) {
+                selectedPhotoUris.add(uriString)
+            }
+        }
+    }
+
+    val gmailLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (pendingDraft != null) {
+            showSentConfirmationDialog = true
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -112,7 +166,7 @@ fun RepairPage(navController: NavController) {
                         )
                         .padding(12.dp)
                 ) {
-                    androidx.compose.material3.OutlinedTextField(
+                    TextField(
                         value = requestText,
                         onValueChange = { requestText = it },
                         modifier = Modifier.fillMaxSize(),
@@ -123,17 +177,23 @@ fun RepairPage(navController: NavController) {
                 Spacer(modifier = Modifier.height(10.dp))
 
                 TextButton(
-                    onClick = {
-                        pickMedia.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
-                    }
+                    onClick = { pickImagesLauncher.launch(arrayOf("image/*")) }
                 ) {
                     Icon(Icons.Default.Image, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        if (selectedPhotoUri == null) "Add images"
-                        else "Image added"
+                        if (selectedPhotoUris.isEmpty()) "Add images"
+                        else "${selectedPhotoUris.size} image(s) selected"
+                    )
+                }
+
+                if (selectedPhotoUris.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SelectedImagesPreview(
+                        photoUris = selectedPhotoUris,
+                        onRemovePhoto = { uriToRemove ->
+                            selectedPhotoUris.remove(uriToRemove)
+                        }
                     )
                 }
 
@@ -158,42 +218,35 @@ fun RepairPage(navController: NavController) {
 
                     Button(
                         onClick = {
-                            val finalRepair = vm.createAndMarkSent(
-                                rawDescription = requestText,
-                                finalMessage = requestText,
-                                photoUri = selectedPhotoUri
-                            ) ?: return@Button
+                            val trimmedText = requestText.trim()
+                            if (trimmedText.isBlank()) return@Button
 
-                            val emailIntent = if (selectedPhotoUri != null) {
-                                Intent(Intent.ACTION_SEND).apply {
-                                    type = "image/*"
-                                    putExtra(Intent.EXTRA_EMAIL, arrayOf(LANDLORD_EMAIL))
-                                    putExtra(
-                                        Intent.EXTRA_SUBJECT,
-                                        "Repair Request: Shared Flat"
-                                    )
-                                    putExtra(Intent.EXTRA_TEXT, finalRepair.landlordMessage)
-                                    putExtra(Intent.EXTRA_STREAM, Uri.parse(selectedPhotoUri))
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                            } else {
-                                Intent(Intent.ACTION_SENDTO).apply {
-                                    data = Uri.parse("mailto:$LANDLORD_EMAIL")
-                                    putExtra(
-                                        Intent.EXTRA_SUBJECT,
-                                        "Repair Request: Shared Flat"
-                                    )
-                                    putExtra(Intent.EXTRA_TEXT, finalRepair.landlordMessage)
-                                }
-                            }
-
-                            context.startActivity(
-                                Intent.createChooser(emailIntent, "Send repair request")
+                            val draft = PendingRepairDraft(
+                                rawDescription = trimmedText,
+                                finalMessage = trimmedText,
+                                photoUris = selectedPhotoUris.toList()
                             )
 
-                            requestText = ""
-                            reviewedText = ""
-                            selectedPhotoUri = null
+                            val emailIntent = buildGmailIntent(
+                                context = context,
+                                to = LANDLORD_EMAIL,
+                                subject = REPAIR_SUBJECT,
+                                body = draft.finalMessage,
+                                attachmentUris = draft.photoUris.map(Uri::parse)
+                            )
+
+                            pendingDraft = draft
+
+                            try {
+                                gmailLauncher.launch(emailIntent)
+                            } catch (_: ActivityNotFoundException) {
+                                pendingDraft = null
+                                Toast.makeText(
+                                    context,
+                                    "Gmail is not installed on this device",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
                         },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(50),
@@ -201,6 +254,131 @@ fun RepairPage(navController: NavController) {
                     ) {
                         Text("Send")
                     }
+                }
+            }
+        }
+    }
+
+    if (showSentConfirmationDialog) {
+        AlertDialog(
+            onDismissRequest = { showSentConfirmationDialog = false },
+            title = { Text("Confirm email sending") },
+            text = { Text("Did you finally send the email from Gmail?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val draft = pendingDraft
+                        if (draft != null) {
+                            vm.createSentRepair(
+                                rawDescription = draft.rawDescription,
+                                finalMessage = draft.finalMessage,
+                                photoUris = draft.photoUris
+                            )
+
+                            requestText = ""
+                            reviewedText = ""
+                            selectedPhotoUris.clear()
+                        }
+
+                        pendingDraft = null
+                        showSentConfirmationDialog = false
+                    }
+                ) {
+                    Text("Yes, sent")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        pendingDraft = null
+                        showSentConfirmationDialog = false
+                    }
+                ) {
+                    Text("No")
+                }
+            }
+        )
+    }
+}
+
+private fun buildGmailIntent(
+    context: Context,
+    to: String,
+    subject: String,
+    body: String,
+    attachmentUris: List<Uri>
+): Intent {
+    return if (attachmentUris.isEmpty()) {
+        Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            `package` = GMAIL_PACKAGE
+            putExtra(Intent.EXTRA_EMAIL, arrayOf(to))
+            putExtra(Intent.EXTRA_SUBJECT, subject)
+            putExtra(Intent.EXTRA_TEXT, body)
+        }
+    } else {
+        Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            type = "image/*"
+            `package` = GMAIL_PACKAGE
+            putExtra(Intent.EXTRA_EMAIL, arrayOf(to))
+            putExtra(Intent.EXTRA_SUBJECT, subject)
+            putExtra(Intent.EXTRA_TEXT, body)
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(attachmentUris))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+
+            clipData = ClipData.newUri(
+                context.contentResolver,
+                "repair_images",
+                attachmentUris.first()
+            ).apply {
+                attachmentUris.drop(1).forEach { uri ->
+                    addItem(ClipData.Item(uri))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectedImagesPreview(
+    photoUris: List<String>,
+    onRemovePhoto: (String) -> Unit
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        photoUris.forEach { photoUri ->
+            Box {
+                AsyncImage(
+                    model = photoUri,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(92.dp)
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                            shape = RoundedCornerShape(12.dp)
+                        ),
+                    contentScale = ContentScale.Crop
+                )
+
+                IconButton(
+                    onClick = { onRemovePhoto(photoUri) },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(28.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                            shape = RoundedCornerShape(bottomStart = 12.dp)
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Remove image",
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
         }
@@ -226,13 +404,15 @@ private fun RepairRequestCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top
         ) {
             Icon(
                 imageVector = Icons.Default.Build,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier
+                    .size(26.dp)
+                    .padding(top = 4.dp)
             )
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -243,11 +423,35 @@ private fun RepairRequestCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
+
                 Text(
                     text = repair.description,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                if (repair.photoUris.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        repair.photoUris.forEach { photoUri ->
+                            AsyncImage(
+                                model = photoUri,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .border(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.outlineVariant,
+                                        shape = RoundedCornerShape(10.dp)
+                                    ),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -303,7 +507,10 @@ private fun StatusChip(
         onClick = onClick,
         modifier = Modifier
             .background(background, RoundedCornerShape(50))
-            .padding(horizontal = 2.dp, vertical = 0.dp)
+            .padding(horizontal = 2.dp, vertical = 0.dp),
+        colors = ButtonDefaults.textButtonColors(
+            contentColor = Color.White
+        )
     ) {
         Text(
             text = status.replace("_", " "),

@@ -19,7 +19,7 @@ data class RepairUi(
     val description: String,
     val reportedBy: String,
     val landlordMessage: String,
-    val photoUri: String?,
+    val photoUris: List<String>,
     val status: String
 )
 
@@ -66,7 +66,7 @@ class RepairViewModel(
                                     description = it.description,
                                     reportedBy = it.reportedBy,
                                     landlordMessage = it.landlordMessage,
-                                    photoUri = it.photoUri,
+                                    photoUris = it.photoUris,
                                     status = it.status
                                 )
                             }
@@ -97,15 +97,15 @@ class RepairViewModel(
         """.trimIndent()
     }
 
-    fun createAndMarkSent(
+    fun createSentRepair(
         rawDescription: String,
         finalMessage: String,
-        photoUri: String?
-    ): RepairUi? {
-        val flatId = currentFlatId ?: return null
+        photoUris: List<String>
+    ) {
+        val flatId = currentFlatId ?: return
 
         val description = rawDescription.trim()
-        if (description.isBlank()) return null
+        if (description.isBlank()) return
 
         val title = description
             .lineSequence()
@@ -120,7 +120,7 @@ class RepairViewModel(
             description = description,
             reportedBy = uiState.currentUserName,
             landlordMessage = finalMessage.trim().ifBlank { description },
-            photoUri = photoUri,
+            photoUris = photoUris,
             status = "SENT"
         )
 
@@ -130,8 +130,6 @@ class RepairViewModel(
         viewModelScope.launch {
             repository.updateRepairs(flatId, updatedRepairs)
         }
-
-        return newRepair.toUi()
     }
 
     fun updateRepairStatus(repairId: String, newStatus: String) {
@@ -155,7 +153,7 @@ class RepairViewModel(
             description = description,
             reportedBy = reportedBy,
             landlordMessage = landlordMessage,
-            photoUri = photoUri,
+            photoUris = photoUris,
             status = status
         )
 
@@ -166,7 +164,7 @@ class RepairViewModel(
             description = description,
             reportedBy = reportedBy,
             landlordMessage = landlordMessage,
-            photoUri = photoUri,
+            photoUris = photoUris,
             status = status
         )
 }

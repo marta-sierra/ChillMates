@@ -1,11 +1,14 @@
 package es.uc3m.android.chillmates.settings
 
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val notificationsEnabled: Boolean = true,
@@ -14,65 +17,84 @@ data class SettingsUiState(
     val language: String = "System Default"
 )
 
-class SettingsViewModel : ViewModel() {
+class SettingsViewModel(
+    private val dataStoreHelper: SettingsDataStoreHelper
+) : ViewModel() {
 
-    //UI state holding user preferences, initialized with default values.
-    private var _uiState by mutableStateOf(SettingsUiState())
-    
-    // Temporary state to hold changes before applying
-    var uiState by mutableStateOf(SettingsUiState())
-        private set
+    private val _uiState = MutableStateFlow(SettingsUiState())
+    val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
-    //Updates the global notification preference.
+    init {
+        viewModelScope.launch {
+            dataStoreHelper.notificationsEnabled.collectLatest { enabled ->
+                _uiState.value = _uiState.value.copy(notificationsEnabled = enabled)
+            }
+        }
+
+        viewModelScope.launch {
+            dataStoreHelper.darkModeEnabled.collectLatest { enabled ->
+                _uiState.value = _uiState.value.copy(darkModeEnabled = enabled)
+            }
+        }
+
+        viewModelScope.launch {
+            dataStoreHelper.soundEnabled.collectLatest { enabled ->
+                _uiState.value = _uiState.value.copy(soundEnabled = enabled)
+            }
+        }
+
+        viewModelScope.launch {
+            dataStoreHelper.language.collectLatest { language ->
+                _uiState.value = _uiState.value.copy(language = language)
+            }
+        }
+    }
+
     fun onNotificationsToggle(enabled: Boolean) {
-        uiState = uiState.copy(notificationsEnabled = enabled)
+        _uiState.value = _uiState.value.copy(notificationsEnabled = enabled)
     }
 
-    // Toggles the application's appearance between Light and Dark mode.
     fun onDarkModeToggle(enabled: Boolean) {
-        uiState = uiState.copy(darkModeEnabled = enabled)
+        _uiState.value = _uiState.value.copy(darkModeEnabled = enabled)
     }
 
-    // Enables or disables in-app sound effects.
     fun onSoundToggle(enabled: Boolean) {
-        uiState = uiState.copy(soundEnabled = enabled)
+        _uiState.value = _uiState.value.copy(soundEnabled = enabled)
     }
 
-    //Updates the selected application language.
     fun onLanguageChange(language: String) {
-        uiState = uiState.copy(language = language)
+        _uiState.value = _uiState.value.copy(language = language)
     }
 
     fun applyChanges() {
-        _uiState = uiState
-        
-        // Apply Language
-        val localeCode = when (_uiState.language) {
+        val currentState = _uiState.value
+
+        viewModelScope.launch {
+            dataStoreHelper.saveNotificationsEnabled(currentState.notificationsEnabled)
+            dataStoreHelper.saveDarkModeEnabled(currentState.darkModeEnabled)
+            dataStoreHelper.saveSoundEnabled(currentState.soundEnabled)
+            dataStoreHelper.saveLanguage(currentState.language)
+        }
+
+        val localeCode = when (currentState.language) {
             "Español" -> "es"
             "Català" -> "ca"
             "English" -> "en"
-            else -> "" // Empty string resets to System Default
+            else -> ""
         }
 
-        val appLocale: LocaleListCompat = if (localeCode.isEmpty()) {
+        val appLocale = if (localeCode.isEmpty()) {
             LocaleListCompat.getEmptyLocaleList()
         } else {
             LocaleListCompat.forLanguageTags(localeCode)
         }
         AppCompatDelegate.setApplicationLocales(appLocale)
-        
-        // Note: Dark mode logic usually relies on the theme observing a state.
-        // If ChillMatesTheme uses isSystemInDarkTheme(), you might need to 
-        // set AppCompatDelegate.setDefaultNightMode based on _uiState.darkModeEnabled
-        val nightMode = if (_uiState.darkModeEnabled) {
+
+        val nightMode = if (currentState.darkModeEnabled) {
             AppCompatDelegate.MODE_NIGHT_YES
         } else {
             AppCompatDelegate.MODE_NIGHT_NO
         }
         AppCompatDelegate.setDefaultNightMode(nightMode)
-    }
-
-    // TODO: Implement logout logic
-    fun onLogout() {
     }
 }

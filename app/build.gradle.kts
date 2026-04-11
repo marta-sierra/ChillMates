@@ -7,18 +7,18 @@ plugins {
 
 android {
     namespace = "es.uc3m.android.chillmates"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "es.uc3m.android.chillmates"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        manifestPlaceholders["MAPS_API_KEY"] = "YOUR_API_KEY"
     }
 
     buildTypes {
@@ -52,7 +52,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation("androidx.compose.material:material-icons-extended")
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
-    implementation("androidx.navigation:navigation-compose:2.8.0") // marta
+    implementation("androidx.navigation:navigation-compose:2.8.0")
     implementation(libs.androidx.compose.ui.text.google.fonts)
     implementation(libs.androidx.compose.foundation)
     testImplementation(libs.junit)
@@ -62,7 +62,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-    implementation("io.coil-kt:coil-compose:2.5.0") // profile picture
+    implementation("io.coil-kt:coil-compose:2.5.0")
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.auth)
@@ -70,5 +70,5 @@ dependencies {
     implementation(libs.play.services.maps)
     implementation(libs.places)
     implementation(libs.google.google.maps.services)
+    implementation(libs.androidx.datastore)
 }
-

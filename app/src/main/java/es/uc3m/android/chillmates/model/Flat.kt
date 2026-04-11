@@ -64,7 +64,7 @@ data class Repair(
     val description: String = "",
     val reportedBy: String = "",
     val landlordMessage: String = "",
-    val photoUri: String? = null,
+    val photoUris: List<String> = emptyList(),
     val status: String = "PENDING"
 )
 
@@ -82,4 +82,3 @@ data class Flat(
     val events: List<UpcomingEvent> = emptyList(),
     var lastRotationTimestamp: Long = 0L
 )
-

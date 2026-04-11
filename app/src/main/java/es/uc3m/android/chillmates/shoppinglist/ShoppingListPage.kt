@@ -644,9 +644,9 @@ private fun AddSupermarketDialog(
     val aliasAlreadyExists = existingAliases.any { it.equals(alias.trim(), ignoreCase = true) }
 
     val placesClient = remember {
-        if (!Places.isInitialized()) {
+        """if (!Places.isInitialized()) {
             Places.initializeWithNewPlacesApiEnabled(context.applicationContext, BuildConfig.MAPS_API_KEY)
-        }
+        }"""
         Places.createClient(context)
     }
 
