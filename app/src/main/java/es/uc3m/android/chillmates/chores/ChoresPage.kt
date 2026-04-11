@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Notifications
@@ -23,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import es.uc3m.android.chillmates.LargeSectionHeader
+import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.model.Chore
 
@@ -75,98 +75,100 @@ fun ChoresPage(
     Column(modifier = Modifier.fillMaxSize()) {
         LargeSectionHeader(title = stringResource(R.string.chores_title))
 
-        Column(modifier = Modifier.fillMaxSize()) {
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-
-                // --- NEW: Week Navigator Header ---
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        IconButton(onClick = { weekOffset-- }) {
-                            Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Previous Week")
-                        }
-
-                        Text(
-                            text = when {
-                                weekOffset == 0 -> "Current Week"
-                                weekOffset == 1 -> "Next Week"
-                                weekOffset == -1 -> "Last Week"
-                                weekOffset > 1 -> "In $weekOffset weeks"
-                                else -> "${-weekOffset} weeks ago"
-                            },
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (weekOffset == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        IconButton(onClick = { weekOffset++ }) {
-                            Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Next Week")
-                        }
-                    }
-                }
-
-                // Show the preview or current chores
-                items(displayedChores) { chore ->
-                    ChoreCard(
-                        chore = chore,
-                        currentUserName = currentUserName,
-                        isPreview = weekOffset != 0, // Flag to disable buttons if we are looking at the past/future
-                        onUpdateChore = { updatedChore ->
-                            viewModel.updateChoreStatus(updatedChore.id, updatedChore.isDone)
-                        },
-                        onSwapRequest = { choreToSwap = it }
-                    )
-                }
-            }
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.background,
-                tonalElevation = 2.dp,
-                shadowElevation = 8.dp
-            ) {
-                Column(
+        PageContentWrapper {
+            Column(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
                     modifier = Modifier
+                        .weight(1f)
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(horizontal = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
 
-                    OutlinedButton(
-                        onClick = { showReconfigureDialog = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = stringResource(R.string.cd_reconfigure),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.btn_reconfigure_chores))
+                    // --- NEW: Week Navigator Header ---
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            IconButton(onClick = { weekOffset-- }) {
+                                Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Previous Week")
+                            }
+
+                            Text(
+                                text = when {
+                                    weekOffset == 0 -> "Current Week"
+                                    weekOffset == 1 -> "Next Week"
+                                    weekOffset == -1 -> "Last Week"
+                                    weekOffset > 1 -> "In $weekOffset weeks"
+                                    else -> "${-weekOffset} weeks ago"
+                                },
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (weekOffset == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            IconButton(onClick = { weekOffset++ }) {
+                                Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Next Week")
+                            }
+                        }
                     }
 
-                    Button(
-                        onClick = { showAddChoreDialog = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = stringResource(R.string.cd_add_chore),
-                            modifier = Modifier.size(18.dp)
+                    // Show the preview or current chores
+                    items(displayedChores) { chore ->
+                        ChoreCard(
+                            chore = chore,
+                            currentUserName = currentUserName,
+                            isPreview = weekOffset != 0, // Flag to disable buttons if we are looking at the past/future
+                            onUpdateChore = { updatedChore ->
+                                viewModel.updateChoreStatus(updatedChore.id, updatedChore.isDone)
+                            },
+                            onSwapRequest = { choreToSwap = it }
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.btn_add_new_chore))
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.background,
+                    tonalElevation = 2.dp,
+                    shadowElevation = 8.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+
+                        OutlinedButton(
+                            onClick = { showReconfigureDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = stringResource(R.string.cd_reconfigure),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.btn_reconfigure_chores))
+                        }
+
+                        Button(
+                            onClick = { showAddChoreDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = stringResource(R.string.cd_add_chore),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.btn_add_new_chore))
+                        }
                     }
                 }
             }

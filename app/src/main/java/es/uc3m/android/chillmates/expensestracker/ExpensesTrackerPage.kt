@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +30,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import es.uc3m.android.chillmates.LargeSectionHeader
+import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.model.Expense
 import kotlin.math.absoluteValue
@@ -100,7 +101,6 @@ fun ExpensesTrackerPage(navController: NavController) {
 
     ExpensesRoute(
         state = vm.uiState,
-        onBackClick = { navController.popBackStack() },
         onAddExpenseClick = {
             // Prepare intent for AddExpenseActivity with current flatmate list
             val intent = Intent(context, AddExpenseActivity::class.java).apply {
@@ -173,61 +173,25 @@ private fun TicketViewerDialog(
 @Composable
 private fun ExpensesRoute(
     state: ExpensesUiState,
-    onBackClick: () -> Unit,
     onAddExpenseClick: () -> Unit,
     onTicketClick: (String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        ExpensesHeaderSection(
+        LargeSectionHeader(
             title = stringResource(
                 id = when (state.title) {
                     "expenses_title" -> R.string.expenses_title
                     else -> R.string.expenses_title
                 }
-            ),
-            onBackClick = onBackClick
+            )
         )
 
-        ExpensesContentSection(
-            expenses = state.expenses,
-            balances = state.balances,
-            onAddExpenseClick = onAddExpenseClick,
-            onTicketClick = onTicketClick
-        )
-    }
-}
-
-@Composable
-private fun ExpensesHeaderSection(
-    title: String,
-    onBackClick: () -> Unit
-) {
-    Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
-        tonalElevation = 0.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            IconButton(
-                onClick = onBackClick,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = stringResource(R.string.cd_back),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+        PageContentWrapper {
+            ExpensesContentSection(
+                expenses = state.expenses,
+                balances = state.balances,
+                onAddExpenseClick = onAddExpenseClick,
+                onTicketClick = onTicketClick
             )
         }
     }
@@ -243,13 +207,15 @@ private fun ExpensesContentSection(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 8.dp)
+            .padding(horizontal = 24.dp)
+            .padding(top = 24.dp)
     ) {
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(expenses, key = { it.id }) { expense ->
@@ -272,7 +238,6 @@ private fun ExpensesContentSection(
             balances = balances,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
                 .padding(bottom = 16.dp)
         )
     }
