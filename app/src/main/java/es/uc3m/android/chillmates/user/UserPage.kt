@@ -65,7 +65,9 @@ fun UserPage(navController: NavController) {
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        // Al anular los insets por defecto evitamos el hueco superior de la barra de estado
+        contentWindowInsets = WindowInsets(0.dp)
     ) { paddingValues ->
         UserRoute(
             modifier = Modifier.padding(paddingValues),
@@ -155,14 +157,14 @@ private fun UserRoute(
             }
         }
 
-        // LazyColumn con el hueco superior eliminado
+        // LazyColumn de contenido
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.surfaceContainerLowest),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(
-                top = 0.dp,      // Perfil pegado arriba
+                top = 16.dp,     // <-- AQUÍ SEPARADO DEL HEADER (antes estaba a 0.dp)
                 start = 16.dp,
                 end = 16.dp,
                 bottom = 16.dp
