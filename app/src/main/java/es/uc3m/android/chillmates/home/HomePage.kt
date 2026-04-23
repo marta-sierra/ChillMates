@@ -1,7 +1,6 @@
 package es.uc3m.android.chillmates.home
 
 import android.Manifest
-import android.app.Activity
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.ActivityNotFoundException
@@ -37,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import es.uc3m.android.chillmates.NavGraph
 import es.uc3m.android.chillmates.R
 
 @Composable

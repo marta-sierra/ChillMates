@@ -1,11 +1,6 @@
 package es.uc3m.android.chillmates.expensestracker
 
-import android.app.Activity
-import android.content.ActivityNotFoundException
-import android.content.Context
-import android.content.Intent
 import android.net.Uri
-import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -31,22 +26,55 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import es.uc3m.android.chillmates.LargeSectionHeader
+import es.uc3m.android.chillmates.NavGraph
 import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.model.Expense
 import kotlin.math.absoluteValue
+import java.util.Locale
 
 @Composable
 fun ExpensesTrackerPage(navController: NavController) {
     val vm: ExpensesViewModel = viewModel()
     val context = LocalContext.current
+    val toastTicketAttached = stringResource(R.string.toast_ticket_attached)
+    val toastCancelled = stringResource(R.string.toast_cancelled)
+    val toastExpenseAdded = stringResource(R.string.toast_expense_added)
+    val savedStateHandle = navController.currentBackStackEntry?.savedStateHandle
 
-    // Expense is waiting for a ticket image upload
     var pendingExpenseId by remember { mutableStateOf<String?>(null) }
-    // Which ticket URI is currently being previewed in the dialog
     var ticketToView by remember { mutableStateOf<Uri?>(null) }
 
-    // Launcher for selecting a document/image from the system picker
+    val returnedExpenseTitle = savedStateHandle?.get<String>(NavGraph.RESULT_EXPENSE_TITLE)
+    val returnedExpenseAmount = savedStateHandle?.get<Double>(NavGraph.RESULT_EXPENSE_AMOUNT)
+    val returnedExpensePaidBy = savedStateHandle?.get<String>(NavGraph.RESULT_EXPENSE_PAID_BY)
+    val returnedExpenseSplitBetween = savedStateHandle
+        ?.get<ArrayList<String>>(NavGraph.RESULT_EXPENSE_SPLIT_BETWEEN)
+        ?.toList()
+
+    LaunchedEffect(returnedExpenseTitle, returnedExpenseAmount, returnedExpensePaidBy, returnedExpenseSplitBetween) {
+        if (
+            returnedExpenseTitle != null &&
+            returnedExpenseAmount != null &&
+            returnedExpensePaidBy != null &&
+            returnedExpenseSplitBetween != null
+        ) {
+            vm.onExpenseAdded(
+                returnedExpenseTitle,
+                returnedExpenseAmount,
+                returnedExpensePaidBy,
+                returnedExpenseSplitBetween
+            )
+            Toast.makeText(context, toastExpenseAdded, Toast.LENGTH_SHORT).show()
+
+            savedStateHandle?.remove<String>(NavGraph.RESULT_EXPENSE_TITLE)
+            savedStateHandle?.remove<Double>(NavGraph.RESULT_EXPENSE_AMOUNT)
+            savedStateHandle?.remove<String>(NavGraph.RESULT_EXPENSE_PAID_BY)
+            savedStateHandle?.remove<ArrayList<String>>(NavGraph.RESULT_EXPENSE_SPLIT_BETWEEN)
+            savedStateHandle?.remove<String?>(NavGraph.RESULT_EXPENSE_ITEM_ID)
+        }
+    }
+
     val getImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
@@ -57,41 +85,18 @@ fun ExpensesTrackerPage(navController: NavController) {
             try {
                 context.contentResolver.takePersistableUriPermission(
                     uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
             } catch (_: SecurityException) {
             }
 
             vm.onTicketSelected(expenseId, uri)
-            Toast.makeText(context, context.getString(R.string.toast_ticket_attached), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, toastTicketAttached, Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(context, context.getString(R.string.toast_cancelled), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, toastCancelled, Toast.LENGTH_SHORT).show()
         }
     }
 
-    // Launcher to handle the result returned from AddExpenseActivity
-    val addExpenseLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val data = result.data
-            val title = data?.getStringExtra(AddExpenseActivity.EXTRA_TITLE)
-            val amount = data?.getDoubleExtra(AddExpenseActivity.EXTRA_AMOUNT, Double.NaN)
-            val paidBy = data?.getStringExtra(AddExpenseActivity.EXTRA_PAID_BY)
-
-            if (!title.isNullOrBlank() && amount != null && !amount.isNaN() && !paidBy.isNullOrBlank()) {
-                val splitBetween = data.getStringArrayListExtra(AddExpenseActivity.EXTRA_SPLIT_BETWEEN) ?: emptyList<String>()
-                vm.onExpenseAdded(title, amount, paidBy, splitBetween)
-                Toast.makeText(context, context.getString(R.string.toast_expense_added), Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(context, context.getString(R.string.toast_invalid_data), Toast.LENGTH_SHORT).show()
-            }
-        } else {
-            Toast.makeText(context, context.getString(R.string.toast_cancelled), Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    // Displays the image preview dialog if a ticket is selected
     if (ticketToView != null) {
         TicketViewerDialog(
             uri = ticketToView!!,
@@ -102,11 +107,15 @@ fun ExpensesTrackerPage(navController: NavController) {
     ExpensesRoute(
         state = vm.uiState,
         onAddExpenseClick = {
-            // Prepare intent for AddExpenseActivity with current flatmate list
-            val intent = Intent(context, AddExpenseActivity::class.java).apply {
-                putStringArrayListExtra("flatmatesList", ArrayList(vm.uiState.availableFlatmates))
-            }
-            addExpenseLauncher.launch(intent)
+            savedStateHandle?.set(NavGraph.REQUEST_EXPENSE_TITLE, "")
+            savedStateHandle?.set(NavGraph.REQUEST_EXPENSE_PAID_BY, "")
+            savedStateHandle?.set(NavGraph.REQUEST_EXPENSE_SPLIT_BETWEEN, arrayListOf<String>())
+            savedStateHandle?.set(
+                NavGraph.REQUEST_EXPENSE_AVAILABLE_FLATMATES,
+                ArrayList(vm.uiState.availableFlatmates)
+            )
+            savedStateHandle?.remove<String>(NavGraph.REQUEST_EXPENSE_ITEM_ID)
+            navController.navigate(NavGraph.AddExpense.route)
         },
         onTicketClick = { expenseId ->
             when (val action = vm.onTicketRequested(expenseId)) {
@@ -120,6 +129,7 @@ fun ExpensesTrackerPage(navController: NavController) {
             }
         }
     )
+
 }
 
 /**
@@ -155,13 +165,13 @@ private fun TicketViewerDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(420.dp),
-                    factory = { ctx ->
-                        ImageView(ctx).apply {
+                    factory = { ctx: android.content.Context ->
+                        android.widget.ImageView(ctx).apply {
                             adjustViewBounds = true
-                            scaleType = ImageView.ScaleType.FIT_CENTER
+                            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
                         }
                     },
-                    update = { imageView ->
+                    update = { imageView: android.widget.ImageView ->
                         imageView.setImageURI(uri)
                     }
                 )
@@ -375,22 +385,4 @@ private fun DividerThin() {
 }
 
 private fun formatMoney(amount: Double): String =
-    "€" + String.format("%.2f", amount)
-
-/**
- * Opens a ticket URI using an implicit ACTION_VIEW intent.
- */
-private fun openTicket(context: Context, uri: Uri) {
-    val mimeType = context.contentResolver.getType(uri) ?: "image/*"
-
-    val intent = Intent(Intent.ACTION_VIEW).apply {
-        setDataAndType(uri, mimeType)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-
-    try {
-        context.startActivity(intent)
-    } catch (e: ActivityNotFoundException) {
-        Toast.makeText(context, context.getString(R.string.toast_no_app_found_open_file), Toast.LENGTH_LONG).show()
-    }
-}
+    "€" + String.format(Locale.getDefault(), "%.2f", amount)

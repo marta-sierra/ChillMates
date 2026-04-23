@@ -1,7 +1,5 @@
 package es.uc3m.android.chillmates.user
 
-import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -10,14 +8,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.model.Flat
 import es.uc3m.android.chillmates.model.User
 import es.uc3m.android.chillmates.model.USERS_COLLECTION
 import es.uc3m.android.chillmates.repository.FlatRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -52,7 +46,6 @@ class UserViewModel : ViewModel() {
     var uiState by mutableStateOf(UserUiState())
         private set
 
-    private val _flatListenerJob = MutableStateFlow<Any?>(null)
 
     init {
         loadUserData()
@@ -137,19 +130,6 @@ class UserViewModel : ViewModel() {
         }
     }
 
-    fun onInviteClick(context: Context) {
-        val inviteCode = uiState.flat?.inviteCode ?: return
-        val flatName = uiState.flat?.name ?: "my flat"
-        val inviteMsg = "Join $flatName on ChillMates! Use invite code: $inviteCode"
-        val chooserTitle = context.getString(R.string.user_invite_chooser_title)
-
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, inviteMsg)
-        }
-        val chooser = Intent.createChooser(intent, chooserTitle)
-        context.startActivity(chooser)
-    }
 
     fun onShowCreateJoinDialog() {
         uiState = uiState.copy(
