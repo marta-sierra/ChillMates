@@ -26,9 +26,7 @@ data class NoticeUi(
 )
 
 @Immutable
-data class MemberUi(
-    val name: String
-)
+data class MemberUi(val name: String)
 
 @Immutable
 data class UpcomingEventUi(
@@ -57,20 +55,8 @@ class HomeViewModel(
         private set
 
     sealed class HomeAction {
-        data class AddToCalendar(
-            val title: String,
-            val description: String,
-            val beginMillis: Long,
-            val endMillis: Long
-        ) : HomeAction()
-
-        data class ScheduleReminder(
-            val requestCode: Int,
-            val title: String,
-            val message: String,
-            val triggerAtMillis: Long
-        ) : HomeAction()
-
+        data class AddToCalendar(val title: String, val description: String, val beginMillis: Long, val endMillis: Long) : HomeAction()
+        data class ScheduleReminder(val requestCode: Int, val title: String, val message: String, val triggerAtMillis: Long) : HomeAction()
         data class CancelReminder(val requestCode: Int) : HomeAction()
     }
 
@@ -96,16 +82,20 @@ class HomeViewModel(
 
                 if (flatId != null) {
                     currentFlatId = flatId
+                    uiState = uiState.copy(currentUserName = userName)
 
-                    repository.observeFlat(flatId).collect { flat ->
-                        if (flat != null) {
-                            // Map Firebase Notices to UI Notices
-                            val mappedNotices = flat.notices.map { dbNotice ->
+                    launch {
+                        repository.observeNotices(flatId).collect { dbNotices ->
+                            val mappedNotices = dbNotices.map { dbNotice ->
                                 NoticeUi(dbNotice.id, dbNotice.title, dbNotice.details, dbNotice.acceptedBy.map { MemberUi(it) })
                             }
+                            uiState = uiState.copy(notices = mappedNotices)
+                        }
+                    }
 
-                            // Map Firebase Events to UI Events
-                            val mappedEvents = flat.events.map { dbEvent ->
+                    launch {
+                        repository.observeEvents(flatId).collect { dbEvents ->
+                            val mappedEvents = dbEvents.map { dbEvent ->
                                 val isReminded = localReminderStates[dbEvent.id] ?: false
                                 UpcomingEventUi(
                                     id = dbEvent.id,
@@ -115,13 +105,8 @@ class HomeViewModel(
                                     attending = dbEvent.attending.map { MemberUi(it) },
                                     isRemindMeEnabled = isReminded
                                 )
-                            }.sortedBy { computeNextOccurrenceMillis(it.dateLabel, 60) } // Keep sorted automatically
-
-                            uiState = uiState.copy(
-                                notices = mappedNotices,
-                                upcomingEvents = mappedEvents,
-                                currentUserName = userName
-                            )
+                            }.sortedBy { computeNextOccurrenceMillis(it.dateLabel, 60) }
+                            uiState = uiState.copy(upcomingEvents = mappedEvents)
                         }
                     }
                 }
@@ -131,50 +116,35 @@ class HomeViewModel(
         }
     }
 
-    fun onActionConsumed() {
-        action = null
-    }
+    fun onActionConsumed() { action = null }
 
     fun onAcceptNotice(noticeId: String) {
         val flatId = currentFlatId ?: return
         val userName = uiState.currentUserName
+        val target = uiState.notices.find { it.id == noticeId } ?: return
+        if (target.acceptedBy.any { it.name == userName }) return
 
-        val updatedDbNotices = uiState.notices.map { n ->
-            val already = n.acceptedBy.any { it.name == userName }
-            val newAccepted = if (already) n.acceptedBy.map { it.name } else n.acceptedBy.map { it.name } + userName
-            Notice(n.id, n.title, n.details, newAccepted)
-        }
-
-        viewModelScope.launch { repository.updateNotices(flatId, updatedDbNotices) }
+        val newAccepted = target.acceptedBy.map { it.name } + userName
+        viewModelScope.launch { repository.updateNoticeAcceptedBy(flatId, noticeId, newAccepted) }
     }
 
     fun onRejectNotice(noticeId: String) {
         val flatId = currentFlatId ?: return
         val userName = uiState.currentUserName
+        val target = uiState.notices.find { it.id == noticeId } ?: return
 
-        val updatedDbNotices = uiState.notices.map { n ->
-            val newAccepted = n.acceptedBy.filterNot { it.name == userName }.map { it.name }
-            Notice(n.id, n.title, n.details, newAccepted)
-        }
-
-        viewModelScope.launch { repository.updateNotices(flatId, updatedDbNotices) }
+        val newAccepted = target.acceptedBy.filterNot { it.name == userName }.map { it.name }
+        viewModelScope.launch { repository.updateNoticeAcceptedBy(flatId, noticeId, newAccepted) }
     }
 
     fun onShowAllNotices() {
         uiState = uiState.copy(showAllNotices = !uiState.showAllNotices)
     }
 
-    // --- NEW: Manually add a notice to Firebase ---
     fun onAddNotice(title: String, details: String) {
         val flatId = currentFlatId ?: return
-        val newNotice = Notice(
-            id = "n_${System.currentTimeMillis()}",
-            title = title,
-            details = details,
-            acceptedBy = emptyList()
-        )
-        val currentDbNotices = uiState.notices.map { Notice(it.id, it.title, it.details, it.acceptedBy.map { m -> m.name }) }
-        viewModelScope.launch { repository.updateNotices(flatId, listOf(newNotice) + currentDbNotices) }
+        val newNotice = Notice(id = "n_${System.currentTimeMillis()}", title = title, details = details, acceptedBy = emptyList())
+        viewModelScope.launch { repository.addNotice(flatId, newNotice) }
     }
 
     fun onAddToCalendar(eventId: String) {
@@ -191,9 +161,7 @@ class HomeViewModel(
     }
 
     fun onViewMoreDetails(eventId: String) {
-        uiState = uiState.copy(
-            expandedEventId = if (uiState.expandedEventId == eventId) null else eventId
-        )
+        uiState = uiState.copy(expandedEventId = if (uiState.expandedEventId == eventId) null else eventId)
     }
 
     fun onToggleRemindMe(eventId: String) {
@@ -201,7 +169,6 @@ class HomeViewModel(
         val isNowEnabled = !event.isRemindMeEnabled
         localReminderStates[eventId] = isNowEnabled
 
-        // Optimistic UI Update for the toggle
         uiState = uiState.copy(
             upcomingEvents = uiState.upcomingEvents.map { e ->
                 if (e.id == eventId) e.copy(isRemindMeEnabled = isNowEnabled) else e
@@ -213,15 +180,9 @@ class HomeViewModel(
         if (isNowEnabled) {
             val eventStart = computeNextOccurrenceMillis(event.dateLabel, durationMinutes = 60)
             val triggerAtMillis = eventStart - 24L * 60L * 60L * 1000L
-
-            action = HomeAction.ScheduleReminder(
-                requestCode = requestCode,
-                title = "ChillMates reminder",
-                message = "${event.description} • ${event.dateLabel}",
-                triggerAtMillis = triggerAtMillis
-            )
+            action = HomeAction.ScheduleReminder(requestCode, "ChillMates reminder", "${event.description} • ${event.dateLabel}", triggerAtMillis)
         } else {
-            action = HomeAction.CancelReminder(requestCode = requestCode)
+            action = HomeAction.CancelReminder(requestCode)
         }
     }
 
@@ -233,29 +194,12 @@ class HomeViewModel(
 
         if (cleanDateLabel.isBlank() || cleanDescription.isBlank()) return
 
-        // Save to Firebase (Event)
-        val newDbEvent = UpcomingEvent(
-            id = "e_${System.currentTimeMillis()}",
-            dateLabel = cleanDateLabel,
-            description = cleanDescription,
-            location = cleanLocation,
-            attending = emptyList()
-        )
-
-        // Save to Firebase (Auto-Notice)
-        val newDbNotice = Notice(
-            id = "n_${System.currentTimeMillis()}",
-            title = "New event added",
-            details = "$cleanDescription • $cleanDateLabel",
-            acceptedBy = emptyList()
-        )
-
-        val currentDbEvents = uiState.upcomingEvents.map { UpcomingEvent(it.id, it.dateLabel, it.description, it.location, it.attending.map { m -> m.name }) }
-        val currentDbNotices = uiState.notices.map { Notice(it.id, it.title, it.details, it.acceptedBy.map { m -> m.name }) }
+        val newDbEvent = UpcomingEvent(id = "e_${System.currentTimeMillis()}", dateLabel = cleanDateLabel, description = cleanDescription, location = cleanLocation, attending = emptyList())
+        val newDbNotice = Notice(id = "n_${System.currentTimeMillis()}", title = "New event added", details = "$cleanDescription • $cleanDateLabel", acceptedBy = emptyList())
 
         viewModelScope.launch {
-            repository.updateEvents(flatId, currentDbEvents + newDbEvent)
-            repository.updateNotices(flatId, listOf(newDbNotice) + currentDbNotices)
+            repository.addEvent(flatId, newDbEvent)
+            repository.addNotice(flatId, newDbNotice)
         }
     }
 
@@ -292,5 +236,74 @@ class HomeViewModel(
         cal.add(Calendar.DAY_OF_YEAR, delta)
 
         return cal.timeInMillis
+    }
+
+    // =========================================================================
+    // SUPER MOCK DATA INJECTOR (Delete before presentation!)
+    // =========================================================================
+    fun injectMockData() {
+        val flatId = currentFlatId ?: return
+        val currentUserId = auth.currentUser?.uid ?: return
+        val me = uiState.currentUserName
+
+        viewModelScope.launch {
+            try {
+                // 1. INYECTAR USUARIOS FALSOS (Compañeros de piso)
+                val fakeUsers = listOf(
+                    Pair("mock_u1", "Laura"),
+                    Pair("mock_u2", "Carlos"),
+                    Pair("mock_u3", "Miguel")
+                )
+                fakeUsers.forEach { (uid, name) ->
+                    db.collection(es.uc3m.android.chillmates.model.USERS_COLLECTION).document(uid).set(
+                        mapOf("displayName" to name, "flatId" to flatId, "email" to "${name.lowercase()}@mock.com", "avatarUrl" to null)
+                    ).await()
+                }
+
+                val allMembers = listOf(currentUserId) + fakeUsers.map { it.first }
+                db.collection(es.uc3m.android.chillmates.model.FLATS_COLLECTION).document(flatId).update("memberIds", allMembers).await()
+
+                // 2. INYECTAR SUPERMERCADOS FALSOS
+                val supers = listOf(
+                    es.uc3m.android.chillmates.model.Supermarket(id = "sup_mercadona", name = "Mercadona", officialName = "Mercadona S.A.", placeId = "ChIJ-wM...", latitude = 40.41, longitude = -3.70, address = "Calle Mayor 1"),
+                    es.uc3m.android.chillmates.model.Supermarket(id = "sup_carrefour", name = "Carrefour", officialName = "Carrefour Express", placeId = "ChIJ-xN...", latitude = 40.42, longitude = -3.71, address = "Gran Vía 20"),
+                    es.uc3m.android.chillmates.model.Supermarket(id = "sup_lidl", name = "Lidl", officialName = "Lidl Supermercados", placeId = "ChIJ-yO...", latitude = 40.40, longitude = -3.69, address = "Atocha 50")
+                )
+                supers.forEach { s -> db.collection("supermarkets").document(s.id!!).set(s).await() }
+                db.collection(es.uc3m.android.chillmates.model.FLATS_COLLECTION).document(flatId).update("supermarketIds", supers.map { it.id }).await()
+
+                // 3. INYECTAR LISTA DE LA COMPRA MASIVA
+                val items = listOf(
+                    es.uc3m.android.chillmates.model.ShoppingItem(id = "s1", name = "Leche entera", quantity = "6 bricks", neededBy = listOf("Laura", "Carlos"), supermarkets = listOf("Mercadona"), bought = false),
+                    es.uc3m.android.chillmates.model.ShoppingItem(id = "s2", name = "Huevos", quantity = "2 docenas", neededBy = listOf("Everyone"), supermarkets = listOf("Mercadona", "Lidl"), bought = false),
+                    es.uc3m.android.chillmates.model.ShoppingItem(id = "s3", name = "Pan de molde", quantity = "1 paquete", neededBy = listOf(me), supermarkets = listOf("Carrefour"), bought = true),
+                    es.uc3m.android.chillmates.model.ShoppingItem(id = "s4", name = "Cerveza", quantity = "24 latas", neededBy = listOf("Miguel", "Carlos"), supermarkets = listOf("Lidl", "Carrefour"), bought = false),
+                    es.uc3m.android.chillmates.model.ShoppingItem(id = "s5", name = "Papel higiénico", quantity = "24 rollos", neededBy = listOf("Everyone"), supermarkets = listOf("Mercadona"), bought = false)
+                )
+                items.forEach { repository.addShoppingItem(flatId, it) }
+
+                // 4. INYECTAR TAREAS REPARTIDAS
+                repository.addChore(flatId, es.uc3m.android.chillmates.model.Chore(id = "c1", title = "Limpiar cocina a fondo", assignee = "Carlos", isDone = false))
+                repository.addChore(flatId, es.uc3m.android.chillmates.model.Chore(id = "c2", title = "Bajar la basura y cartón", assignee = "Everyone", isDone = false))
+                repository.addChore(flatId, es.uc3m.android.chillmates.model.Chore(id = "c3", title = "Aspirar el salón", assignee = "Laura", isDone = true))
+                repository.addChore(flatId, es.uc3m.android.chillmates.model.Chore(id = "c4", title = "Limpiar los dos baños", assignee = me, isDone = false))
+
+                // 5. INYECTAR GASTOS Y BALANCE DEUDAS
+                repository.addExpense(flatId, es.uc3m.android.chillmates.model.Expense(id = "e1", title = "Internet Fibra", amount = 35.50, paidBy = "Laura", ticketUri = null, splitBetween = listOf(me, "Laura", "Carlos", "Miguel")))
+                repository.addExpense(flatId, es.uc3m.android.chillmates.model.Expense(id = "e2", title = "Compra Semanal Fuerte", amount = 124.30, paidBy = me, ticketUri = null, splitBetween = listOf(me, "Laura", "Carlos", "Miguel")))
+                repository.addExpense(flatId, es.uc3m.android.chillmates.model.Expense(id = "e3", title = "Suscripción Netflix", amount = 15.99, paidBy = "Carlos", ticketUri = null, splitBetween = listOf("Carlos", "Miguel")))
+
+                // 6. INYECTAR REPARACIONES
+                repository.addRepair(flatId, es.uc3m.android.chillmates.model.Repair(id = "r1", title = "Lavadora rota", description = "Hace un ruido muy raro al centrifugar.", reportedBy = "Laura", landlordMessage = "", photoUris = emptyList(), status = "PENDING"))
+                repository.addRepair(flatId, es.uc3m.android.chillmates.model.Repair(id = "r2", title = "Calefacción no funciona", description = "El radiador de mi cuarto está completamente frío.", reportedBy = "Miguel", landlordMessage = "El técnico irá mañana por la tarde.", photoUris = emptyList(), status = "ACCEPTED"))
+
+                // 7. INYECTAR EVENTOS Y AVISOS
+                repository.addEvent(flatId, es.uc3m.android.chillmates.model.UpcomingEvent(id = "ev1", dateLabel = "Fri 21:00", description = "Cena de piso \uD83C\uDF89", location = "Salón", attending = listOf("Laura", "Carlos", me)))
+                repository.addNotice(flatId, es.uc3m.android.chillmates.model.Notice(id = "n1", title = "Visita Casero", details = "Viene a ver la caldera el lunes.", acceptedBy = listOf(me)))
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 }

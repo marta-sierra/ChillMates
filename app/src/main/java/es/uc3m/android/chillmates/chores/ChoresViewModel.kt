@@ -26,6 +26,7 @@ class ChoresViewModel(
     val currentUserName: StateFlow<String> = _currentUserName
 
     private var currentFlatId: String? = null
+    private var lastRotationChecked = false // Prevents infinite rotation loops
 
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
@@ -40,111 +41,100 @@ class ChoresViewModel(
 
             try {
                 val userDoc = db.collection(USERS_COLLECTION).document(userId).get().await()
-                val flatId = userDoc.getString("flatId")
+                val flatId = userDoc.getString("flatId") ?: return@launch
                 val userName = userDoc.getString("displayName") ?: "Me"
+
                 _currentUserName.value = userName
+                currentFlatId = flatId
 
-                if (flatId != null) {
-                    currentFlatId = flatId
-
+                // 1. Observe Flat (for members and auto-rotation timestamp)
+                launch {
                     repository.observeFlat(flatId).collect { flat ->
                         if (flat != null) {
-
-                            // --- AUTO-ROTATION LOGIC ---
-                            val currentTime = System.currentTimeMillis()
-                            val oneWeekInMillis = 7L * 24 * 60 * 60 * 1000 // 7 days in milliseconds
-
-                            if (flat.lastRotationTimestamp == 0L) {
-                                // First time initializing the flat: just set the timer to now
-                                repository.updateChores(flatId, flat.chores, currentTime)
-                                _chores.value = flat.chores
-                            } else if (currentTime - flat.lastRotationTimestamp >= oneWeekInMillis) {
-                                // A WEEK HAS PASSED! AUTO-ROTATE!
-                                performAutoRotation(flat.chores, flat.memberIds, flatId, currentTime)
-                            } else {
-                                // Less than a week has passed, load normally
-                                _chores.value = flat.chores
-                            }
-                            // ---------------------------
-
                             val membersResult = repository.getMemberDetails(flat.memberIds)
                             if (membersResult.isSuccess) {
                                 val memberNames = membersResult.getOrNull()?.map { it.second } ?: emptyList()
                                 _flatmates.value = listOf("Everyone") + memberNames
                             }
+
+                            // Only check rotation once per app session to avoid loops
+                            if (!lastRotationChecked) {
+                                lastRotationChecked = true
+                                checkAutoRotation(flatId, flat.lastRotationTimestamp, flat.memberIds)
+                            }
                         }
                     }
                 }
+
+                // 2. Observe Chores Subcollection (Auto-updates UI instantly thanks to Firestore local cache)
+                launch {
+                    repository.observeChores(flatId).collect { choresList ->
+                        _chores.value = choresList
+                    }
+                }
+
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
     }
 
+    private fun checkAutoRotation(flatId: String, lastRotationTimestamp: Long, memberIds: List<String>) {
+        viewModelScope.launch {
+            val currentTime = System.currentTimeMillis()
+            val oneWeekInMillis = 7L * 24 * 60 * 60 * 1000 // 7 days
+
+            if (lastRotationTimestamp == 0L) {
+                // First time initializing: just set the timer to now
+                repository.updateFlatRotationTimestamp(flatId, currentTime)
+            } else if (currentTime - lastRotationTimestamp >= oneWeekInMillis) {
+                // A WEEK HAS PASSED! Fetch current chores once and rotate
+                val currentChoresResult = repository.getChoresOnce(flatId)
+                if (currentChoresResult.isSuccess) {
+                    val currentChores = currentChoresResult.getOrNull() ?: emptyList()
+                    performAutoRotation(currentChores, memberIds, flatId, currentTime)
+                }
+            }
+        }
+    }
+
     fun updateChoreStatus(choreId: String, isDone: Boolean) {
         val flatId = currentFlatId ?: return
-        val updatedList = _chores.value.map {
-            if (it.id == choreId) it.copy(isDone = isDone) else it
-        }
-
-        // OPTIMISTIC UPDATE: Instant UI feedback before Firebase confirms
-        _chores.value = updatedList
-
         viewModelScope.launch {
-            repository.updateChores(flatId, updatedList)
+            repository.updateChoreStatus(flatId, choreId, isDone)
         }
     }
 
     fun addChore(title: String, assignee: String) {
         val flatId = currentFlatId ?: return
-        val newId = System.currentTimeMillis().toString()
         val newChore = Chore(
-            id = newId,
+            id = System.currentTimeMillis().toString(), // Simple unique ID
             title = title,
             assignee = assignee,
             isDone = false
         )
-
-        val updatedList = _chores.value + newChore
-
-        // OPTIMISTIC UPDATE
-        _chores.value = updatedList
-
         viewModelScope.launch {
-            repository.updateChores(flatId, updatedList)
+            repository.addChore(flatId, newChore)
         }
     }
 
     fun swapChore(choreId: String, newAssignee: String) {
         val flatId = currentFlatId ?: return
-        val updatedList = _chores.value.map {
-            if (it.id == choreId) it.copy(assignee = newAssignee) else it
-        }
-
-        // OPTIMISTIC UPDATE
-        _chores.value = updatedList
-
         viewModelScope.launch {
-            repository.updateChores(flatId, updatedList)
+            repository.updateChoreAssignee(flatId, choreId, newAssignee)
         }
     }
 
     fun saveReconfiguredChores(updatedList: List<Chore>) {
         val flatId = currentFlatId ?: return
-
-        // OPTIMISTIC UPDATE
-        _chores.value = updatedList
-
         viewModelScope.launch {
-            repository.updateChores(flatId, updatedList)
+            repository.saveChoresBatch(flatId, updatedList)
         }
     }
 
-    // --- AUTO ROTATION HELPER FUNCTION ---
     private fun performAutoRotation(currentChores: List<Chore>, memberIds: List<String>, flatId: String, currentTime: Long) {
         if (currentChores.isEmpty() || memberIds.isEmpty()) return
 
-        // We use memberIds from the DB to ensure we rotate even if names haven't loaded yet
         viewModelScope.launch {
             val membersResult = repository.getMemberDetails(memberIds)
             val mates = membersResult.getOrNull()?.map { it.second } ?: return@launch
@@ -152,30 +142,22 @@ class ChoresViewModel(
 
             val updatedList = currentChores.map { chore ->
                 if (chore.assignee == "Everyone") {
-                    // If it's a shared chore, just reset the completion status
-                    chore.copy(isDone = false)
+                    chore.copy(isDone = false) // Shared chores just reset
                 } else {
                     val currentIndex = mates.indexOf(chore.assignee)
-
                     val nextAssignee = if (currentIndex != -1 && mates.size > 1) {
-                        // Assign to the next person in the list
-                        mates[(currentIndex + 1) % mates.size]
+                        mates[(currentIndex + 1) % mates.size] // Next person
                     } else if (currentIndex == -1 && mates.isNotEmpty()) {
-                        // Fallback if assignee left the flat
-                        mates[0]
+                        mates[0] // Fallback
                     } else {
                         chore.assignee
                     }
-
                     chore.copy(assignee = nextAssignee, isDone = false)
                 }
             }
 
-            // OPTIMISTIC UPDATE
-            _chores.value = updatedList
-
-            // Save the rotated chores AND reset the 7-day timer
-            repository.updateChores(flatId, updatedList, currentTime)
+            // Execute Batch Write (Updates all chores and resets timestamp safely)
+            repository.performAutoRotationBatch(flatId, updatedList, currentTime)
         }
     }
 }

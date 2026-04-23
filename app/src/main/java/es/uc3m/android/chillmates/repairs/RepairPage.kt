@@ -35,6 +35,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -81,7 +82,6 @@ fun RepairPage(navController: NavController) {
     val context = LocalContext.current
 
     var requestText by rememberSaveable { mutableStateOf("") }
-    var reviewedText by rememberSaveable { mutableStateOf("") }
 
     val selectedPhotoUris = rememberSaveable(
         saver = listSaver(
@@ -203,17 +203,28 @@ fun RepairPage(navController: NavController) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // --- NEW: Botón inteligente de Gemini ---
                     OutlinedButton(
                         onClick = {
-                            reviewedText = vm.generateReviewedMessage(requestText)
-                            if (reviewedText.isNotBlank()) {
-                                requestText = reviewedText
+                            vm.reviewMessageWithAI(requestText) { improvedText ->
+                                requestText = improvedText
                             }
                         },
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(50)
+                        shape = RoundedCornerShape(50),
+                        enabled = requestText.isNotBlank() && !vm.isAiReviewing
                     ) {
-                        Text("AI Review")
+                        if (vm.isAiReviewing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Thinking...")
+                        } else {
+                            Text("AI Review")
+                        }
                     }
 
                     Button(
@@ -250,7 +261,7 @@ fun RepairPage(navController: NavController) {
                         },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(50),
-                        enabled = requestText.isNotBlank()
+                        enabled = requestText.isNotBlank() && !vm.isAiReviewing
                     ) {
                         Text("Send")
                     }
@@ -276,7 +287,6 @@ fun RepairPage(navController: NavController) {
                             )
 
                             requestText = ""
-                            reviewedText = ""
                             selectedPhotoUris.clear()
                         }
 

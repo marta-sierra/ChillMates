@@ -5,13 +5,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.ai.client.generativeai.GenerativeModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import es.uc3m.android.chillmates.model.Repair
 import es.uc3m.android.chillmates.model.USERS_COLLECTION
 import es.uc3m.android.chillmates.repository.FlatRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 data class RepairUi(
     val id: String,
@@ -35,6 +38,9 @@ class RepairViewModel(
     var uiState by mutableStateOf(RepairUiState())
         private set
 
+    var isAiReviewing by mutableStateOf(false)
+        private set
+
     private var currentFlatId: String? = null
 
     private val auth = FirebaseAuth.getInstance()
@@ -56,20 +62,11 @@ class RepairViewModel(
                 currentFlatId = flatId
                 uiState = uiState.copy(currentUserName = userName)
 
-                repository.observeFlat(flatId).collect { flat ->
-                    if (flat != null) {
+                // NUEVO: Escuchamos la subcolección de reparaciones directamente
+                launch {
+                    repository.observeRepairs(flatId).collect { repairsList ->
                         uiState = uiState.copy(
-                            repairs = flat.repairs.map {
-                                RepairUi(
-                                    id = it.id,
-                                    title = it.title,
-                                    description = it.description,
-                                    reportedBy = it.reportedBy,
-                                    landlordMessage = it.landlordMessage,
-                                    photoUris = it.photoUris,
-                                    status = it.status
-                                )
-                            }
+                            repairs = repairsList.map { it.toUi() }
                         )
                     }
                 }
@@ -79,40 +76,65 @@ class RepairViewModel(
         }
     }
 
-    fun generateReviewedMessage(rawDescription: String): String {
+    fun reviewMessageWithAI(rawDescription: String, onResult: (String) -> Unit) {
         val cleaned = rawDescription.trim()
-        if (cleaned.isBlank()) return ""
-        return """
-            Hello,
+        if (cleaned.isBlank()) return
 
-            I am ${uiState.currentUserName} from the flat.
+        viewModelScope.launch {
+            isAiReviewing = true
+            try {
+                val generativeModel = GenerativeModel(
+                    modelName = "gemini-1.5-flash",
+                    apiKey = "TU_API_KEY_AQUI" // <-- PON TU CLAVE AQUÍ
+                )
 
-            We would like to report the following issue:
-            $cleaned
+                val prompt = """
+                    You are a polite and professional assistant helping a tenant write a maintenance request to their landlord.
+                    The tenant's name is ${uiState.currentUserName}.
+                    
+                    Please rewrite the following issue description into a clear, formal, and polite email body.
+                    Fix any spelling or grammar mistakes.
+                    Do NOT add any conversational filler (like "Here is your email"), just return the finalized email text.
+                    
+                    Here is the issue description:
+                    $cleaned
+                """.trimIndent()
 
-            Could you please let us know how to proceed?
+                val response = withContext(Dispatchers.IO) {
+                    generativeModel.generateContent(prompt)
+                }
 
-            Best regards,
-            ${uiState.currentUserName}
-        """.trimIndent()
+                response.text?.let { improvedText ->
+                    onResult(improvedText.trim())
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                val fallbackText = """
+                    Hello,
+
+                    I am ${uiState.currentUserName} from the flat.
+
+                    We would like to report the following maintenance issue:
+                    - ${cleaned.replaceFirstChar { it.uppercase() }}
+
+                    Could you please let us know how to proceed to get this resolved?
+
+                    Best regards,
+                    ${uiState.currentUserName}
+                """.trimIndent()
+                onResult(fallbackText)
+            } finally {
+                isAiReviewing = false
+            }
+        }
     }
 
-    fun createSentRepair(
-        rawDescription: String,
-        finalMessage: String,
-        photoUris: List<String>
-    ) {
+    fun createSentRepair(rawDescription: String, finalMessage: String, photoUris: List<String>) {
         val flatId = currentFlatId ?: return
-
         val description = rawDescription.trim()
         if (description.isBlank()) return
 
-        val title = description
-            .lineSequence()
-            .firstOrNull()
-            ?.take(40)
-            ?.ifBlank { "Repair request" }
-            ?: "Repair request"
+        val title = description.lineSequence().firstOrNull()?.take(40)?.ifBlank { "Repair request" } ?: "Repair request"
 
         val newRepair = Repair(
             id = System.currentTimeMillis().toString(),
@@ -124,47 +146,20 @@ class RepairViewModel(
             status = "SENT"
         )
 
-        val updatedRepairs = uiState.repairs.map { it.toDb() } + newRepair
-        uiState = uiState.copy(repairs = updatedRepairs.map { it.toUi() })
-
+        // NUEVO: Guardamos el documento directamente en la subcolección usando el repositorio
         viewModelScope.launch {
-            repository.updateRepairs(flatId, updatedRepairs)
+            repository.addRepair(flatId, newRepair)
         }
     }
 
     fun updateRepairStatus(repairId: String, newStatus: String) {
         val flatId = currentFlatId ?: return
-
-        val updatedRepairs = uiState.repairs.map {
-            if (it.id == repairId) it.copy(status = newStatus) else it
-        }
-
-        uiState = uiState.copy(repairs = updatedRepairs)
-
+        // NUEVO: Actualizamos solo el estado de ese documento concreto
         viewModelScope.launch {
-            repository.updateRepairs(flatId, updatedRepairs.map { it.toDb() })
+            repository.updateRepairStatus(flatId, repairId, newStatus)
         }
     }
 
-    private fun RepairUi.toDb(): Repair =
-        Repair(
-            id = id,
-            title = title,
-            description = description,
-            reportedBy = reportedBy,
-            landlordMessage = landlordMessage,
-            photoUris = photoUris,
-            status = status
-        )
-
     private fun Repair.toUi(): RepairUi =
-        RepairUi(
-            id = id,
-            title = title,
-            description = description,
-            reportedBy = reportedBy,
-            landlordMessage = landlordMessage,
-            photoUris = photoUris,
-            status = status
-        )
+        RepairUi(id = id, title = title, description = description, reportedBy = reportedBy, landlordMessage = landlordMessage, photoUris = photoUris, status = status)
 }

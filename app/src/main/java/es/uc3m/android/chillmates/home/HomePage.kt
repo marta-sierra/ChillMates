@@ -174,12 +174,9 @@ private fun NewsBoardSection(
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
             )
 
-            // ESTADO VACÍO: Cuadrado amarillo
             if (notices.isEmpty()) {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp),
+                    modifier = Modifier.fillMaxWidth().height(120.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF59D)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                     shape = RoundedCornerShape(16.dp)
@@ -210,12 +207,9 @@ private fun NewsBoardSection(
             }
         }
 
-        // BOTÓN FLOTANTE (+)
         SmallFloatingActionButton(
             onClick = { showAddNoticeDialog = true },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .offset(y = (-40).dp), // Subido un poco para que no choque abajo
+            modifier = Modifier.align(Alignment.BottomEnd).offset(y = (-40).dp),
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
         ) {
@@ -223,7 +217,6 @@ private fun NewsBoardSection(
         }
     }
 
-    // DIÁLOGO PARA AÑADIR NOTICIA
     if (showAddNoticeDialog) {
         var newTitle by remember { mutableStateOf("") }
         var newDetails by remember { mutableStateOf("") }

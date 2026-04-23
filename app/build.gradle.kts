@@ -71,4 +71,5 @@ dependencies {
     implementation(libs.places)
     implementation(libs.google.google.maps.services)
     implementation(libs.androidx.datastore)
+    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
 }

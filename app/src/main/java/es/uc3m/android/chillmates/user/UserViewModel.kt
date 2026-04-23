@@ -316,4 +316,25 @@ class UserViewModel : ViewModel() {
     fun clearSuccessMessage() {
         uiState = uiState.copy(successMessage = null)
     }
+    fun onUpdatePassword(newPassword: String) {
+        viewModelScope.launch {
+            uiState = uiState.copy(isLoading = true)
+            try {
+                auth.currentUser?.updatePassword(newPassword)?.await()
+                uiState = uiState.copy(
+                    isLoading = false,
+                    successMessage = "Password updated successfully"
+                )
+            } catch (e: Exception) {
+                uiState = uiState.copy(
+                    isLoading = false,
+                    errorMessage = "Error: Use a stronger password or re-login."
+                )
+            }
+        }
+    }
+    fun onLogout() {
+        auth.signOut()
+        // The app state should ideally observe auth state to navigate to Login
+    }
 }

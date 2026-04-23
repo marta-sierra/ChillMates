@@ -26,13 +26,7 @@ data class ShoppingItemUi(
 
 @Immutable
 data class SupermarketUi(
-    val id: String,
-    val name: String,
-    val officialName: String,
-    val placeId: String,
-    val latitude: Double,
-    val longitude: Double,
-    val address: String
+    val id: String, val name: String, val officialName: String, val placeId: String, val latitude: Double, val longitude: Double, val address: String
 )
 
 data class ShoppingUiState(
@@ -52,8 +46,6 @@ class ShoppingViewModel(
         private set
 
     private var currentFlatId: String? = null
-    private var currentExpenses: List<Expense> = emptyList()
-
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
 
@@ -73,40 +65,37 @@ class ShoppingViewModel(
                 currentFlatId = flatId
                 uiState = uiState.copy(currentUserName = userName)
 
-                repository.observeFlat(flatId).collect { flat ->
-                    if (flat != null) {
-                        currentExpenses = flat.expenses
+                // Observe members and supermarkets
+                launch {
+                    repository.observeFlat(flatId).collect { flat ->
+                        if (flat != null) {
+                            val membersResult = repository.getMemberDetails(flat.memberIds)
+                            val memberNames = membersResult.getOrNull()?.map { it.second } ?: emptyList()
 
-                        val membersResult = repository.getMemberDetails(flat.memberIds)
-                        val memberNames = if (membersResult.isSuccess) {
-                            membersResult.getOrNull()?.map { it.second } ?: emptyList()
-                        } else {
-                            emptyList()
-                        }
+                            val supermarketsResult = repository.getSupermarketsForFlat(flatId)
+                            val supermarkets = supermarketsResult.getOrNull().orEmpty().map { it.toUi() }
 
-                        val supermarketsResult = repository.getSupermarketsForFlat(flatId)
-                        val supermarkets = if (supermarketsResult.isSuccess) {
-                            supermarketsResult.getOrNull().orEmpty().map { it.toUi() }
-                        } else {
-                            emptyList()
-                        }
-                        val selectedFilter = uiState.selectedSupermarket
-                        val selectedFilters = uiState.selectedSupermarkets.ifEmpty {
-                            selectedFilter?.let { setOf(it) } ?: emptySet()
-                        }
-                        val validFilters = selectedFilters.filter { selected ->
-                            supermarkets.any { it.name == selected }
-                        }.toSet()
+                            val selectedFilter = uiState.selectedSupermarket
+                            val selectedFilters = uiState.selectedSupermarkets.ifEmpty { selectedFilter?.let { setOf(it) } ?: emptySet() }
+                            val validFilters = selectedFilters.filter { selected -> supermarkets.any { it.name == selected } }.toSet()
 
-                        uiState = uiState.copy(
-                            items = flat.shoppingItems.map { it.toUi() },
-                            availableFlatmates = memberNames,
-                            availableSupermarkets = supermarkets,
-                            selectedSupermarket = validFilters.firstOrNull(),
-                            selectedSupermarkets = validFilters
-                        )
+                            uiState = uiState.copy(
+                                availableFlatmates = memberNames,
+                                availableSupermarkets = supermarkets,
+                                selectedSupermarket = validFilters.firstOrNull(),
+                                selectedSupermarkets = validFilters
+                            )
+                        }
                     }
                 }
+
+                // Observe Shopping Items
+                launch {
+                    repository.observeShoppingItems(flatId).collect { dbItems ->
+                        uiState = uiState.copy(items = dbItems.map { it.toUi() })
+                    }
+                }
+
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -114,88 +103,35 @@ class ShoppingViewModel(
     }
 
     fun onFilterSupermarket(name: String?) {
-        uiState = uiState.copy(
-            selectedSupermarket = name,
-            selectedSupermarkets = if (name == null) emptySet() else setOf(name)
-        )
+        uiState = uiState.copy(selectedSupermarket = name, selectedSupermarkets = if (name == null) emptySet() else setOf(name))
     }
 
     fun onFilterSupermarkets(names: Set<String>) {
-        uiState = uiState.copy(
-            selectedSupermarkets = names,
-            selectedSupermarket = names.firstOrNull()
-        )
+        uiState = uiState.copy(selectedSupermarkets = names, selectedSupermarket = names.firstOrNull())
     }
 
     fun onDeleteItem(id: String) {
         val flatId = currentFlatId ?: return
-        val updatedItems = uiState.items.filterNot { it.id == id }
-
-        uiState = uiState.copy(items = updatedItems)
-
-        viewModelScope.launch {
-            repository.updateShoppingItems(flatId, updatedItems.map { it.toDb() })
-        }
+        viewModelScope.launch { repository.deleteShoppingItem(flatId, id) }
     }
 
     fun setItemBought(itemId: String, bought: Boolean) {
         val flatId = currentFlatId ?: return
-
-        val updatedItems = uiState.items.map { item ->
-            if (item.id == itemId) item.copy(bought = bought) else item
-        }
-
-        uiState = uiState.copy(items = updatedItems)
-
-        viewModelScope.launch {
-            repository.updateShoppingItems(flatId, updatedItems.map { it.toDb() })
-        }
+        viewModelScope.launch { repository.updateShoppingItemBought(flatId, itemId, bought) }
     }
 
     fun addItem(item: ShoppingItemUi) {
         val flatId = currentFlatId ?: return
-        val updatedItems = uiState.items + item
-
-        uiState = uiState.copy(items = updatedItems)
-
-        viewModelScope.launch {
-            repository.updateShoppingItems(flatId, updatedItems.map { it.toDb() })
-        }
+        viewModelScope.launch { repository.addShoppingItem(flatId, item.toDb()) }
     }
 
-    fun addSupermarket(
-        alias: String,
-        officialName: String,
-        placeId: String,
-        address: String,
-        latitude: Double,
-        longitude: Double,
-        onResult: (Result<SupermarketUi>) -> Unit
-    ) {
-        val flatId = currentFlatId
-        if (flatId == null) {
-            onResult(Result.failure(Exception("No flat selected")))
-            return
-        }
-
+    fun addSupermarket(alias: String, officialName: String, placeId: String, address: String, latitude: Double, longitude: Double, onResult: (Result<SupermarketUi>) -> Unit) {
+        val flatId = currentFlatId ?: run { onResult(Result.failure(Exception("No flat selected"))); return }
         viewModelScope.launch {
-            val result = repository.addSupermarketForFlat(
-                flatId = flatId,
-                supermarket = Supermarket(
-                    name = alias,
-                    officialName = officialName,
-                    placeId = placeId,
-                    address = address,
-                    latitude = latitude,
-                    longitude = longitude
-                )
-            )
-
+            val result = repository.addSupermarketForFlat(flatId, Supermarket(name = alias, officialName = officialName, placeId = placeId, address = address, latitude = latitude, longitude = longitude))
             if (result.isSuccess) {
                 val created = result.getOrThrow().toUi()
-                uiState = uiState.copy(
-                    availableSupermarkets = (uiState.availableSupermarkets + created).distinctBy { it.id }
-                )
+                uiState = uiState.copy(availableSupermarkets = (uiState.availableSupermarkets + created).distinctBy { it.id })
                 onResult(Result.success(created))
             } else {
                 onResult(Result.failure(result.exceptionOrNull() ?: Exception("Failed to add supermarket")))
@@ -203,19 +139,8 @@ class ShoppingViewModel(
         }
     }
 
-    fun addExpenseFromShopping(
-        itemId: String,
-        title: String,
-        amount: Double,
-        paidBy: String,
-        splitBetween: List<String>
-    ) {
+    fun addExpenseFromShopping(itemId: String, title: String, amount: Double, paidBy: String, splitBetween: List<String>) {
         val flatId = currentFlatId ?: return
-
-        val updatedItems = uiState.items.map { item ->
-            if (item.id == itemId) item.copy(bought = true) else item
-        }
-
         val newExpense = Expense(
             id = System.currentTimeMillis().toString(),
             title = title,
@@ -224,46 +149,13 @@ class ShoppingViewModel(
             splitBetween = splitBetween,
             ticketUri = null
         )
-
-        val updatedExpenses = currentExpenses + newExpense
-
-        uiState = uiState.copy(items = updatedItems)
-        currentExpenses = updatedExpenses
-
         viewModelScope.launch {
-            repository.updateShoppingItems(flatId, updatedItems.map { it.toDb() })
-            repository.updateExpenses(flatId, updatedExpenses)
+            repository.updateShoppingItemBought(flatId, itemId, true)
+            repository.addExpense(flatId, newExpense)
         }
     }
 
-    private fun ShoppingItem.toUi(): ShoppingItemUi =
-        ShoppingItemUi(
-            id = id,
-            name = name,
-            quantity = quantity,
-            neededBy = neededBy,
-            supermarkets = supermarkets,
-            bought = bought
-        )
-
-    private fun ShoppingItemUi.toDb(): ShoppingItem =
-        ShoppingItem(
-            id = id,
-            name = name,
-            quantity = quantity,
-            neededBy = neededBy,
-            supermarkets = supermarkets,
-            bought = bought
-        )
-
-    private fun Supermarket.toUi(): SupermarketUi =
-        SupermarketUi(
-            id = id ?: "",
-            name = name,
-            officialName = officialName,
-            placeId = placeId,
-            latitude = latitude,
-            longitude = longitude,
-            address = address
-        )
+    private fun ShoppingItem.toUi(): ShoppingItemUi = ShoppingItemUi(id, name, quantity, neededBy, supermarkets, bought)
+    private fun ShoppingItemUi.toDb(): ShoppingItem = ShoppingItem(id, name, quantity, neededBy, supermarkets, bought)
+    private fun Supermarket.toUi(): SupermarketUi = SupermarketUi(id ?: "", name, officialName, placeId, latitude, longitude, address)
 }
