@@ -45,16 +45,6 @@
             </intent-filter>
         </activity>
 
-        <!-- MAP ACTIVITY FOR SUPERMARKET SELECTION IN MAP -->
-        <activity
-            android:name=".shoppinglist.MapActivity"
-            android:theme="@style/Theme.MapDialog"
-            android:exported="false" />
-
-        <activity android:name=".expensestracker.AddExpenseActivity" />
-
-        <activity android:name=".home.AddEventActivity" />
-
         <receiver
             android:name=".home.HomeReminderReceiver"
             android:exported="false" />

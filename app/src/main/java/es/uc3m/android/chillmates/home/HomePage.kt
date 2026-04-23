@@ -1,7 +1,6 @@
 package es.uc3m.android.chillmates.home
 
 import android.Manifest
-import android.app.Activity
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.ActivityNotFoundException
@@ -34,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import es.uc3m.android.chillmates.NavGraph
 import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.ui.theme.newsBoardButtonBackground
 import es.uc3m.android.chillmates.ui.theme.newsBoardCardBackground
@@ -42,21 +42,26 @@ import es.uc3m.android.chillmates.ui.theme.newsBoardCardBackground
 fun HomePage(navController: NavController) {
     val vm: HomeViewModel = viewModel()
     val context = LocalContext.current
+    var pendingReminder by remember { mutableStateOf<HomeViewModel.HomeAction.ScheduleReminder?>(null) }
+    val savedStateHandle = navController.currentBackStackEntry?.savedStateHandle
 
-    val addEventLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val data = result.data ?: return@rememberLauncherForActivityResult
-            val dateLabel = data.getStringExtra(AddEventActivity.Companion.EXTRA_DATE_LABEL).orEmpty()
-            val description = data.getStringExtra(AddEventActivity.Companion.EXTRA_DESCRIPTION).orEmpty()
-            val location = data.getStringExtra(AddEventActivity.Companion.EXTRA_LOCATION).orEmpty()
+    val returnedDateLabel = savedStateHandle?.get<String>(NavGraph.RESULT_EVENT_DATE_LABEL)
+    val returnedDescription = savedStateHandle?.get<String>(NavGraph.RESULT_EVENT_DESCRIPTION)
+    val returnedLocation = savedStateHandle?.get<String>(NavGraph.RESULT_EVENT_LOCATION)
 
-            vm.onAddEvent(dateLabel = dateLabel, description = description, location = location)
+    LaunchedEffect(returnedDateLabel, returnedDescription, returnedLocation) {
+        if (returnedDateLabel != null && returnedDescription != null && returnedLocation != null) {
+            vm.onAddEvent(
+                dateLabel = returnedDateLabel,
+                description = returnedDescription,
+                location = returnedLocation
+            )
+            savedStateHandle?.remove<String>(NavGraph.RESULT_EVENT_DATE_LABEL)
+            savedStateHandle?.remove<String>(NavGraph.RESULT_EVENT_DESCRIPTION)
+            savedStateHandle?.remove<String>(NavGraph.RESULT_EVENT_LOCATION)
         }
     }
 
-    var pendingReminder by remember { mutableStateOf<HomeViewModel.HomeAction.ScheduleReminder?>(null) }
     val requestNotificationsPermission = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -70,6 +75,7 @@ fun HomePage(navController: NavController) {
             pendingReminder = null
         }
     }
+
 
     fun hasNotificationsPermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -110,8 +116,7 @@ fun HomePage(navController: NavController) {
         onViewMoreDetails = vm::onViewMoreDetails,
         onToggleRemindMe = vm::onToggleRemindMe,
         onAddEvent = {
-            val intent = Intent(context, AddEventActivity::class.java)
-            addEventLauncher.launch(intent)
+            navController.navigate(NavGraph.AddEvent.route)
         }
     )
 }

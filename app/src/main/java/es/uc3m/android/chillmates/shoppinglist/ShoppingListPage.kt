@@ -1,9 +1,5 @@
 package es.uc3m.android.chillmates.shoppinglist
 
-import android.app.Activity
-import android.content.Intent
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,9 +30,9 @@ import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import es.uc3m.android.chillmates.BuildConfig
 import es.uc3m.android.chillmates.LargeSectionHeader
+import es.uc3m.android.chillmates.NavGraph
 import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
-import es.uc3m.android.chillmates.expensestracker.AddExpenseActivity
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -44,51 +40,50 @@ import kotlinx.coroutines.tasks.await
 fun ShoppingListPage(navController: NavController) {
     val vm: ShoppingViewModel = viewModel()
     val context = LocalContext.current
+    val savedStateHandle = navController.currentBackStackEntry?.savedStateHandle
 
     var itemToPrompt by remember { mutableStateOf<ShoppingItemUi?>(null) }
 
-    val expenseLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        val item = itemToPrompt
+    val selectedSupermarketIds = savedStateHandle
+        ?.get<ArrayList<String>>(NavGraph.RESULT_MAP_SELECTED_IDS)
+        ?.toSet()
 
-        if (item != null && result.resultCode == Activity.RESULT_OK) {
-            val data = result.data
-            val title = data?.getStringExtra(AddExpenseActivity.EXTRA_TITLE)
-            val amount = data?.getDoubleExtra(AddExpenseActivity.EXTRA_AMOUNT, Double.NaN)
-            val paidBy = data?.getStringExtra(AddExpenseActivity.EXTRA_PAID_BY)
-            val splitBetween = data?.getStringArrayListExtra(AddExpenseActivity.EXTRA_SPLIT_BETWEEN)
-                ?: emptyList<String>()
+    val returnedExpenseTitle = savedStateHandle?.get<String>(NavGraph.RESULT_EXPENSE_TITLE)
+    val returnedExpenseAmount = savedStateHandle?.get<Double>(NavGraph.RESULT_EXPENSE_AMOUNT)
+    val returnedExpensePaidBy = savedStateHandle?.get<String>(NavGraph.RESULT_EXPENSE_PAID_BY)
+    val returnedExpenseSplitBetween = savedStateHandle
+        ?.get<ArrayList<String>>(NavGraph.RESULT_EXPENSE_SPLIT_BETWEEN)
+        ?.toList()
+    val returnedExpenseItemId = savedStateHandle?.get<String?>(NavGraph.RESULT_EXPENSE_ITEM_ID)
 
-            if (!title.isNullOrBlank() && amount != null && !amount.isNaN() && !paidBy.isNullOrBlank()) {
-                vm.addExpenseFromShopping(
-                    itemId = item.id,
-                    title = title,
-                    amount = amount,
-                    paidBy = paidBy,
-                    splitBetween = splitBetween
-                )
-            }
+    LaunchedEffect(selectedSupermarketIds) {
+        if (selectedSupermarketIds != null) {
+            vm.onFilterSupermarkets(selectedSupermarketIds)
+            savedStateHandle?.remove<ArrayList<String>>(NavGraph.RESULT_MAP_SELECTED_IDS)
         }
-
-        itemToPrompt = null
     }
 
-    val mapLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val data = result.data
-            val selectedLocations = data?.getStringArrayListExtra(EXTRA_SELECTED_SUPERMARKETS)
-                ?: buildList {
-                    data?.getStringExtra(EXTRA_SELECTED_LOCATION)?.let { add(it) }
-                }
+    LaunchedEffect(returnedExpenseTitle, returnedExpenseAmount, returnedExpensePaidBy, returnedExpenseSplitBetween, returnedExpenseItemId) {
+        if (
+            returnedExpenseTitle != null &&
+            returnedExpenseAmount != null &&
+            returnedExpensePaidBy != null &&
+            returnedExpenseSplitBetween != null &&
+            returnedExpenseItemId != null
+        ) {
+            vm.addExpenseFromShopping(
+                itemId = returnedExpenseItemId,
+                title = returnedExpenseTitle,
+                amount = returnedExpenseAmount,
+                paidBy = returnedExpensePaidBy,
+                splitBetween = returnedExpenseSplitBetween
+            )
 
-            if (selectedLocations.size <= 1) {
-                vm.onFilterSupermarket(selectedLocations.firstOrNull())
-            } else {
-                vm.onFilterSupermarkets(selectedLocations.toSet())
-            }
+            savedStateHandle?.remove<String>(NavGraph.RESULT_EXPENSE_TITLE)
+            savedStateHandle?.remove<Double>(NavGraph.RESULT_EXPENSE_AMOUNT)
+            savedStateHandle?.remove<String>(NavGraph.RESULT_EXPENSE_PAID_BY)
+            savedStateHandle?.remove<ArrayList<String>>(NavGraph.RESULT_EXPENSE_SPLIT_BETWEEN)
+            savedStateHandle?.remove<String?>(NavGraph.RESULT_EXPENSE_ITEM_ID)
         }
     }
 
@@ -116,25 +111,27 @@ fun ShoppingListPage(navController: NavController) {
             )
         },
         onOpenMap = {
-            val intent = Intent(context, MapActivity::class.java).apply {
-                putStringArrayListExtra(
-                    EXTRA_SUPERMARKET_IDS,
-                    ArrayList(vm.uiState.availableSupermarkets.map { it.id })
-                )
-                putStringArrayListExtra(
-                    EXTRA_SUPERMARKET_NAMES,
-                    ArrayList(vm.uiState.availableSupermarkets.map { it.name })
-                )
-                putExtra(
-                    EXTRA_SUPERMARKET_LATITUDES,
-                    vm.uiState.availableSupermarkets.map { it.latitude }.toDoubleArray()
-                )
-                putExtra(
-                    EXTRA_SUPERMARKET_LONGITUDES,
-                    vm.uiState.availableSupermarkets.map { it.longitude }.toDoubleArray()
-                )
-            }
-            mapLauncher.launch(intent)
+            savedStateHandle?.set(
+                NavGraph.REQUEST_MAP_SUPERMARKET_IDS,
+                ArrayList(vm.uiState.availableSupermarkets.map { it.id })
+            )
+            savedStateHandle?.set(
+                NavGraph.REQUEST_MAP_SUPERMARKET_NAMES,
+                ArrayList(vm.uiState.availableSupermarkets.map { it.name })
+            )
+            savedStateHandle?.set(
+                NavGraph.REQUEST_MAP_SUPERMARKET_LATITUDES,
+                ArrayList(vm.uiState.availableSupermarkets.map { it.latitude })
+            )
+            savedStateHandle?.set(
+                NavGraph.REQUEST_MAP_SUPERMARKET_LONGITUDES,
+                ArrayList(vm.uiState.availableSupermarkets.map { it.longitude })
+            )
+            savedStateHandle?.set(
+                NavGraph.REQUEST_MAP_SELECTED_IDS,
+                ArrayList(vm.uiState.selectedSupermarkets)
+            )
+            navController.navigate(NavGraph.SelectSupermarket.route)
         }
     )
 
@@ -147,18 +144,22 @@ fun ShoppingListPage(navController: NavController) {
             },
             confirmButton = {
                 Button(onClick = {
-                    val item = itemToPrompt!!
-                    val intent = Intent(context, AddExpenseActivity::class.java).apply {
-                        putExtra(AddExpenseActivity.EXTRA_TITLE, item.name)
-                        putExtra(AddExpenseActivity.EXTRA_AMOUNT, 0.0)
-                        putExtra(AddExpenseActivity.EXTRA_PAID_BY, vm.uiState.currentUserName)
-                        putStringArrayListExtra("flatmatesList", ArrayList(vm.uiState.availableFlatmates))
-                        putStringArrayListExtra(
-                            AddExpenseActivity.EXTRA_SPLIT_BETWEEN,
+                    val item = itemToPrompt
+                    if (item != null) {
+                        savedStateHandle?.set(NavGraph.REQUEST_EXPENSE_ITEM_ID, item.id)
+                        savedStateHandle?.set(NavGraph.REQUEST_EXPENSE_TITLE, item.name)
+                        savedStateHandle?.set(NavGraph.REQUEST_EXPENSE_PAID_BY, vm.uiState.currentUserName)
+                        savedStateHandle?.set(
+                            NavGraph.REQUEST_EXPENSE_SPLIT_BETWEEN,
                             ArrayList(item.neededBy)
                         )
+                        savedStateHandle?.set(
+                            NavGraph.REQUEST_EXPENSE_AVAILABLE_FLATMATES,
+                            ArrayList(vm.uiState.availableFlatmates)
+                        )
+                        navController.navigate(NavGraph.AddExpense.route)
                     }
-                    expenseLauncher.launch(intent)
+                    itemToPrompt = null
                 }) {
                     Text(stringResource(R.string.btn_create_expense))
                 }
@@ -176,6 +177,7 @@ fun ShoppingListPage(navController: NavController) {
             }
         )
     }
+
 }
 
 @Composable
@@ -632,6 +634,7 @@ private fun AddSupermarketDialog(
     val placesSearchFailedText = stringResource(R.string.error_places_search_failed)
     val placeDetailsFailedText = stringResource(R.string.error_place_details_failed)
     val placeMissingLocationText = stringResource(R.string.error_place_missing_location)
+    val placesUnavailableText = "Google Places is unavailable. Check MAPS_API_KEY and Play Services setup."
 
     var alias by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
@@ -644,10 +647,17 @@ private fun AddSupermarketDialog(
     val aliasAlreadyExists = existingAliases.any { it.equals(alias.trim(), ignoreCase = true) }
 
     val placesClient = remember {
-        """if (!Places.isInitialized()) {
-            Places.initializeWithNewPlacesApiEnabled(context.applicationContext, BuildConfig.MAPS_API_KEY)
-        }"""
-        Places.createClient(context)
+        val apiKey = BuildConfig.MAPS_API_KEY
+        if (apiKey.isBlank()) {
+            null
+        } else {
+            runCatching {
+                if (!Places.isInitialized()) {
+                    Places.initializeWithNewPlacesApiEnabled(context.applicationContext, apiKey)
+                }
+                Places.createClient(context.applicationContext)
+            }.getOrNull()
+        }
     }
 
     AlertDialog(
@@ -681,6 +691,11 @@ private fun AddSupermarketDialog(
 
                 Button(
                     onClick = {
+                        val client = placesClient
+                        if (client == null) {
+                            searchError = placesUnavailableText
+                            return@Button
+                        }
                         if (query.isBlank()) return@Button
                         isSearching = true
                         searchError = null
@@ -691,7 +706,7 @@ private fun AddSupermarketDialog(
                                 val request = FindAutocompletePredictionsRequest.builder()
                                     .setQuery(query)
                                     .build()
-                                val response = placesClient.findAutocompletePredictions(request).await()
+                                val response = client.findAutocompletePredictions(request).await()
                                 predictions = response.autocompletePredictions.map {
                                     PlacePredictionUi(
                                         placeId = it.placeId,
@@ -702,15 +717,22 @@ private fun AddSupermarketDialog(
                                 if (predictions.isEmpty()) {
                                     searchError = noPlacesFoundText
                                 }
-                            } catch (_: Exception) {
-                                searchError = placesSearchFailedText
+                            } catch (e: Exception) {
+                                searchError = if (
+                                    e.message?.contains("DEVELOPER_ERROR", ignoreCase = true) == true ||
+                                    e.cause?.message?.contains("DEVELOPER_ERROR", ignoreCase = true) == true
+                                ) {
+                                    placesUnavailableText
+                                } else {
+                                    placesSearchFailedText
+                                }
                                 predictions = emptyList()
                             } finally {
                                 isSearching = false
                             }
                         }
                     },
-                    enabled = !isSearching,
+                    enabled = !isSearching && placesClient != null,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.Search, contentDescription = null)
@@ -743,7 +765,8 @@ private fun AddSupermarketDialog(
                                             Place.Field.LOCATION
                                         )
                                         val request = FetchPlaceRequest.builder(prediction.placeId, fields).build()
-                                        val place = placesClient.fetchPlace(request).await().place
+                                        val client = placesClient ?: return@launch
+                                        val place = client.fetchPlace(request).await().place
                                         val location = place.location
                                         if (location != null) {
                                             selectedPlace = SelectedPlaceUi(
@@ -756,8 +779,15 @@ private fun AddSupermarketDialog(
                                         } else {
                                             searchError = placeMissingLocationText
                                         }
-                                    } catch (_: Exception) {
-                                        searchError = placeDetailsFailedText
+                                    } catch (e: Exception) {
+                                        searchError = if (
+                                            e.message?.contains("DEVELOPER_ERROR", ignoreCase = true) == true ||
+                                            e.cause?.message?.contains("DEVELOPER_ERROR", ignoreCase = true) == true
+                                        ) {
+                                            placesUnavailableText
+                                        } else {
+                                            placeDetailsFailedText
+                                        }
                                     } finally {
                                         isLoadingPlace = false
                                     }

@@ -24,14 +24,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
 import es.uc3m.android.chillmates.chores.ChoresPage
+import es.uc3m.android.chillmates.expensestracker.AddExpenseScreen
 import es.uc3m.android.chillmates.home.HomePage
+import es.uc3m.android.chillmates.home.AddEventScreen
 import es.uc3m.android.chillmates.expensestracker.ExpensesTrackerPage
 import es.uc3m.android.chillmates.repairs.RepairPage
 import es.uc3m.android.chillmates.settings.SettingsPage
+import es.uc3m.android.chillmates.shoppinglist.SelectSupermarketScreen
+import es.uc3m.android.chillmates.shoppinglist.Supermarket
 import es.uc3m.android.chillmates.shoppinglist.ShoppingListPage
 import es.uc3m.android.chillmates.ui.theme.ChillMatesTheme
 import es.uc3m.android.chillmates.user.UserPage
@@ -210,7 +213,13 @@ fun ChillMatesApp(authViewModel: AuthViewModel = viewModel()) {
 
     val startDestination = if (isAuthenticated) welcomeBackRoute else loginRoute
 
-    val showBottomBar = currentRoute != null && currentRoute != loginRoute && currentRoute != welcomeBackRoute
+    val isAuxiliaryRoute = currentRoute == NavGraph.AddEvent.route ||
+        currentRoute == NavGraph.AddExpense.route ||
+        currentRoute == NavGraph.SelectSupermarket.route
+    val showBottomBar = currentRoute != null &&
+        currentRoute != loginRoute &&
+        currentRoute != welcomeBackRoute &&
+        !isAuxiliaryRoute
 
     val bottomNavItems = NavGraph.bottomBarItems
 
@@ -283,6 +292,122 @@ fun ChillMatesApp(authViewModel: AuthViewModel = viewModel()) {
                     composable(NavGraph.Expenses.route) { ExpensesTrackerPage(navController) }
                     composable(NavGraph.Repairs.route) { RepairPage(navController) }
                     composable(NavGraph.Shopping.route) { ShoppingListPage(navController) }
+                    composable(NavGraph.AddEvent.route) {
+                        AddEventScreen(
+                            onSave = { result ->
+                                navController.previousBackStackEntry?.savedStateHandle?.apply {
+                                    set(NavGraph.RESULT_EVENT_DATE_LABEL, result.dateLabel)
+                                    set(NavGraph.RESULT_EVENT_DESCRIPTION, result.description)
+                                    set(NavGraph.RESULT_EVENT_LOCATION, result.location)
+                                }
+                                navController.popBackStack()
+                            },
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+                    composable(NavGraph.AddExpense.route) {
+                        val requestHandle = navController.previousBackStackEntry?.savedStateHandle
+                        val initialTitle = requestHandle?.get<String>(NavGraph.REQUEST_EXPENSE_TITLE).orEmpty()
+                        val initialPaidBy = requestHandle?.get<String>(NavGraph.REQUEST_EXPENSE_PAID_BY).orEmpty()
+                        val initialSplitBetween = requestHandle
+                            ?.get<ArrayList<String>>(NavGraph.REQUEST_EXPENSE_SPLIT_BETWEEN)
+                            ?.toList()
+                            .orEmpty()
+                        val availableFlatmates = requestHandle
+                            ?.get<ArrayList<String>>(NavGraph.REQUEST_EXPENSE_AVAILABLE_FLATMATES)
+                            ?.toList()
+                            .orEmpty()
+                        val pendingItemId = requestHandle?.get<String>(NavGraph.REQUEST_EXPENSE_ITEM_ID)
+
+                        AddExpenseScreen(
+                            availableFlatmates = availableFlatmates,
+                            initialTitle = initialTitle,
+                            initialPaidBy = initialPaidBy,
+                            initialSplitBetween = initialSplitBetween,
+                            onSave = { result ->
+                                navController.previousBackStackEntry?.savedStateHandle?.apply {
+                                    set(NavGraph.RESULT_EXPENSE_TITLE, result.title)
+                                    set(NavGraph.RESULT_EXPENSE_AMOUNT, result.amount)
+                                    set(NavGraph.RESULT_EXPENSE_PAID_BY, result.paidBy)
+                                    set(NavGraph.RESULT_EXPENSE_SPLIT_BETWEEN, ArrayList(result.splitBetween))
+                                    set(NavGraph.RESULT_EXPENSE_ITEM_ID, pendingItemId)
+
+                                    remove<String>(NavGraph.REQUEST_EXPENSE_TITLE)
+                                    remove<String>(NavGraph.REQUEST_EXPENSE_PAID_BY)
+                                    remove<ArrayList<String>>(NavGraph.REQUEST_EXPENSE_SPLIT_BETWEEN)
+                                    remove<ArrayList<String>>(NavGraph.REQUEST_EXPENSE_AVAILABLE_FLATMATES)
+                                    remove<String>(NavGraph.REQUEST_EXPENSE_ITEM_ID)
+                                }
+                                navController.popBackStack()
+                            },
+                            onBack = {
+                                navController.previousBackStackEntry?.savedStateHandle?.apply {
+                                    remove<String>(NavGraph.REQUEST_EXPENSE_TITLE)
+                                    remove<String>(NavGraph.REQUEST_EXPENSE_PAID_BY)
+                                    remove<ArrayList<String>>(NavGraph.REQUEST_EXPENSE_SPLIT_BETWEEN)
+                                    remove<ArrayList<String>>(NavGraph.REQUEST_EXPENSE_AVAILABLE_FLATMATES)
+                                    remove<String>(NavGraph.REQUEST_EXPENSE_ITEM_ID)
+                                }
+                                navController.popBackStack()
+                            }
+                        )
+                    }
+                    composable(NavGraph.SelectSupermarket.route) {
+                        val requestHandle = navController.previousBackStackEntry?.savedStateHandle
+                        val ids = requestHandle
+                            ?.get<ArrayList<String>>(NavGraph.REQUEST_MAP_SUPERMARKET_IDS)
+                            ?.toList()
+                            .orEmpty()
+                        val names = requestHandle
+                            ?.get<ArrayList<String>>(NavGraph.REQUEST_MAP_SUPERMARKET_NAMES)
+                            ?.toList()
+                            .orEmpty()
+                        val latitudes = requestHandle
+                            ?.get<ArrayList<Double>>(NavGraph.REQUEST_MAP_SUPERMARKET_LATITUDES)
+                            ?.toList()
+                            .orEmpty()
+                        val longitudes = requestHandle
+                            ?.get<ArrayList<Double>>(NavGraph.REQUEST_MAP_SUPERMARKET_LONGITUDES)
+                            ?.toList()
+                            .orEmpty()
+                        val initialSelectedIds = requestHandle
+                            ?.get<ArrayList<String>>(NavGraph.REQUEST_MAP_SELECTED_IDS)
+                            ?.toSet()
+                            .orEmpty()
+
+                        val supermarkets = ids.indices.mapNotNull { index ->
+                            val name = names.getOrNull(index) ?: return@mapNotNull null
+                            val latitude = latitudes.getOrNull(index) ?: return@mapNotNull null
+                            val longitude = longitudes.getOrNull(index) ?: return@mapNotNull null
+                            Supermarket(id = ids[index], name = name, latitude = latitude, longitude = longitude)
+                        }
+
+                        SelectSupermarketScreen(
+                            supermarkets = supermarkets,
+                            initialSelectedIds = initialSelectedIds,
+                            onSupermarketSelected = { selectedIds ->
+                                navController.previousBackStackEntry?.savedStateHandle?.apply {
+                                    set(NavGraph.RESULT_MAP_SELECTED_IDS, ArrayList(selectedIds))
+                                    remove<ArrayList<String>>(NavGraph.REQUEST_MAP_SUPERMARKET_IDS)
+                                    remove<ArrayList<String>>(NavGraph.REQUEST_MAP_SUPERMARKET_NAMES)
+                                    remove<ArrayList<Double>>(NavGraph.REQUEST_MAP_SUPERMARKET_LATITUDES)
+                                    remove<ArrayList<Double>>(NavGraph.REQUEST_MAP_SUPERMARKET_LONGITUDES)
+                                    remove<ArrayList<String>>(NavGraph.REQUEST_MAP_SELECTED_IDS)
+                                }
+                                navController.popBackStack()
+                            },
+                            onDismiss = {
+                                navController.previousBackStackEntry?.savedStateHandle?.apply {
+                                    remove<ArrayList<String>>(NavGraph.REQUEST_MAP_SUPERMARKET_IDS)
+                                    remove<ArrayList<String>>(NavGraph.REQUEST_MAP_SUPERMARKET_NAMES)
+                                    remove<ArrayList<Double>>(NavGraph.REQUEST_MAP_SUPERMARKET_LATITUDES)
+                                    remove<ArrayList<Double>>(NavGraph.REQUEST_MAP_SUPERMARKET_LONGITUDES)
+                                    remove<ArrayList<String>>(NavGraph.REQUEST_MAP_SELECTED_IDS)
+                                }
+                                navController.popBackStack()
+                            }
+                        )
+                    }
                     composable(NavGraph.User.route) { UserPage(navController) }
                     composable(NavGraph.Settings.route) { SettingsPage(navController, authViewModel) }
                 }
