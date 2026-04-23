@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme // NUEVO: Importación necesaria
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,6 +33,7 @@ import es.uc3m.android.chillmates.home.HomePage
 import es.uc3m.android.chillmates.home.AddEventScreen
 import es.uc3m.android.chillmates.expensestracker.ExpensesTrackerPage
 import es.uc3m.android.chillmates.repairs.RepairPage
+import es.uc3m.android.chillmates.settings.SettingsDataStoreHelper // NUEVO: Importación del DataStore
 import es.uc3m.android.chillmates.settings.SettingsPage
 import es.uc3m.android.chillmates.shoppinglist.SelectSupermarketScreen
 import es.uc3m.android.chillmates.shoppinglist.Supermarket
@@ -50,9 +52,19 @@ class MainActivity : ComponentActivity() {
             val flatId = data.lastPathSegment
         }
 
+        // NUEVO: Instanciamos el helper para leer tus ajustes
+        val dataStoreHelper = SettingsDataStoreHelper(applicationContext)
+
         enableEdgeToEdge()
         setContent {
-            ChillMatesTheme {
+            // NUEVO: Leemos el estado del modo oscuro en tiempo real.
+            // Si el usuario no ha tocado el ajuste, tomará el del sistema.
+            val isDarkMode by dataStoreHelper.darkModeEnabled.collectAsState(
+                initial = isSystemInDarkTheme()
+            )
+
+            // NUEVO: Forzamos al tema a usar el valor leído
+            ChillMatesTheme(darkTheme = isDarkMode) {
                 ChillMatesApp()
             }
         }
@@ -409,7 +421,10 @@ fun ChillMatesApp(authViewModel: AuthViewModel = viewModel()) {
                         )
                     }
                     composable(NavGraph.User.route) { UserPage(navController) }
-                    composable(NavGraph.Settings.route) { SettingsPage(navController, authViewModel) }
+
+                    // NUEVO: Hemos añadido authViewModel como segundo parámetro para arreglar el error de compilación
+                    composable(NavGraph.Settings.route) { SettingsPage(navController
+                    ) }
                 }
             }
         }

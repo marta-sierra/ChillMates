@@ -1,100 +1,187 @@
 package es.uc3m.android.chillmates.settings
 
-import androidx.appcompat.app.AppCompatDelegate
-import androidx.core.os.LocaleListCompat
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
+import android.app.Application
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.navigation.NavController
+import es.uc3m.android.chillmates.R
 
-data class SettingsUiState(
-    val notificationsEnabled: Boolean = true,
-    val darkModeEnabled: Boolean = false,
-    val soundEnabled: Boolean = true,
-    val language: String = "System Default"
-)
+@Composable
+fun SettingsPage(
+    navController: NavController
+) {
+    val vm: SettingsViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer {
+                val application = this[APPLICATION_KEY] as Application
+                val helper = SettingsDataStoreHelper(application)
+                SettingsViewModel(helper)
+            }
+        }
+    )
 
-class SettingsViewModel(
-    private val dataStoreHelper: SettingsDataStoreHelper
-) : ViewModel() {
+    val state by vm.uiState.collectAsState()
 
-    private val _uiState = MutableStateFlow(SettingsUiState())
-    val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+    SettingsRoute(
+        state = state,
+        onBackClick = { navController.popBackStack() },
+        onNotificationsToggle = vm::onNotificationsToggle,
+        onDarkModeToggle = vm::onDarkModeToggle,
+        onSoundToggle = vm::onSoundToggle
+    )
+}
 
-    init {
-        viewModelScope.launch {
-            dataStoreHelper.notificationsEnabled.collectLatest { enabled ->
-                _uiState.value = _uiState.value.copy(notificationsEnabled = enabled)
+@Composable
+private fun SettingsRoute(
+    state: SettingsUiState,
+    onBackClick: () -> Unit,
+    onNotificationsToggle: (Boolean) -> Unit,
+    onDarkModeToggle: (Boolean) -> Unit,
+    onSoundToggle: (Boolean) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Surface(color = MaterialTheme.colorScheme.primaryContainer) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBackClick) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.settings_cd_back),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    text = stringResource(R.string.settings_title),
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             }
         }
 
-        viewModelScope.launch {
-            dataStoreHelper.darkModeEnabled.collectLatest { enabled ->
-                _uiState.value = _uiState.value.copy(darkModeEnabled = enabled)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 16.dp)
+        ) {
+            item {
+                SectionHeader(title = stringResource(R.string.settings_section_general))
+            }
+
+            item {
+                SettingsCard {
+                    SettingsSwitchItem(
+                        title = stringResource(R.string.settings_label_notifications),
+                        checked = state.notificationsEnabled,
+                        onCheckedChange = onNotificationsToggle
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    SettingsSwitchItem(
+                        title = stringResource(R.string.settings_label_sound),
+                        checked = state.soundEnabled,
+                        onCheckedChange = onSoundToggle
+                    )
+                }
+            }
+
+            item {
+                SectionHeader(title = stringResource(R.string.settings_section_appearance))
+            }
+
+            item {
+                SettingsCard {
+                    SettingsSwitchItem(
+                        title = stringResource(R.string.settings_label_dark_mode),
+                        checked = state.darkModeEnabled,
+                        onCheckedChange = onDarkModeToggle
+                    )
+                }
             }
         }
-
-        viewModelScope.launch {
-            dataStoreHelper.soundEnabled.collectLatest { enabled ->
-                _uiState.value = _uiState.value.copy(soundEnabled = enabled)
-            }
-        }
-
-        viewModelScope.launch {
-            dataStoreHelper.language.collectLatest { language ->
-                _uiState.value = _uiState.value.copy(language = language)
-            }
-        }
     }
+}
 
-    fun onNotificationsToggle(enabled: Boolean) {
-        _uiState.value = _uiState.value.copy(notificationsEnabled = enabled)
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 20.dp, top = 24.dp, bottom = 8.dp)
+    )
+}
+
+@Composable
+private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(content = content)
     }
+}
 
-    fun onDarkModeToggle(enabled: Boolean) {
-        _uiState.value = _uiState.value.copy(darkModeEnabled = enabled)
-    }
-
-    fun onSoundToggle(enabled: Boolean) {
-        _uiState.value = _uiState.value.copy(soundEnabled = enabled)
-    }
-
-    fun onLanguageChange(language: String) {
-        _uiState.value = _uiState.value.copy(language = language)
-    }
-
-    fun applyChanges() {
-        val currentState = _uiState.value
-
-        viewModelScope.launch {
-            dataStoreHelper.saveNotificationsEnabled(currentState.notificationsEnabled)
-            dataStoreHelper.saveDarkModeEnabled(currentState.darkModeEnabled)
-            dataStoreHelper.saveSoundEnabled(currentState.soundEnabled)
-            dataStoreHelper.saveLanguage(currentState.language)
-        }
-
-        val localeCode = when (currentState.language) {
-            "Español" -> "es"
-            "Català" -> "ca"
-            "English" -> "en"
-            else -> ""
-        }
-
-        val appLocale = if (localeCode.isEmpty()) {
-            LocaleListCompat.getEmptyLocaleList()
-        } else {
-            LocaleListCompat.forLanguageTags(localeCode)
-        }
-        AppCompatDelegate.setApplicationLocales(appLocale)
-
-        val nightMode = if (currentState.darkModeEnabled) {
-            AppCompatDelegate.MODE_NIGHT_YES
-        } else {
-            AppCompatDelegate.MODE_NIGHT_NO
-        }
-        AppCompatDelegate.setDefaultNightMode(nightMode)
+@Composable
+private fun SettingsSwitchItem(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
     }
 }
