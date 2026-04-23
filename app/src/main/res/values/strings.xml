@@ -193,4 +193,9 @@
     <string name="flat_setup_share_code">Share this code with your flatmates so they can join!</string>
     <string name="login_button">Log In</string>
     <string name="signup_button">sign up</string>
+    <string name="home_notice_board">Notice Board</string>
+    <string name="home_upcoming_events">Upcoming Events</string>
+    <string name="home_add_event">Add Event</string>
+    <string name="home_toast_reminder_canceled">Reminder canceled</string>
+    <string name="home_toast_reminder_set">Reminder set!</string>
 </resources>

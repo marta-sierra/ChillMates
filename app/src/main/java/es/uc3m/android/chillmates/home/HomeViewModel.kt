@@ -14,15 +14,14 @@ import es.uc3m.android.chillmates.model.USERS_COLLECTION
 import es.uc3m.android.chillmates.repository.FlatRepository
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import java.util.Calendar
-import java.util.Locale
 
 @Immutable
 data class NoticeUi(
     val id: String,
     val title: String,
     val details: String,
-    val acceptedBy: List<MemberUi> = emptyList()
+    val acceptedBy: List<MemberUi> = emptyList(),
+    val isPoll: Boolean = false
 )
 
 @Immutable
@@ -42,268 +41,186 @@ data class UpcomingEventUi(
 data class HomeUiState(
     val notices: List<NoticeUi> = emptyList(),
     val upcomingEvents: List<UpcomingEventUi> = emptyList(),
-    val showAllNotices: Boolean = false,
-    val expandedEventId: String? = null,
-    val currentUserName: String = "Me"
+    val isLoading: Boolean = true,
+    val errorMessage: String? = null
 )
 
-class HomeViewModel(
-    private val repository: FlatRepository = FlatRepository()
-) : ViewModel() {
+class HomeViewModel : ViewModel() {
+    private val auth = FirebaseAuth.getInstance()
+    private val db = FirebaseFirestore.getInstance()
+    private val repository = FlatRepository()
 
     var uiState by mutableStateOf(HomeUiState())
         private set
 
-    sealed class HomeAction {
-        data class AddToCalendar(val title: String, val description: String, val beginMillis: Long, val endMillis: Long) : HomeAction()
-        data class ScheduleReminder(val requestCode: Int, val title: String, val message: String, val triggerAtMillis: Long) : HomeAction()
-        data class CancelReminder(val requestCode: Int) : HomeAction()
-    }
-
-    var action: HomeAction? by mutableStateOf(null)
-        private set
-
-    private var currentFlatId: String? = null
-    private val auth = FirebaseAuth.getInstance()
-    private val db = FirebaseFirestore.getInstance()
-    private val localReminderStates = mutableMapOf<String, Boolean>()
-
     init {
-        loadUserAndFlatData()
+        loadHomeData()
     }
 
-    private fun loadUserAndFlatData() {
+    private fun loadHomeData() {
         viewModelScope.launch {
-            val userId = auth.currentUser?.uid ?: return@launch
             try {
+                uiState = uiState.copy(isLoading = true, errorMessage = null)
+                val userId = auth.currentUser?.uid
+                if (userId == null) {
+                    uiState = uiState.copy(isLoading = false, errorMessage = "User not logged in.")
+                    return@launch
+                }
+
                 val userDoc = db.collection(USERS_COLLECTION).document(userId).get().await()
                 val flatId = userDoc.getString("flatId")
-                val userName = userDoc.getString("displayName") ?: "Me"
 
-                if (flatId != null) {
-                    currentFlatId = flatId
-                    uiState = uiState.copy(currentUserName = userName)
+                if (flatId.isNullOrEmpty()) {
+                    uiState = uiState.copy(isLoading = false, errorMessage = "No flat joined.")
+                    return@launch
+                }
 
-                    launch {
-                        repository.observeNotices(flatId).collect { dbNotices ->
-                            val mappedNotices = dbNotices.map { dbNotice ->
-                                NoticeUi(dbNotice.id, dbNotice.title, dbNotice.details, dbNotice.acceptedBy.map { MemberUi(it) })
-                            }
-                            uiState = uiState.copy(notices = mappedNotices)
-                        }
-                    }
+                val flatDoc = db.collection("flats").document(flatId).get().await()
+                if (!flatDoc.exists()) {
+                    uiState = uiState.copy(isLoading = false, errorMessage = "Flat not found.")
+                    return@launch
+                }
 
-                    launch {
-                        repository.observeEvents(flatId).collect { dbEvents ->
-                            val mappedEvents = dbEvents.map { dbEvent ->
-                                val isReminded = localReminderStates[dbEvent.id] ?: false
-                                UpcomingEventUi(
-                                    id = dbEvent.id,
-                                    dateLabel = dbEvent.dateLabel,
-                                    description = dbEvent.description,
-                                    location = dbEvent.location,
-                                    attending = dbEvent.attending.map { MemberUi(it) },
-                                    isRemindMeEnabled = isReminded
-                                )
-                            }.sortedBy { computeNextOccurrenceMillis(it.dateLabel, 60) }
-                            uiState = uiState.copy(upcomingEvents = mappedEvents)
-                        }
+                val noticesSnapshot = db.collection("flats").document(flatId).collection("notices").get().await()
+                val eventsSnapshot = db.collection("flats").document(flatId).collection("events").get().await()
+
+                // Si está vacío, inyectamos un par de prueba
+                if (noticesSnapshot.isEmpty && eventsSnapshot.isEmpty) {
+                    val me = auth.currentUser?.displayName ?: "Me"
+                    repository.addNotice(flatId, es.uc3m.android.chillmates.model.Notice(id = "n1", title = "Comprar papel higiénico", details = "Urge, queda un rollo.", isPoll = false))
+                    repository.addNotice(flatId, es.uc3m.android.chillmates.model.Notice(id = "n2", title = "¿Cena de piso el viernes?", details = "Votad para ver si compramos pizzas o hacemos pasta.", isPoll = true))
+                    repository.addEvent(flatId, es.uc3m.android.chillmates.model.UpcomingEvent(id = "ev1", dateLabel = "Fri 21:00", description = "Cena de piso \uD83C\uDF89", location = "Salón", attending = listOf("Laura", "Carlos", me)))
+                    repository.addEvent(flatId, es.uc3m.android.chillmates.model.UpcomingEvent(id = "ev2", dateLabel = "Sat 10:00", description = "Día de limpieza a fondo", location = "Toda la casa", attending = listOf("Laura", "Miguel")))
+                }
+
+                launch {
+                    repository.observeNotices(flatId).collect { notices ->
+                        mapNoticesToUi(notices)
                     }
                 }
+
+                launch {
+                    repository.observeEvents(flatId).collect { events ->
+                        mapEventsToUi(events)
+                    }
+                }
+
             } catch (e: Exception) {
-                e.printStackTrace()
+                uiState = uiState.copy(isLoading = false, errorMessage = e.message ?: "Error loading data")
             }
         }
     }
 
-    fun onActionConsumed() { action = null }
-
-    fun onAcceptNotice(noticeId: String) {
-        val flatId = currentFlatId ?: return
-        val userName = uiState.currentUserName
-        val target = uiState.notices.find { it.id == noticeId } ?: return
-        if (target.acceptedBy.any { it.name == userName }) return
-
-        val newAccepted = target.acceptedBy.map { it.name } + userName
-        viewModelScope.launch { repository.updateNoticeAcceptedBy(flatId, noticeId, newAccepted) }
-    }
-
-    fun onRejectNotice(noticeId: String) {
-        val flatId = currentFlatId ?: return
-        val userName = uiState.currentUserName
-        val target = uiState.notices.find { it.id == noticeId } ?: return
-
-        val newAccepted = target.acceptedBy.filterNot { it.name == userName }.map { it.name }
-        viewModelScope.launch { repository.updateNoticeAcceptedBy(flatId, noticeId, newAccepted) }
-    }
-
-    fun onShowAllNotices() {
-        uiState = uiState.copy(showAllNotices = !uiState.showAllNotices)
-    }
-
-    fun onAddNotice(title: String, details: String) {
-        val flatId = currentFlatId ?: return
-        val newNotice = Notice(id = "n_${System.currentTimeMillis()}", title = title, details = details, acceptedBy = emptyList())
-        viewModelScope.launch { repository.addNotice(flatId, newNotice) }
-    }
-
-    fun onAddToCalendar(eventId: String) {
-        val e = uiState.upcomingEvents.firstOrNull { it.id == eventId } ?: return
-        val beginMillis = computeNextOccurrenceMillis(e.dateLabel, durationMinutes = 60)
-        val endMillis = beginMillis + 60L * 60L * 1000L
-
-        action = HomeAction.AddToCalendar(
-            title = e.description,
-            description = "${e.dateLabel} • ${e.location}",
-            beginMillis = beginMillis,
-            endMillis = endMillis
-        )
-    }
-
-    fun onViewMoreDetails(eventId: String) {
-        uiState = uiState.copy(expandedEventId = if (uiState.expandedEventId == eventId) null else eventId)
-    }
-
-    fun onToggleRemindMe(eventId: String) {
-        val event = uiState.upcomingEvents.firstOrNull { it.id == eventId } ?: return
-        val isNowEnabled = !event.isRemindMeEnabled
-        localReminderStates[eventId] = isNowEnabled
-
-        uiState = uiState.copy(
-            upcomingEvents = uiState.upcomingEvents.map { e ->
-                if (e.id == eventId) e.copy(isRemindMeEnabled = isNowEnabled) else e
-            }
-        )
-
-        val requestCode = eventId.hashCode()
-
-        if (isNowEnabled) {
-            val eventStart = computeNextOccurrenceMillis(event.dateLabel, durationMinutes = 60)
-            val triggerAtMillis = eventStart - 24L * 60L * 60L * 1000L
-            action = HomeAction.ScheduleReminder(requestCode, "ChillMates reminder", "${event.description} • ${event.dateLabel}", triggerAtMillis)
-        } else {
-            action = HomeAction.CancelReminder(requestCode)
+    private fun mapNoticesToUi(notices: List<Notice>) {
+        val noticeUis = notices.map { n ->
+            val acceptedList = n.acceptedBy?.map { MemberUi(it) } ?: emptyList()
+            NoticeUi(
+                id = n.id,
+                title = n.title,
+                details = n.details,
+                acceptedBy = acceptedList,
+                isPoll = n.isPoll // Ahora usa el valor real de tu modelo
+            )
         }
+        uiState = uiState.copy(notices = noticeUis, isLoading = false)
     }
 
-    fun onAddEvent(dateLabel: String, description: String, location: String) {
-        val flatId = currentFlatId ?: return
-        val cleanDateLabel = dateLabel.trim()
-        val cleanDescription = description.trim()
-        val cleanLocation = location.trim()
+    private fun mapEventsToUi(events: List<UpcomingEvent>) {
+        val eventUis = events.map { e ->
+            UpcomingEventUi(
+                id = e.id,
+                dateLabel = e.dateLabel,
+                description = e.description,
+                location = e.location ?: "",
+                attending = e.attending.map { MemberUi(it) }
+            )
+        }.sortedBy { it.dateLabel }
 
-        if (cleanDateLabel.isBlank() || cleanDescription.isBlank()) return
-
-        val newDbEvent = UpcomingEvent(id = "e_${System.currentTimeMillis()}", dateLabel = cleanDateLabel, description = cleanDescription, location = cleanLocation, attending = emptyList())
-        val newDbNotice = Notice(id = "n_${System.currentTimeMillis()}", title = "New event added", details = "$cleanDescription • $cleanDateLabel", acceptedBy = emptyList())
-
-        viewModelScope.launch {
-            repository.addEvent(flatId, newDbEvent)
-            repository.addNotice(flatId, newDbNotice)
-        }
+        uiState = uiState.copy(upcomingEvents = eventUis, isLoading = false)
     }
 
-    private fun computeNextOccurrenceMillis(dateLabel: String, durationMinutes: Int): Long {
-        val parts = dateLabel.trim().split(" ")
-        val dayPart = parts.getOrNull(0).orEmpty()
-        val timePart = parts.getOrNull(1).orEmpty()
-
-        val dayOfWeek = when (dayPart.lowercase(Locale.ROOT).take(3)) {
-            "mon" -> Calendar.MONDAY
-            "tue" -> Calendar.TUESDAY
-            "wed" -> Calendar.WEDNESDAY
-            "thu" -> Calendar.THURSDAY
-            "fri" -> Calendar.FRIDAY
-            "sat" -> Calendar.SATURDAY
-            "sun" -> Calendar.SUNDAY
-            else -> Calendar.MONDAY
-        }
-
-        val hour = timePart.substringBefore(":", "12").toIntOrNull() ?: 12
-        val minute = timePart.substringAfter(":", "00").toIntOrNull() ?: 0
-
-        val now = Calendar.getInstance()
-        val cal = Calendar.getInstance().apply {
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
-        }
-
-        val currentDow = cal.get(Calendar.DAY_OF_WEEK)
-        var delta = (dayOfWeek - currentDow + 7) % 7
-        if (delta == 0 && cal.timeInMillis <= now.timeInMillis) delta = 7
-        cal.add(Calendar.DAY_OF_YEAR, delta)
-
-        return cal.timeInMillis
-    }
-
-    // =========================================================================
-    // SUPER MOCK DATA INJECTOR (Delete before presentation!)
-    // =========================================================================
-    fun injectMockData() {
-        val flatId = currentFlatId ?: return
-        val currentUserId = auth.currentUser?.uid ?: return
-        val me = uiState.currentUserName
-
+    fun acceptPoll(noticeId: String) {
         viewModelScope.launch {
             try {
-                // 1. INYECTAR USUARIOS FALSOS (Compañeros de piso)
-                val fakeUsers = listOf(
-                    Pair("mock_u1", "Laura"),
-                    Pair("mock_u2", "Carlos"),
-                    Pair("mock_u3", "Miguel")
-                )
-                fakeUsers.forEach { (uid, name) ->
-                    db.collection(es.uc3m.android.chillmates.model.USERS_COLLECTION).document(uid).set(
-                        mapOf("displayName" to name, "flatId" to flatId, "email" to "${name.lowercase()}@mock.com", "avatarUrl" to null)
-                    ).await()
+                val userId = auth.currentUser?.uid ?: return@launch
+                val userName = auth.currentUser?.displayName.takeIf { !it.isNullOrBlank() } ?: "Me"
+                val userDoc = db.collection(USERS_COLLECTION).document(userId).get().await()
+                val flatId = userDoc.getString("flatId") ?: return@launch
+
+                val currentNotice = uiState.notices.find { it.id == noticeId } ?: return@launch
+                val currentAccepted = currentNotice.acceptedBy.map { it.name }.toMutableList()
+
+                if (!currentAccepted.contains(userName)) {
+                    currentAccepted.add(userName)
+                    repository.updateNoticeAcceptedBy(flatId, noticeId, currentAccepted)
                 }
+            } catch (e: Exception) { }
+        }
+    }
 
-                val allMembers = listOf(currentUserId) + fakeUsers.map { it.first }
-                db.collection(es.uc3m.android.chillmates.model.FLATS_COLLECTION).document(flatId).update("memberIds", allMembers).await()
+    // NUEVO: Función para quitarte de la lista si le das a Not going
+    fun declinePoll(noticeId: String) {
+        viewModelScope.launch {
+            try {
+                val userId = auth.currentUser?.uid ?: return@launch
+                val userName = auth.currentUser?.displayName.takeIf { !it.isNullOrBlank() } ?: "Me"
+                val userDoc = db.collection(USERS_COLLECTION).document(userId).get().await()
+                val flatId = userDoc.getString("flatId") ?: return@launch
 
-                // 2. INYECTAR SUPERMERCADOS FALSOS
-                val supers = listOf(
-                    es.uc3m.android.chillmates.model.Supermarket(id = "sup_mercadona", name = "Mercadona", officialName = "Mercadona S.A.", placeId = "ChIJ-wM...", latitude = 40.41, longitude = -3.70, address = "Calle Mayor 1"),
-                    es.uc3m.android.chillmates.model.Supermarket(id = "sup_carrefour", name = "Carrefour", officialName = "Carrefour Express", placeId = "ChIJ-xN...", latitude = 40.42, longitude = -3.71, address = "Gran Vía 20"),
-                    es.uc3m.android.chillmates.model.Supermarket(id = "sup_lidl", name = "Lidl", officialName = "Lidl Supermercados", placeId = "ChIJ-yO...", latitude = 40.40, longitude = -3.69, address = "Atocha 50")
+                val currentNotice = uiState.notices.find { it.id == noticeId } ?: return@launch
+                val currentAccepted = currentNotice.acceptedBy.map { it.name }.toMutableList()
+
+                if (currentAccepted.contains(userName)) {
+                    currentAccepted.remove(userName)
+                    repository.updateNoticeAcceptedBy(flatId, noticeId, currentAccepted)
+                }
+            } catch (e: Exception) { }
+        }
+    }
+
+    // NUEVO: Función para guardar un anuncio en Firebase
+    fun addNotice(title: String, details: String, isPoll: Boolean) {
+        viewModelScope.launch {
+            try {
+                val userId = auth.currentUser?.uid ?: return@launch
+                val userDoc = db.collection(USERS_COLLECTION).document(userId).get().await()
+                val flatId = userDoc.getString("flatId") ?: return@launch
+
+                val newNotice = es.uc3m.android.chillmates.model.Notice(
+                    id = "n_${System.currentTimeMillis()}",
+                    title = title,
+                    details = details,
+                    acceptedBy = emptyList(),
+                    isPoll = isPoll
                 )
-                supers.forEach { s -> db.collection("supermarkets").document(s.id!!).set(s).await() }
-                db.collection(es.uc3m.android.chillmates.model.FLATS_COLLECTION).document(flatId).update("supermarketIds", supers.map { it.id }).await()
+                repository.addNotice(flatId, newNotice)
+            } catch (e: Exception) { }
+        }
+    }
 
-                // 3. INYECTAR LISTA DE LA COMPRA MASIVA
-                val items = listOf(
-                    es.uc3m.android.chillmates.model.ShoppingItem(id = "s1", name = "Leche entera", quantity = "6 bricks", neededBy = listOf("Laura", "Carlos"), supermarkets = listOf("Mercadona"), bought = false),
-                    es.uc3m.android.chillmates.model.ShoppingItem(id = "s2", name = "Huevos", quantity = "2 docenas", neededBy = listOf("Everyone"), supermarkets = listOf("Mercadona", "Lidl"), bought = false),
-                    es.uc3m.android.chillmates.model.ShoppingItem(id = "s3", name = "Pan de molde", quantity = "1 paquete", neededBy = listOf(me), supermarkets = listOf("Carrefour"), bought = true),
-                    es.uc3m.android.chillmates.model.ShoppingItem(id = "s4", name = "Cerveza", quantity = "24 latas", neededBy = listOf("Miguel", "Carlos"), supermarkets = listOf("Lidl", "Carrefour"), bought = false),
-                    es.uc3m.android.chillmates.model.ShoppingItem(id = "s5", name = "Papel higiénico", quantity = "24 rollos", neededBy = listOf("Everyone"), supermarkets = listOf("Mercadona"), bought = false)
+    fun toggleReminder(eventId: String) {
+        val updatedEvents = uiState.upcomingEvents.map {
+            if (it.id == eventId) it.copy(isRemindMeEnabled = !it.isRemindMeEnabled) else it
+        }
+        uiState = uiState.copy(upcomingEvents = updatedEvents)
+    }
+
+    fun addEvent(dateLabel: String, description: String, location: String) {
+        viewModelScope.launch {
+            try {
+                val userId = auth.currentUser?.uid ?: return@launch
+                val userDoc = db.collection(USERS_COLLECTION).document(userId).get().await()
+                val flatId = userDoc.getString("flatId") ?: return@launch
+
+                val newEvent = es.uc3m.android.chillmates.model.UpcomingEvent(
+                    id = "ev_${System.currentTimeMillis()}",
+                    dateLabel = dateLabel,
+                    description = description,
+                    location = location,
+                    attending = emptyList()
                 )
-                items.forEach { repository.addShoppingItem(flatId, it) }
-
-                // 4. INYECTAR TAREAS REPARTIDAS
-                repository.addChore(flatId, es.uc3m.android.chillmates.model.Chore(id = "c1", title = "Limpiar cocina a fondo", assignee = "Carlos", isDone = false))
-                repository.addChore(flatId, es.uc3m.android.chillmates.model.Chore(id = "c2", title = "Bajar la basura y cartón", assignee = "Everyone", isDone = false))
-                repository.addChore(flatId, es.uc3m.android.chillmates.model.Chore(id = "c3", title = "Aspirar el salón", assignee = "Laura", isDone = true))
-                repository.addChore(flatId, es.uc3m.android.chillmates.model.Chore(id = "c4", title = "Limpiar los dos baños", assignee = me, isDone = false))
-
-                // 5. INYECTAR GASTOS Y BALANCE DEUDAS
-                repository.addExpense(flatId, es.uc3m.android.chillmates.model.Expense(id = "e1", title = "Internet Fibra", amount = 35.50, paidBy = "Laura", ticketUri = null, splitBetween = listOf(me, "Laura", "Carlos", "Miguel")))
-                repository.addExpense(flatId, es.uc3m.android.chillmates.model.Expense(id = "e2", title = "Compra Semanal Fuerte", amount = 124.30, paidBy = me, ticketUri = null, splitBetween = listOf(me, "Laura", "Carlos", "Miguel")))
-                repository.addExpense(flatId, es.uc3m.android.chillmates.model.Expense(id = "e3", title = "Suscripción Netflix", amount = 15.99, paidBy = "Carlos", ticketUri = null, splitBetween = listOf("Carlos", "Miguel")))
-
-                // 6. INYECTAR REPARACIONES
-                repository.addRepair(flatId, es.uc3m.android.chillmates.model.Repair(id = "r1", title = "Lavadora rota", description = "Hace un ruido muy raro al centrifugar.", reportedBy = "Laura", landlordMessage = "", photoUris = emptyList(), status = "PENDING"))
-                repository.addRepair(flatId, es.uc3m.android.chillmates.model.Repair(id = "r2", title = "Calefacción no funciona", description = "El radiador de mi cuarto está completamente frío.", reportedBy = "Miguel", landlordMessage = "El técnico irá mañana por la tarde.", photoUris = emptyList(), status = "ACCEPTED"))
-
-                // 7. INYECTAR EVENTOS Y AVISOS
-                repository.addEvent(flatId, es.uc3m.android.chillmates.model.UpcomingEvent(id = "ev1", dateLabel = "Fri 21:00", description = "Cena de piso \uD83C\uDF89", location = "Salón", attending = listOf("Laura", "Carlos", me)))
-                repository.addNotice(flatId, es.uc3m.android.chillmates.model.Notice(id = "n1", title = "Visita Casero", details = "Viene a ver la caldera el lunes.", acceptedBy = listOf(me)))
-
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+                repository.addEvent(flatId, newEvent)
+            } catch (e: Exception) { }
         }
     }
 }

@@ -5,7 +5,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -16,7 +15,6 @@ private object SettingsPreferencesKeys {
     val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
     val DARK_MODE_ENABLED = booleanPreferencesKey("dark_mode_enabled")
     val SOUND_ENABLED = booleanPreferencesKey("sound_enabled")
-    val LANGUAGE = stringPreferencesKey("language")
 }
 
 class SettingsDataStoreHelper(private val context: Context) {
@@ -31,10 +29,6 @@ class SettingsDataStoreHelper(private val context: Context) {
 
     val soundEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[SettingsPreferencesKeys.SOUND_ENABLED] ?: true
-    }
-
-    val language: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[SettingsPreferencesKeys.LANGUAGE] ?: "System Default"
     }
 
     suspend fun saveNotificationsEnabled(enabled: Boolean) {
@@ -52,12 +46,6 @@ class SettingsDataStoreHelper(private val context: Context) {
     suspend fun saveSoundEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[SettingsPreferencesKeys.SOUND_ENABLED] = enabled
-        }
-    }
-
-    suspend fun saveLanguage(language: String) {
-        context.dataStore.edit { preferences ->
-            preferences[SettingsPreferencesKeys.LANGUAGE] = language
         }
     }
 }

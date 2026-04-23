@@ -156,6 +156,7 @@
     <string name="settings_btn_apply">Aplicar cambios</string>
     <string name="settings_cd_back">Volver</string>
 
+
     <string name="user_section_profile">Mi perfil</string>
     <string name="user_label_fullname">Nombre completo</string>
     <string name="user_label_email">Correo electrónico</string>

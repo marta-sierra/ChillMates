@@ -13,398 +13,511 @@ import android.provider.CalendarContract
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import es.uc3m.android.chillmates.R
-import es.uc3m.android.chillmates.ui.theme.newsBoardButtonBackground
-import es.uc3m.android.chillmates.ui.theme.newsBoardCardBackground
 
 @Composable
-fun HomePage(navController: NavController) {
-    val vm: HomeViewModel = viewModel()
+fun HomePage(navController: NavController, viewModel: HomeViewModel = viewModel()) {
+    val uiState = viewModel.uiState
     val context = LocalContext.current
-
-    val addEventLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val data = result.data ?: return@rememberLauncherForActivityResult
-            val dateLabel = data.getStringExtra(AddEventActivity.Companion.EXTRA_DATE_LABEL).orEmpty()
-            val description = data.getStringExtra(AddEventActivity.Companion.EXTRA_DESCRIPTION).orEmpty()
-            val location = data.getStringExtra(AddEventActivity.Companion.EXTRA_LOCATION).orEmpty()
-
-            vm.onAddEvent(dateLabel = dateLabel, description = description, location = location)
-        }
-    }
-
-    var pendingReminder by remember { mutableStateOf<HomeViewModel.HomeAction.ScheduleReminder?>(null) }
-    val requestNotificationsPermission = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            pendingReminder?.let { action ->
-                scheduleReminder(context, action.requestCode, action.title, action.message, action.triggerAtMillis)
-                pendingReminder = null
-            }
-        } else {
-            Toast.makeText(context, "Notifications permission denied", Toast.LENGTH_SHORT).show()
-            pendingReminder = null
-        }
-    }
-
-    fun hasNotificationsPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        } else true
-    }
-
-    LaunchedEffect(vm.action) {
-        val action = vm.action ?: return@LaunchedEffect
-
-        when (action) {
-            is HomeViewModel.HomeAction.AddToCalendar -> {
-                openCalendarInsert(context, action.title, action.description, action.beginMillis, action.endMillis)
-            }
-            is HomeViewModel.HomeAction.ScheduleReminder -> {
-                if (!hasNotificationsPermission()) {
-                    pendingReminder = action
-                    requestNotificationsPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                } else {
-                    scheduleReminder(context, action.requestCode, action.title, action.message, action.triggerAtMillis)
-                }
-            }
-            is HomeViewModel.HomeAction.CancelReminder -> {
-                cancelReminder(context, action.requestCode)
-            }
-            else -> {}
-        }
-        vm.onActionConsumed()
-    }
-
-    HomeRoute(
-        state = vm.uiState,
-        onAcceptNotice = vm::onAcceptNotice,
-        onRejectNotice = vm::onRejectNotice,
-        onShowAllNotices = vm::onShowAllNotices,
-        onAddNotice = vm::onAddNotice,
-        onAddToCalendar = vm::onAddToCalendar,
-        onViewMoreDetails = vm::onViewMoreDetails,
-        onToggleRemindMe = vm::onToggleRemindMe,
-        onAddEvent = {
-            val intent = Intent(context, AddEventActivity::class.java)
-            addEventLauncher.launch(intent)
-        }
-    )
-}
-
-@Composable
-private fun HomeRoute(
-    state: HomeUiState,
-    onAcceptNotice: (String) -> Unit,
-    onRejectNotice: (String) -> Unit,
-    onShowAllNotices: () -> Unit,
-    onAddNotice: (String, String) -> Unit,
-    onAddToCalendar: (String) -> Unit,
-    onViewMoreDetails: (String) -> Unit,
-    onToggleRemindMe: (String) -> Unit,
-    onAddEvent: () -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
-    ) {
-        item {
-            NewsBoardSection(
-                notices = state.notices,
-                showAll = state.showAllNotices,
-                onAcceptNotice = onAcceptNotice,
-                onRejectNotice = onRejectNotice,
-                onToggleShowAll = onShowAllNotices,
-                onAddNotice = onAddNotice
-            )
-        }
-        item {
-            UpcomingEventsSection(
-                events = state.upcomingEvents,
-                expandedEventId = state.expandedEventId,
-                onAddToCalendar = onAddToCalendar,
-                onViewMoreDetails = onViewMoreDetails,
-                onToggleRemindMe = onToggleRemindMe,
-                onAddEvent = onAddEvent
-            )
-        }
-    }
-}
-
-@Composable
-private fun NewsBoardSection(
-    notices: List<NoticeUi>,
-    showAll: Boolean,
-    onAcceptNotice: (String) -> Unit,
-    onRejectNotice: (String) -> Unit,
-    onToggleShowAll: () -> Unit,
-    onAddNotice: (String, String) -> Unit
-) {
     var showAddNoticeDialog by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxWidth()) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(
-                text = stringResource(R.string.home_section_news_board),
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-            )
-
-            if (notices.isEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth().height(120.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF59D)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "No news right now.\nTap '+' to add something!",
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Color(0xFF5D4037)
-                        )
-                    }
-                }
-            } else {
-                val visibleNotices = if (showAll) notices else listOfNotNull(notices.firstOrNull())
-                visibleNotices.forEach { notice ->
-                    NewsBoardCard(
-                        notice = notice,
-                        onAccept = { onAcceptNotice(notice.id) },
-                        onReject = { onRejectNotice(notice.id) }
-                    )
-                }
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    val label = if (showAll) stringResource(R.string.home_show_less) else stringResource(R.string.home_show_all)
-                    TextButton(onClick = onToggleShowAll) { Text(label) }
-                }
-            }
+    if (uiState.isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         }
+        return
+    }
 
-        SmallFloatingActionButton(
-            onClick = { showAddNoticeDialog = true },
-            modifier = Modifier.align(Alignment.BottomEnd).offset(y = (-40).dp),
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Add Notice")
+    if (uiState.errorMessage != null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(text = "Error: ${uiState.errorMessage}", color = MaterialTheme.colorScheme.error)
+        }
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
+    ) {
+        item {
+            NoticeBoardSection(
+                notices = uiState.notices,
+                onAcceptClick = { noticeId -> viewModel.acceptPoll(noticeId) },
+                onDeclineClick = { noticeId -> viewModel.declinePoll(noticeId) },
+                onAddNoticeClick = { showAddNoticeDialog = true }
+            )
+        }
+        item {
+            Spacer(modifier = Modifier.height(32.dp))
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+        item {
+            UpcomingEventsSection(events = uiState.upcomingEvents, context = context, viewModel = viewModel)
         }
     }
 
+    // Dialogo para añadir nuevo Anuncio
     if (showAddNoticeDialog) {
-        var newTitle by remember { mutableStateOf("") }
-        var newDetails by remember { mutableStateOf("") }
-
-        AlertDialog(
-            onDismissRequest = { showAddNoticeDialog = false },
-            title = { Text("Add Notice") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = newTitle,
-                        onValueChange = { newTitle = it },
-                        label = { Text("Title") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = newDetails,
-                        onValueChange = { newDetails = it },
-                        label = { Text("Details") },
-                        modifier = Modifier.fillMaxWidth().height(100.dp)
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (newTitle.isNotBlank()) {
-                            onAddNotice(newTitle, newDetails)
-                            showAddNoticeDialog = false
-                        }
-                    }
-                ) { Text("Add") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddNoticeDialog = false }) { Text("Cancel") }
+        AddNoticeDialog(
+            onDismiss = { showAddNoticeDialog = false },
+            onConfirm = { title, details, isPoll ->
+                viewModel.addNotice(title, details, isPoll)
+                showAddNoticeDialog = false
             }
         )
     }
 }
 
 @Composable
-private fun NewsBoardCard(notice: NoticeUi, onAccept: () -> Unit, onReject: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = newsBoardCardBackground),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(text = "“${notice.title}”", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-            Text(text = "“${notice.details}”", style = MaterialTheme.typography.bodyMedium)
-            AttendingLine(members = notice.acceptedBy)
+fun NoticeBoardSection(
+    notices: List<NoticeUi>,
+    onAcceptClick: (String) -> Unit,
+    onDeclineClick: (String) -> Unit,
+    onAddNoticeClick: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.home_notice_board),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                FilledTonalButton(
-                    onClick = onAccept,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = newsBoardButtonBackground,
-                        contentColor = MaterialTheme.colorScheme.onSurface
+        if (notices.isEmpty()) {
+            Text(
+                text = "No notices yet.",
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(notices) { notice ->
+                    NoticeCard(
+                        notice = notice,
+                        onAcceptClick = onAcceptClick,
+                        onDeclineClick = onDeclineClick
                     )
-                ) {
-                    Text(stringResource(R.string.home_accept_label))
                 }
+            }
+        }
 
-                FilledTonalButton(
-                    onClick = onReject,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = newsBoardButtonBackground,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    )
-                ) {
-                    Text(stringResource(R.string.home_reject_label))
-                }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            TextButton(
+                onClick = onAddNoticeClick,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Add Notice",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
 }
 
 @Composable
-private fun AttendingLine(members: List<MemberUi>) {
-    val names = remember(members) { members.joinToString(" • ") { it.name } }
-    val displayNames = if (names.isBlank()) stringResource(R.string.home_attending_empty) else names
-    Text(
-        text = stringResource(R.string.home_attending_prefix, displayNames),
-        style = MaterialTheme.typography.bodySmall
+fun NoticeCard(
+    notice: NoticeUi,
+    onAcceptClick: (String) -> Unit,
+    onDeclineClick: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .width(280.dp)
+            .height(180.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    ) {
+        if (notice.isPoll) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = notice.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = notice.details,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    )
+
+                    if (notice.acceptedBy.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Going: ${notice.acceptedBy.joinToString { it.name }}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = { onAcceptClick(notice.id) },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(0.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Text("I'm in!", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    OutlinedButton(
+                        onClick = { onDeclineClick(notice.id) },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("Not going", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = notice.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = notice.details,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                    textAlign = TextAlign.Center,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+// NUEVO: Dialogo para rellenar los datos del Anuncio
+@Composable
+fun AddNoticeDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (title: String, details: String, isPoll: Boolean) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var details by remember { mutableStateOf("") }
+    var isPoll by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New Notice") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Title") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = details,
+                    onValueChange = { details = it },
+                    label = { Text("Details") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Checkbox(checked = isPoll, onCheckedChange = { isPoll = it })
+                    Text("Is this a poll? (RSVP)")
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                if (title.isNotBlank() && details.isNotBlank()) {
+                    onConfirm(title, details, isPoll)
+                }
+            }) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
     )
 }
 
 @Composable
-private fun UpcomingEventsSection(
-    events: List<UpcomingEventUi>,
-    expandedEventId: String?,
-    onAddToCalendar: (String) -> Unit,
-    onViewMoreDetails: (String) -> Unit,
-    onToggleRemindMe: (String) -> Unit,
-    onAddEvent: () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+fun UpcomingEventsSection(events: List<UpcomingEventUi>, context: Context, viewModel: HomeViewModel) {
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val dateLabel = result.data?.getStringExtra(AddEventActivity.EXTRA_DATE_LABEL) ?: ""
+            val description = result.data?.getStringExtra(AddEventActivity.EXTRA_DESCRIPTION) ?: ""
+            val location = result.data?.getStringExtra(AddEventActivity.EXTRA_LOCATION) ?: ""
+            if (dateLabel.isNotEmpty() && description.isNotEmpty()) {
+                viewModel.addEvent(dateLabel, description, location)
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.home_upcoming_events),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (events.isEmpty()) {
             Text(
-                text = stringResource(R.string.home_section_upcoming_events),
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                modifier = Modifier.weight(1f)
+                text = "No events scheduled.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            TextButton(onClick = onAddEvent) { Text(stringResource(R.string.home_btn_add_event)) }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                events.forEach { event ->
+                    EventCard(event = event, context = context, viewModel = viewModel)
+                }
+            }
         }
 
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-            Column {
-                events.forEachIndexed { index, event ->
-                    UpcomingEventRow(
-                        event = event,
-                        expanded = (expandedEventId == event.id),
-                        onAddToCalendar = { onAddToCalendar(event.id) },
-                        onViewMoreDetails = { onViewMoreDetails(event.id) },
-                        onToggleRemindMe = { onToggleRemindMe(event.id) }
-                    )
-                    if (index != events.lastIndex) {
-                        HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
-                    }
-                }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            TextButton(
+                onClick = {
+                    val intent = Intent(context, AddEventActivity::class.java)
+                    launcher.launch(intent)
+                },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = stringResource(R.string.home_add_event),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
 }
 
 @Composable
-private fun UpcomingEventRow(
-    event: UpcomingEventUi,
-    expanded: Boolean,
-    onAddToCalendar: () -> Unit,
-    onViewMoreDetails: () -> Unit,
-    onToggleRemindMe: () -> Unit
-) {
-    var menuExpanded by remember { mutableStateOf(false) }
+fun EventCard(event: UpcomingEventUi, context: Context, viewModel: HomeViewModel) {
+    var isExpanded by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = event.dateLabel, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
-                Text(text = event.description, style = MaterialTheme.typography.bodyMedium)
-            }
-
-            IconButton(onClick = onAddToCalendar) {
-                Icon(imageVector = Icons.Default.CalendarMonth, contentDescription = stringResource(R.string.home_cd_calendar))
-            }
-
-            Box {
-                IconButton(onClick = { menuExpanded = true }) {
-                    Icon(imageVector = Icons.Default.MoreVert, contentDescription = stringResource(R.string.home_cd_more))
-                }
-                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(if (expanded) R.string.home_hide_details else R.string.home_view_details)) },
-                        onClick = { menuExpanded = false; onViewMoreDetails() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(if (event.isRemindMeEnabled) R.string.home_stop_notifying else R.string.home_remind_me)) },
-                        onClick = { menuExpanded = false; onToggleRemindMe() }
-                    )
-                }
-            }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            toggleEventReminder(event, context, viewModel)
+        } else {
+            Toast.makeText(context, "Permission required for alarms.", Toast.LENGTH_SHORT).show()
         }
+    }
 
-        if (expanded) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = stringResource(R.string.home_location_prefix, event.location), style = MaterialTheme.typography.bodySmall)
-            val attendingNames = remember(event.attending) { event.attending.joinToString(" • ") { it.name } }
-            val displayNames = if (attendingNames.isBlank()) stringResource(R.string.home_attending_empty) else attendingNames
-            Text(text = stringResource(R.string.home_attending_prefix, displayNames), style = MaterialTheme.typography.bodySmall)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val parts = event.dateLabel.split(" ", limit = 2)
+                val day = parts.getOrNull(0) ?: ""
+                val time = parts.getOrNull(1) ?: ""
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(50.dp)
+                ) {
+                    Text(
+                        text = day,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = time,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Text(
+                    text = event.description,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+
+                IconButton(onClick = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        when (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)) {
+                            PackageManager.PERMISSION_GRANTED -> toggleEventReminder(event, context, viewModel)
+                            else -> permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    } else {
+                        toggleEventReminder(event, context, viewModel)
+                    }
+                }) {
+                    Icon(
+                        imageVector = if (event.isRemindMeEnabled) Icons.Default.Notifications else Icons.Default.NotificationsNone,
+                        contentDescription = "Toggle reminder",
+                        tint = if (event.isRemindMeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                IconButton(onClick = { isExpanded = !isExpanded }) {
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                        contentDescription = "Expand details",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            if (isExpanded) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (event.location.isNotEmpty()) {
+                    Text(
+                        text = "Location: ${event.location}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (event.attending.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Attending: ${event.attending.joinToString { it.name }}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = { exportEventToCalendar(context, event) },
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text(
+                        text = "Export to Calendar",
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
     }
 }
 
-private fun openCalendarInsert(context: Context, title: String, description: String, beginMillis: Long, endMillis: Long) {
+private fun toggleEventReminder(event: UpcomingEventUi, context: Context, viewModel: HomeViewModel) {
+    if (event.isRemindMeEnabled) {
+        cancelReminder(context, event.id.hashCode())
+        viewModel.toggleReminder(event.id)
+        Toast.makeText(context, context.getString(R.string.home_toast_reminder_canceled), Toast.LENGTH_SHORT).show()
+    } else {
+        val triggerAtMillis = System.currentTimeMillis() + 10_000
+        scheduleReminder(context, event.id.hashCode(), "Upcoming Event: ${event.description}", "Starts at ${event.dateLabel}", triggerAtMillis)
+        viewModel.toggleReminder(event.id)
+        Toast.makeText(context, context.getString(R.string.home_toast_reminder_set), Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun exportEventToCalendar(context: Context, event: UpcomingEventUi) {
     val intent = Intent(Intent.ACTION_INSERT).apply {
         data = CalendarContract.Events.CONTENT_URI
-        putExtra(CalendarContract.Events.TITLE, title)
-        putExtra(CalendarContract.Events.DESCRIPTION, description)
-        putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, beginMillis)
-        putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endMillis)
-        putExtra(CalendarContract.Events.CUSTOM_APP_PACKAGE, context.packageName)
+        putExtra(CalendarContract.Events.TITLE, event.description)
+        putExtra(CalendarContract.Events.EVENT_LOCATION, event.location)
     }
     try {
         context.startActivity(intent)
@@ -424,8 +537,15 @@ private fun scheduleReminder(context: Context, requestCode: Int, title: String, 
     val pendingIntent = PendingIntent.getBroadcast(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) alarmManager.canScheduleExactAlarms() else true
 
-    if (canExact) alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-    else alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+    if (canExact) {
+        try {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+        } catch (e: SecurityException) {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+        }
+    } else {
+        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+    }
 }
 
 private fun cancelReminder(context: Context, requestCode: Int) {
@@ -433,5 +553,4 @@ private fun cancelReminder(context: Context, requestCode: Int) {
     val intent = Intent(context, HomeReminderReceiver::class.java)
     val pendingIntent = PendingIntent.getBroadcast(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     alarmManager.cancel(pendingIntent)
-    pendingIntent.cancel()
 }

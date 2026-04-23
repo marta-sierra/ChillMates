@@ -7,5 +7,7 @@ data class Notice(
     val id: String = "",
     val title: String = "",
     val details: String = "",
-    val acceptedBy: List<String> = emptyList()
+    val createdBy: String = "", // O las variables extra que tú tuvieras...
+    val acceptedBy: List<String> = emptyList(), // <-- FUNDAMENTAL PARA LA LISTA DE NOMBRES
+    val isPoll: Boolean = false                 // <-- FUNDAMENTAL PARA MOSTRAR LOS BOTONES
 )
