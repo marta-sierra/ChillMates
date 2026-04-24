@@ -21,6 +21,11 @@
     <string name="signup_footer_login">Ja tens compte? Inicia sessió</string>
     <string name="nav_cd_profile">Perfil d\'usuari</string>
     <string name="nav_cd_settings">Configuració</string>
+    <string name="nav_home">Inici</string>
+    <string name="nav_chores">Tasques</string>
+    <string name="nav_shop">Compra</string>
+    <string name="nav_expenses">Despeses</string>
+    <string name="nav_repairs">Avaries</string>
 
     <string name="welcome_back_continue">Continuar</string>
     <string name="welcome_back_change_account">Canviar compte</string>
@@ -88,10 +93,14 @@
     <string name="needed_by_format">per a %s</string>
     <string name="dialog_add_expense_title">Afegir a despeses?</string>
     <string name="dialog_add_expense_text">Vols crear una despesa per a \'%s\'?</string>
-    <string name="btn_create_expense">Sí, crea despesa</string>
+    <string name="btn_create_expense">Sí, crear despesa</string>
     <string name="btn_not_now">Ara no</string>
-    <string name="cd_open_map">Obre mapa</string>
+    <string name="cd_open_map">Obrir mapa</string>
+    <string name="label_selected">seleccionats</string>
+    <string name="btn_any">Qualsevol</string>
     <string name="cd_toggle_bought">Marca com a comprat</string>
+    <string name="btn_my_expenses">Les meves despeses</string>
+    <string name="btn_all_expenses">Totes les despeses</string>
 
     <string name="chores_title">Tasques</string>
     <string name="chores_subtitle">Per facilitar la convivència.</string>

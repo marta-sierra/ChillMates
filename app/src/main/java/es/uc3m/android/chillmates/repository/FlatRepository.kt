@@ -14,7 +14,7 @@ class FlatRepository {
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 
     private fun generateInviteCode(): String {
-        val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+        val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         return (1..8).map { chars[Random.nextInt(chars.length)] }.joinToString("")
     }
 
@@ -262,6 +262,10 @@ class FlatRepository {
 
     suspend fun updateNoticeAcceptedBy(flatId: String, noticeId: String, acceptedBy: List<String>) {
         firestore.collection(FLATS_COLLECTION).document(flatId).collection(NOTICES_SUBCOLLECTION).document(noticeId).update("acceptedBy", acceptedBy).await()
+    }
+
+    suspend fun updateNoticeDeclinedBy(flatId: String, noticeId: String, declinedBy: List<String>) {
+        firestore.collection(FLATS_COLLECTION).document(flatId).collection(NOTICES_SUBCOLLECTION).document(noticeId).update("declinedBy", declinedBy).await()
     }
 
     fun observeEvents(flatId: String): Flow<List<UpcomingEvent>> = callbackFlow {

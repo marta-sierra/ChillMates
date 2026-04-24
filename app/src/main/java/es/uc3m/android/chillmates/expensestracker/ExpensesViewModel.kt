@@ -112,7 +112,11 @@ class ExpensesViewModel(
         uiState.expenses.forEach { expense ->
             val payer = expense.paidBy
             val amount = expense.amount
-            val participants = expense.splitBetween
+            val participants = if (expense.splitBetween.isEmpty()) {
+                uiState.availableFlatmates
+            } else {
+                expense.splitBetween
+            }
 
             if (participants.isNotEmpty()) {
                 val share = amount / participants.size

@@ -7,6 +7,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.provider.CalendarContract
 import android.widget.Toast
@@ -19,8 +20,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material3.*
@@ -43,7 +46,28 @@ import es.uc3m.android.chillmates.R
 fun HomePage(navController: NavController, viewModel: HomeViewModel = viewModel()) {
     val uiState = viewModel.uiState
     val context = LocalContext.current
+    val savedStateHandle = navController.currentBackStackEntry?.savedStateHandle
     var showAddNoticeDialog by remember { mutableStateOf(false) }
+
+    val returnedEventDateLabel = savedStateHandle?.get<String>(NavGraph.RESULT_EVENT_DATE_LABEL)
+    val returnedEventDescription = savedStateHandle?.get<String>(NavGraph.RESULT_EVENT_DESCRIPTION)
+    val returnedEventLocation = savedStateHandle?.get<String>(NavGraph.RESULT_EVENT_LOCATION)
+
+    LaunchedEffect(returnedEventDateLabel, returnedEventDescription, returnedEventLocation) {
+        if (
+            !returnedEventDateLabel.isNullOrBlank() &&
+            !returnedEventDescription.isNullOrBlank()
+        ) {
+            viewModel.addEvent(
+                dateLabel = returnedEventDateLabel,
+                description = returnedEventDescription,
+                location = returnedEventLocation.orEmpty()
+            )
+            savedStateHandle?.remove<String>(NavGraph.RESULT_EVENT_DATE_LABEL)
+            savedStateHandle?.remove<String>(NavGraph.RESULT_EVENT_DESCRIPTION)
+            savedStateHandle?.remove<String>(NavGraph.RESULT_EVENT_LOCATION)
+        }
+    }
 
     if (uiState.isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -61,7 +85,7 @@ fun HomePage(navController: NavController, viewModel: HomeViewModel = viewModel(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
+        contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
     ) {
         item {
             NoticeBoardSection(
@@ -80,7 +104,12 @@ fun HomePage(navController: NavController, viewModel: HomeViewModel = viewModel(
             Spacer(modifier = Modifier.height(24.dp))
         }
         item {
-            UpcomingEventsSection(events = uiState.upcomingEvents, context = context, viewModel = viewModel)
+            UpcomingEventsSection(
+                events = uiState.upcomingEvents,
+                context = context,
+                viewModel = viewModel,
+                onAddEventClick = { navController.navigate(NavGraph.AddEvent.route) }
+            )
         }
     }
 
@@ -88,8 +117,8 @@ fun HomePage(navController: NavController, viewModel: HomeViewModel = viewModel(
     if (showAddNoticeDialog) {
         AddNoticeDialog(
             onDismiss = { showAddNoticeDialog = false },
-            onConfirm = { title, details, isPoll ->
-                viewModel.addNotice(title, details, isPoll)
+            onConfirm = { title, details, poll ->
+                viewModel.addNotice(title, details, poll)
                 showAddNoticeDialog = false
             }
         )
@@ -103,6 +132,8 @@ fun NoticeBoardSection(
     onDeclineClick: (String) -> Unit,
     onAddNoticeClick: () -> Unit
 ) {
+    var currentIndex by remember { mutableIntStateOf(0) }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = stringResource(R.string.home_notice_board),
@@ -120,17 +151,74 @@ fun NoticeBoardSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxWidth()
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
             ) {
-                items(notices) { notice ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    if (notices.size > 1) {
+                        IconButton(
+                            onClick = { currentIndex = (currentIndex - 1 + notices.size) % notices.size },
+                            enabled = notices.size > 1
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "Previous",
+                                tint = if (notices.size > 1) MaterialTheme.colorScheme.onSurfaceVariant
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.width(48.dp))
+                    }
+
                     NoticeCard(
-                        notice = notice,
+                        notice = notices[currentIndex],
                         onAcceptClick = onAcceptClick,
-                        onDeclineClick = onDeclineClick
+                        onDeclineClick = onDeclineClick,
+                        modifier = Modifier.width(280.dp)
                     )
+
+                    if (notices.size > 1) {
+                        IconButton(
+                            onClick = { currentIndex = (currentIndex + 1) % notices.size }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowForward,
+                                contentDescription = "Next",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.width(48.dp))
+                    }
+                }
+            }
+
+            if (notices.size > 1) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    repeat(notices.size) { index ->
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .size(8.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier.fillMaxSize(),
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (index == currentIndex) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                            ) {}
+                        }
+                    }
                 }
             }
         }
@@ -158,11 +246,11 @@ fun NoticeBoardSection(
 fun NoticeCard(
     notice: NoticeUi,
     onAcceptClick: (String) -> Unit,
-    onDeclineClick: (String) -> Unit
+    onDeclineClick: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier
-            .width(280.dp)
+        modifier = modifier
             .height(180.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
@@ -170,7 +258,7 @@ fun NoticeCard(
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         )
     ) {
-        if (notice.isPoll) {
+        if (notice.poll) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -193,17 +281,24 @@ fun NoticeCard(
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                     )
 
-                    if (notice.acceptedBy.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Going: ${notice.acceptedBy.joinToString { it.name }}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Going: ${if (notice.acceptedBy.isEmpty()) "-" else notice.acceptedBy.joinToString { it.name }}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Not going: ${if (notice.declinedBy.isEmpty()) "-" else notice.declinedBy.joinToString { it.name }}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
 
                 Row(
@@ -263,11 +358,11 @@ fun NoticeCard(
 @Composable
 fun AddNoticeDialog(
     onDismiss: () -> Unit,
-    onConfirm: (title: String, details: String, isPoll: Boolean) -> Unit
+    onConfirm: (title: String, details: String, poll: Boolean) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var details by remember { mutableStateOf("") }
-    var isPoll by remember { mutableStateOf(false) }
+    var poll by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -292,7 +387,7 @@ fun AddNoticeDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Checkbox(checked = isPoll, onCheckedChange = { isPoll = it })
+                    Checkbox(checked = poll, onCheckedChange = { poll = it })
                     Text("Is this a poll? (RSVP)")
                 }
             }
@@ -300,7 +395,7 @@ fun AddNoticeDialog(
         confirmButton = {
             Button(onClick = {
                 if (title.isNotBlank() && details.isNotBlank()) {
-                    onConfirm(title, details, isPoll)
+                    onConfirm(title, details, poll)
                 }
             }) {
                 Text("Save")
@@ -315,17 +410,12 @@ fun AddNoticeDialog(
 }
 
 @Composable
-fun UpcomingEventsSection(events: List<UpcomingEventUi>, context: Context, viewModel: HomeViewModel) {
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val dateLabel = result.data?.getStringExtra(AddEventActivity.EXTRA_DATE_LABEL) ?: ""
-            val description = result.data?.getStringExtra(AddEventActivity.EXTRA_DESCRIPTION) ?: ""
-            val location = result.data?.getStringExtra(AddEventActivity.EXTRA_LOCATION) ?: ""
-            if (dateLabel.isNotEmpty() && description.isNotEmpty()) {
-                viewModel.addEvent(dateLabel, description, location)
-            }
-        }
-    }
+fun UpcomingEventsSection(
+    events: List<UpcomingEventUi>,
+    context: Context,
+    viewModel: HomeViewModel,
+    onAddEventClick: () -> Unit
+) {
 
     Column(
         modifier = Modifier
@@ -357,10 +447,7 @@ fun UpcomingEventsSection(events: List<UpcomingEventUi>, context: Context, viewM
 
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             TextButton(
-                onClick = {
-                    val intent = Intent(context, AddEventActivity::class.java)
-                    launcher.launch(intent)
-                },
+                onClick = onAddEventClick,
                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)

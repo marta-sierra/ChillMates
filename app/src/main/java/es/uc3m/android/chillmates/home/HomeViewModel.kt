@@ -21,7 +21,8 @@ data class NoticeUi(
     val title: String,
     val details: String,
     val acceptedBy: List<MemberUi> = emptyList(),
-    val isPoll: Boolean = false
+    val declinedBy: List<MemberUi> = emptyList(),
+    val poll: Boolean = false
 )
 
 @Immutable
@@ -87,8 +88,8 @@ class HomeViewModel : ViewModel() {
                 // Si está vacío, inyectamos un par de prueba
                 if (noticesSnapshot.isEmpty && eventsSnapshot.isEmpty) {
                     val me = auth.currentUser?.displayName ?: "Me"
-                    repository.addNotice(flatId, es.uc3m.android.chillmates.model.Notice(id = "n1", title = "Comprar papel higiénico", details = "Urge, queda un rollo.", isPoll = false))
-                    repository.addNotice(flatId, es.uc3m.android.chillmates.model.Notice(id = "n2", title = "¿Cena de piso el viernes?", details = "Votad para ver si compramos pizzas o hacemos pasta.", isPoll = true))
+                    repository.addNotice(flatId, es.uc3m.android.chillmates.model.Notice(id = "n1", title = "Comprar papel higiénico", details = "Urge, queda un rollo.", poll = false))
+                    repository.addNotice(flatId, es.uc3m.android.chillmates.model.Notice(id = "n2", title = "¿Cena de piso el viernes?", details = "Votad para ver si compramos pizzas o hacemos pasta.", poll = true))
                     repository.addEvent(flatId, es.uc3m.android.chillmates.model.UpcomingEvent(id = "ev1", dateLabel = "Fri 21:00", description = "Cena de piso \uD83C\uDF89", location = "Salón", attending = listOf("Laura", "Carlos", me)))
                     repository.addEvent(flatId, es.uc3m.android.chillmates.model.UpcomingEvent(id = "ev2", dateLabel = "Sat 10:00", description = "Día de limpieza a fondo", location = "Toda la casa", attending = listOf("Laura", "Miguel")))
                 }
@@ -114,12 +115,14 @@ class HomeViewModel : ViewModel() {
     private fun mapNoticesToUi(notices: List<Notice>) {
         val noticeUis = notices.map { n ->
             val acceptedList = n.acceptedBy?.map { MemberUi(it) } ?: emptyList()
+            val declinedList = n.declinedBy?.map { MemberUi(it) } ?: emptyList()
             NoticeUi(
                 id = n.id,
                 title = n.title,
                 details = n.details,
                 acceptedBy = acceptedList,
-                isPoll = n.isPoll // Ahora usa el valor real de tu modelo
+                declinedBy = declinedList,
+                poll = n.poll
             )
         }
         uiState = uiState.copy(notices = noticeUis, isLoading = false)
@@ -149,16 +152,21 @@ class HomeViewModel : ViewModel() {
 
                 val currentNotice = uiState.notices.find { it.id == noticeId } ?: return@launch
                 val currentAccepted = currentNotice.acceptedBy.map { it.name }.toMutableList()
+                val currentDeclined = currentNotice.declinedBy.map { it.name }.toMutableList()
 
                 if (!currentAccepted.contains(userName)) {
                     currentAccepted.add(userName)
                     repository.updateNoticeAcceptedBy(flatId, noticeId, currentAccepted)
                 }
+                // Remove from declined if was there
+                if (currentDeclined.contains(userName)) {
+                    currentDeclined.remove(userName)
+                    repository.updateNoticeDeclinedBy(flatId, noticeId, currentDeclined)
+                }
             } catch (e: Exception) { }
         }
     }
 
-    // NUEVO: Función para quitarte de la lista si le das a Not going
     fun declinePoll(noticeId: String) {
         viewModelScope.launch {
             try {
@@ -169,17 +177,23 @@ class HomeViewModel : ViewModel() {
 
                 val currentNotice = uiState.notices.find { it.id == noticeId } ?: return@launch
                 val currentAccepted = currentNotice.acceptedBy.map { it.name }.toMutableList()
+                val currentDeclined = currentNotice.declinedBy.map { it.name }.toMutableList()
 
+                // Remove from accepted, add to declined
                 if (currentAccepted.contains(userName)) {
                     currentAccepted.remove(userName)
                     repository.updateNoticeAcceptedBy(flatId, noticeId, currentAccepted)
+                }
+                if (!currentDeclined.contains(userName)) {
+                    currentDeclined.add(userName)
+                    repository.updateNoticeDeclinedBy(flatId, noticeId, currentDeclined)
                 }
             } catch (e: Exception) { }
         }
     }
 
     // NUEVO: Función para guardar un anuncio en Firebase
-    fun addNotice(title: String, details: String, isPoll: Boolean) {
+    fun addNotice(title: String, details: String, poll: Boolean) {
         viewModelScope.launch {
             try {
                 val userId = auth.currentUser?.uid ?: return@launch
@@ -191,7 +205,8 @@ class HomeViewModel : ViewModel() {
                     title = title,
                     details = details,
                     acceptedBy = emptyList(),
-                    isPoll = isPoll
+                    declinedBy = emptyList(),
+                    poll = poll
                 )
                 repository.addNotice(flatId, newNotice)
             } catch (e: Exception) { }

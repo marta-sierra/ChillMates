@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Map
@@ -422,6 +423,7 @@ private fun ShoppingItemRow(
     }
 }
 
+
 @Composable
 private fun AddItemDialog(
     supermarkets: List<SupermarketUi>,
@@ -433,12 +435,14 @@ private fun AddItemDialog(
     val addSupermarketFailedText = stringResource(R.string.error_add_supermarket_failed)
     var name by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
-    var selectedSupermarkets by remember { mutableStateOf(setOf<String>()) }
-    var anySupermarket by remember { mutableStateOf(true) }
-    var selectedFlatmates by remember { mutableStateOf(setOf<String>()) }
+    var selectedSupermarkets by remember { mutableStateOf(supermarkets.map { it.name }.toSet()) }
+    var selectedFlatmates by remember { mutableStateOf(flatmates.toSet()) }
     var showAddSupermarketDialog by remember { mutableStateOf(false) }
     var addSupermarketError by remember { mutableStateOf<String?>(null) }
     var localSupermarkets by remember(supermarkets) { mutableStateOf(supermarkets) }
+
+    var supermarketsExpanded by remember { mutableStateOf(false) }
+    var flatmatesExpanded by remember { mutableStateOf(false) }
 
     val marketListMaxHeight = 164.dp
     val flatmatesListHeight = 164.dp
@@ -455,7 +459,7 @@ private fun AddItemDialog(
                                 name = name,
                                 quantity = quantity,
                                 neededBy = selectedFlatmates.toList(),
-                                supermarkets = if (anySupermarket) emptyList() else selectedSupermarkets.toList(),
+                                supermarkets = selectedSupermarkets.toList(),
                                 bought = false
                             )
                         )
@@ -487,93 +491,151 @@ private fun AddItemDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                // Supermarkets Section (Collapsible)
                 Text(stringResource(R.string.label_supermarkets), fontWeight = FontWeight.Bold)
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = anySupermarket,
-                        onCheckedChange = {
-                            anySupermarket = it
-                            if (it) selectedSupermarkets = emptySet()
+                OutlinedCard(
+                    onClick = { supermarketsExpanded = !supermarketsExpanded },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${selectedSupermarkets.size} ${stringResource(R.string.label_selected)}",
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                imageVector = if (supermarketsExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                                contentDescription = null
+                            )
                         }
-                    )
-                    Text(stringResource(R.string.label_any))
-                }
 
-                if (!anySupermarket) {
-                    OutlinedButton(
-                        onClick = {
-                            addSupermarketError = null
-                            showAddSupermarketDialog = true
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(stringResource(R.string.btn_add_new_supermarket))
-                    }
+                        if (supermarketsExpanded) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                TextButton(onClick = { 
+                                    selectedSupermarkets = localSupermarkets.map { it.name }.toSet()
+                                }) {
+                                    Text(stringResource(R.string.btn_select_all))
+                                }
+                                TextButton(onClick = { 
+                                    selectedSupermarkets = emptySet()
+                                }) {
+                                    Text(stringResource(R.string.btn_unselect_all))
+                                }
+                            }
 
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = marketListMaxHeight),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        items(localSupermarkets, key = { it.id.ifBlank { it.name } }) { market ->
-                            val marketName = market.name
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(
-                                    checked = marketName in selectedSupermarkets,
-                                    onCheckedChange = {
-                                        selectedSupermarkets =
-                                            if (it) selectedSupermarkets + marketName
-                                            else selectedSupermarkets - marketName
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = marketListMaxHeight),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                items(localSupermarkets, key = { it.id.ifBlank { it.name } }) { market ->
+                                    val marketName = market.name
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Checkbox(
+                                            checked = marketName in selectedSupermarkets,
+                                            onCheckedChange = { checked ->
+                                                selectedSupermarkets =
+                                                    if (checked) selectedSupermarkets + marketName
+                                                    else selectedSupermarkets - marketName
+                                            }
+                                        )
+                                        Text(market.displayLabel())
                                     }
+                                }
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    addSupermarketError = null
+                                    showAddSupermarketDialog = true
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(stringResource(R.string.btn_add_new_supermarket))
+                            }
+
+                            addSupermarketError?.let {
+                                Text(
+                                    text = it,
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall
                                 )
-                                Text(market.displayLabel())
                             }
                         }
                     }
-
-                    addSupermarketError?.let {
-                        Text(
-                            text = it,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
                 }
 
+                // Flatmates Section (Collapsible)
                 Text(stringResource(R.string.label_for_who), fontWeight = FontWeight.Bold)
 
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                OutlinedCard(
+                    onClick = { flatmatesExpanded = !flatmatesExpanded },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    TextButton(onClick = { selectedFlatmates = flatmates.toSet() }) {
-                        Text(stringResource(R.string.btn_select_all))
-                    }
-
-                    TextButton(onClick = { selectedFlatmates = emptySet() }) {
-                        Text(stringResource(R.string.btn_unselect_all))
-                    }
-                }
-
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(flatmatesListHeight),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    items(flatmates, key = { it }) { person ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = person in selectedFlatmates,
-                                onCheckedChange = {
-                                    selectedFlatmates =
-                                        if (it) selectedFlatmates + person
-                                        else selectedFlatmates - person
-                                }
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${selectedFlatmates.size} ${stringResource(R.string.label_selected)}",
+                                modifier = Modifier.weight(1f)
                             )
-                            Text(person)
+                            Icon(
+                                imageVector = if (flatmatesExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                                contentDescription = null
+                            )
+                        }
+
+                        if (flatmatesExpanded) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                TextButton(onClick = { 
+                                    selectedFlatmates = flatmates.toSet()
+                                }) {
+                                    Text(stringResource(R.string.btn_select_all))
+                                }
+                                TextButton(onClick = { 
+                                    selectedFlatmates = emptySet()
+                                }) {
+                                    Text(stringResource(R.string.btn_unselect_all))
+                                }
+                            }
+
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(flatmatesListHeight),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                items(flatmates, key = { it }) { person ->
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Checkbox(
+                                            checked = person in selectedFlatmates,
+                                            onCheckedChange = { checked ->
+                                                selectedFlatmates =
+                                                    if (checked) selectedFlatmates + person
+                                                    else selectedFlatmates - person
+                                            }
+                                        )
+                                        Text(person)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -607,6 +669,7 @@ private fun AddItemDialog(
         )
     }
 }
+
 
 private data class PlacePredictionUi(
     val placeId: String,

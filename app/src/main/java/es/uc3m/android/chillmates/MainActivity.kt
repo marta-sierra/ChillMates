@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -28,7 +29,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
 import es.uc3m.android.chillmates.chores.ChoresPage
-import es.uc3m.android.chillmates.expensestracker.AddExpenseScreen
+import es.uc3m.android.chillmates.expensestracker.AddExpenseDialog
 import es.uc3m.android.chillmates.home.HomePage
 import es.uc3m.android.chillmates.home.AddEventScreen
 import es.uc3m.android.chillmates.expensestracker.ExpensesTrackerPage
@@ -236,12 +237,13 @@ fun ChillMatesApp(authViewModel: AuthViewModel = viewModel()) {
     val bottomNavItems = NavGraph.bottomBarItems
 
     NavigationSuiteScaffold(
+        containerColor = MaterialTheme.colorScheme.surfaceVariant,
         navigationSuiteItems = {
             if (showBottomBar) {
                 bottomNavItems.forEach { screen ->
                     item(
-                        icon = { Icon(screen.icon, contentDescription = screen.label) },
-                        label = { Text(screen.label) },
+                        icon = { Icon(screen.icon, contentDescription = stringResource(screen.labelRes)) },
+                        label = { Text(stringResource(screen.labelRes)) },
                         selected = currentRoute == screen.route,
                         onClick = {
                             navController.navigate(screen.route) {
@@ -255,35 +257,42 @@ fun ChillMatesApp(authViewModel: AuthViewModel = viewModel()) {
             }
         }
     ) {
-        Scaffold(
-            topBar = {
-                if (showBottomBar) {
-                    TopAppBar(
-                        title = { Text(stringResource(R.string.app_name)) },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        ),
-                        actions = {
-                            SettingsTopBarButton(onClick = { navController.navigate(NavGraph.Settings.route) })
-                            Spacer(modifier = Modifier.width(4.dp))
-                            ProfileTopBarButton(onClick = { navController.navigate(NavGraph.User.route) })
-                            Spacer(modifier = Modifier.width(8.dp))
-                        }
-                    )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Scaffold(
+                containerColor = Color.Transparent,
+                contentWindowInsets = WindowInsets(0.dp),
+                topBar = {
+                    if (showBottomBar) {
+                        TopAppBar(
+                            title = { Text(stringResource(R.string.app_name)) },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            ),
+                            actions = {
+                                SettingsTopBarButton(onClick = { navController.navigate(NavGraph.Settings.route) })
+                                Spacer(modifier = Modifier.width(4.dp))
+                                ProfileTopBarButton(onClick = { navController.navigate(NavGraph.User.route) })
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+                        )
+                    }
                 }
-            }
-        ) { innerPadding ->
-            Surface(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                color = MaterialTheme.colorScheme.background
-            ) {
-                NavHost(
-                    navController = navController,
-                    startDestination = startDestination
+            ) { innerPadding ->
+                Surface(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    color = MaterialTheme.colorScheme.background
                 ) {
+                    NavHost(
+                        navController = navController,
+                        startDestination = startDestination
+                    ) {
                     composable(loginRoute) { LoginPage(navController, authViewModel) }
                     composable(welcomeBackRoute) {
                         WelcomeBackScreen(
@@ -331,7 +340,7 @@ fun ChillMatesApp(authViewModel: AuthViewModel = viewModel()) {
                             .orEmpty()
                         val pendingItemId = requestHandle?.get<String>(NavGraph.REQUEST_EXPENSE_ITEM_ID)
 
-                        AddExpenseScreen(
+                        AddExpenseDialog(
                             availableFlatmates = availableFlatmates,
                             initialTitle = initialTitle,
                             initialPaidBy = initialPaidBy,
@@ -352,7 +361,7 @@ fun ChillMatesApp(authViewModel: AuthViewModel = viewModel()) {
                                 }
                                 navController.popBackStack()
                             },
-                            onBack = {
+                            onDismiss = {
                                 navController.previousBackStackEntry?.savedStateHandle?.apply {
                                     remove<String>(NavGraph.REQUEST_EXPENSE_TITLE)
                                     remove<String>(NavGraph.REQUEST_EXPENSE_PAID_BY)
@@ -425,6 +434,7 @@ fun ChillMatesApp(authViewModel: AuthViewModel = viewModel()) {
                     // NUEVO: Hemos añadido authViewModel como segundo parámetro para arreglar el error de compilación
                     composable(NavGraph.Settings.route) { SettingsPage(navController
                     ) }
+                    }
                 }
             }
         }

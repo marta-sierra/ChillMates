@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,6 +33,7 @@ import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.model.Expense
 import kotlin.math.absoluteValue
 import java.util.Locale
+import androidx.compose.material.icons.filled.Check
 
 @Composable
 fun ExpensesTrackerPage(navController: NavController) {
@@ -181,79 +183,6 @@ private fun TicketViewerDialog(
 }
 
 @Composable
-private fun ExpensesRoute(
-    state: ExpensesUiState,
-    onAddExpenseClick: () -> Unit,
-    onTicketClick: (String) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        LargeSectionHeader(
-            title = stringResource(
-                id = when (state.title) {
-                    "expenses_title" -> R.string.expenses_title
-                    else -> R.string.expenses_title
-                }
-            )
-        )
-
-        PageContentWrapper {
-            ExpensesContentSection(
-                expenses = state.expenses,
-                balances = state.balances,
-                onAddExpenseClick = onAddExpenseClick,
-                onTicketClick = onTicketClick
-            )
-        }
-    }
-}
-
-@Composable
-private fun ExpensesContentSection(
-    expenses: List<Expense>,
-    balances: List<BalanceUi>,
-    onAddExpenseClick: () -> Unit,
-    onTicketClick: (String) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp)
-            .padding(top = 24.dp)
-    ) {
-
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            contentPadding = PaddingValues(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(expenses, key = { it.id }) { expense ->
-                ExpenseRowItem(
-                    expense = expense,
-                    onTicketClick = { onTicketClick(expense.id) }
-                )
-                DividerThin()
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(6.dp))
-                AddExpenseAction(
-                    onAddClick = onAddExpenseClick
-                )
-            }
-        }
-
-        BalancesFooterSection(
-            balances = balances,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-        )
-    }
-}
-
-@Composable
 private fun ExpenseRowItem(
     expense: Expense,
     onTicketClick: () -> Unit
@@ -319,20 +248,149 @@ private fun AddExpenseAction(onAddClick: () -> Unit) {
 }
 
 @Composable
+private fun ExpensesRoute(
+    state: ExpensesUiState,
+    onAddExpenseClick: () -> Unit,
+    onTicketClick: (String) -> Unit
+) {
+    // Supongamos que identificamos al usuario actual por su nombre o ID
+    // Para el ejemplo, usaremos el primero de la lista de flatmates como "Yo"
+    val currentUserName = state.availableFlatmates.firstOrNull() ?: ""
+    var showOnlyMine by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        LargeSectionHeader(
+            title = stringResource(id = R.string.expenses_title)
+        )
+
+        // Sección de Filtro
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Button(
+                onClick = { showOnlyMine = !showOnlyMine },
+                modifier = Modifier.fillMaxWidth(),
+                colors = if (showOnlyMine) ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ) else ButtonDefaults.outlinedButtonColors()
+            ) {
+                Text(
+                    text = if (showOnlyMine) stringResource(R.string.btn_all_expenses)
+                    else stringResource(R.string.btn_my_expenses),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+
+        PageContentWrapper {
+            // Filtrado de datos
+            val displayExpenses = if (showOnlyMine) {
+                state.expenses.filter { it.paidBy == currentUserName || it.splitBetween.contains(currentUserName) }
+            } else state.expenses
+
+            val displayBalances = if (showOnlyMine) {
+                state.balances.filter { it.name == currentUserName }
+            } else state.balances
+
+            ExpensesContentSection(
+                expenses = displayExpenses,
+                balances = displayBalances,
+                showLargeBalance = showOnlyMine,
+                onAddExpenseClick = onAddExpenseClick,
+                onTicketClick = onTicketClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExpensesContentSection(
+    expenses: List<Expense>,
+    balances: List<BalanceUi>,
+    showLargeBalance: Boolean,
+    onAddExpenseClick: () -> Unit,
+    onTicketClick: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // 1. LISTA DE GASTOS (Scrollable)
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f) // Ocupa todo el espacio disponible
+                .padding(horizontal = 24.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            items(expenses, key = { it.id }) { expense ->
+                ExpenseRowItem(
+                    expense = expense,
+                    onTicketClick = { onTicketClick(expense.id) }
+                )
+                DividerThin()
+            }
+        }
+
+        // 2. BOTÓN AÑADIR (Anclado)
+        Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+            AddExpenseAction(onAddClick = onAddExpenseClick)
+        }
+
+        // 3. SECCIÓN DE SALDOS (Anclada al fondo)
+        BalancesFooterSection(
+            balances = balances,
+            isLargeView = showLargeBalance,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 0.dp) // Pegado al borde inferior/nav
+        )
+    }
+}
+
+@Composable
 private fun BalancesFooterSection(
     balances: List<BalanceUi>,
+    isLargeView: Boolean,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        balances.forEach { b ->
+    // Si solo hay una persona (filtro activo), mostramos una tarjeta grande
+    if (isLargeView && balances.isNotEmpty()) {
+        Box(modifier = modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
             BalanceCardItem(
-                name = b.name,
-                balance = b.balance,
-                modifier = Modifier.weight(1f)
+                name = "Your Total Balance",
+                balance = balances[0].balance,
+                modifier = Modifier.fillMaxWidth().height(90.dp),
+                isLarge = true
             )
+        }
+    } else {
+        // Carrusel horizontal para múltiples personas
+        LazyRow(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            contentPadding = PaddingValues(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(balances) { b ->
+                // Calculamos el ancho dinámicamente según el número de personas
+                val itemWidth = when (balances.size) {
+                    1 -> 340.dp // Casi pantalla completa
+                    2 -> 160.dp
+                    else -> 110.dp // Para que quepan 3 aprox
+                }
+
+                BalanceCardItem(
+                    name = b.name,
+                    balance = b.balance,
+                    modifier = Modifier.width(itemWidth)
+                )
+            }
         }
     }
 }
@@ -341,33 +399,34 @@ private fun BalancesFooterSection(
 private fun BalanceCardItem(
     name: String,
     balance: Double,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isLarge: Boolean = false
 ) {
     val isPositive = balance >= 0.0
-    val amountText =
-        (if (isPositive) "+" else "-") +
-                formatMoney(balance.absoluteValue).replace("€", "") +
-                "€"
+    val amountText = (if (isPositive) "+" else "-") +
+            formatMoney(balance.absoluteValue).replace("€", "") + "€"
 
     ElevatedCard(
-        modifier = modifier.height(70.dp),
-        shape = RoundedCornerShape(14.dp)
+        modifier = modifier.height(if (isLarge) 90.dp else 75.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = if (isLarge) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
+        )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 10.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .padding(12.dp),
+            verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = name,
-                style = MaterialTheme.typography.labelLarge,
-                textAlign = TextAlign.Start
+                style = if (isLarge) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge,
+                maxLines = 1
             )
-
             Text(
                 text = amountText,
-                style = MaterialTheme.typography.titleSmall.copy(
+                style = (if (isLarge) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleMedium).copy(
                     fontWeight = FontWeight.Bold,
                     color = if (isPositive) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
                 )

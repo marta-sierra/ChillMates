@@ -1,36 +1,38 @@
 package es.uc3m.android.chillmates
 
+import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.ui.graphics.vector.ImageVector
 
-sealed class NavGraph(val route: String, val label: String, val icon: ImageVector) {
+sealed class NavGraph(val route: String, @StringRes val labelRes: Int, val icon: ImageVector) {
 
-    data object Home : NavGraph("home", "Home", Icons.Filled.Home)
-    data object Chores : NavGraph("chores", "Chores", Icons.Filled.CheckCircle)
-    data object Expenses : NavGraph("expenses", "Bills", Icons.Filled.DateRange)
-    data object Repairs : NavGraph("repairs", "Repairs", Icons.Filled.Build)
-    data object Shopping : NavGraph("shopping", "Shop", Icons.Filled.ShoppingCart)
+    data object Home : NavGraph("home", R.string.nav_home, Icons.Filled.Home)
+    data object Chores : NavGraph("chores", R.string.nav_chores, Icons.Filled.CheckCircle)
+    data object Expenses : NavGraph("expenses", R.string.nav_expenses, Icons.Filled.AttachMoney)
+    data object Repairs : NavGraph("repairs", R.string.nav_repairs, Icons.Filled.Build)
+    data object Shopping : NavGraph("shopping", R.string.nav_shop, Icons.Filled.ShoppingCart)
 
     // User profile screen (opened from top-right avatar)
-    data object User : NavGraph("user", "User", Icons.Filled.Settings)
+    data object User : NavGraph("user", R.string.user_section_profile, Icons.Filled.Settings)
 
     // Settings profile screen (opened from top-right avatar)
-    data object Settings : NavGraph("settings", "Settings", Icons.Filled.Person)
+    data object Settings : NavGraph("settings", R.string.settings_title, Icons.Filled.Person)
 
     // Dialog routes (modal bottom sheets)
-    data object AddEvent : NavGraph("add_event", "Add Event", Icons.Filled.DateRange)
-    data object AddExpense : NavGraph("add_expense", "Add Expense", Icons.Filled.DateRange)
-    data object SelectSupermarket : NavGraph("select_supermarket", "Select Supermarket", Icons.Filled.ShoppingCart)
+    data object AddEvent : NavGraph("add_event", R.string.add_event_title, Icons.Filled.DateRange)
+    data object AddExpense : NavGraph("add_expense", R.string.title_add_expense, Icons.Filled.DateRange)
+    data object SelectSupermarket : NavGraph("select_supermarket", R.string.select_supermarket, Icons.Filled.ShoppingCart)
 
     // Route with argument example
-    data object RepairDetail : NavGraph("repair_detail/{id}", "Repair Detail", Icons.Filled.Build) {
+    data object RepairDetail : NavGraph("repair_detail/{id}", R.string.repairs_title, Icons.Filled.Build) {
         fun createRoute(id: String) = "repair_detail/$id"
     }
 
