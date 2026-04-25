@@ -57,7 +57,6 @@ class ChoresViewModel(
                                 _flatmates.value = listOf("Everyone") + memberNames
                             }
 
-                            // Only check rotation once per app session to avoid loops
                             if (!lastRotationChecked) {
                                 lastRotationChecked = true
                                 checkAutoRotation(flatId, flat.lastRotationTimestamp, flat.memberIds)
@@ -66,7 +65,7 @@ class ChoresViewModel(
                     }
                 }
 
-                // 2. Observe Chores Subcollection (Auto-updates UI instantly thanks to Firestore local cache)
+                // 2. Observe Chores Subcollection
                 launch {
                     repository.observeChores(flatId).collect { choresList ->
                         _chores.value = choresList
@@ -85,10 +84,8 @@ class ChoresViewModel(
             val oneWeekInMillis = 7L * 24 * 60 * 60 * 1000 // 7 days
 
             if (lastRotationTimestamp == 0L) {
-                // First time initializing: just set the timer to now
                 repository.updateFlatRotationTimestamp(flatId, currentTime)
             } else if (currentTime - lastRotationTimestamp >= oneWeekInMillis) {
-                // A WEEK HAS PASSED! Fetch current chores once and rotate
                 val currentChoresResult = repository.getChoresOnce(flatId)
                 if (currentChoresResult.isSuccess) {
                     val currentChores = currentChoresResult.getOrNull() ?: emptyList()
@@ -100,6 +97,12 @@ class ChoresViewModel(
 
     fun updateChoreStatus(choreId: String, isDone: Boolean) {
         val flatId = currentFlatId ?: return
+
+        // ACTUALIZACIÓN OPTIMISTA: Cambia al instante en la UI
+        _chores.value = _chores.value.map {
+            if (it.id == choreId) it.copy(isDone = isDone) else it
+        }
+
         viewModelScope.launch {
             repository.updateChoreStatus(flatId, choreId, isDone)
         }
@@ -108,11 +111,15 @@ class ChoresViewModel(
     fun addChore(title: String, assignee: String) {
         val flatId = currentFlatId ?: return
         val newChore = Chore(
-            id = System.currentTimeMillis().toString(), // Simple unique ID
+            id = System.currentTimeMillis().toString(),
             title = title,
             assignee = assignee,
             isDone = false
         )
+
+        // ACTUALIZACIÓN OPTIMISTA
+        _chores.value = _chores.value + newChore
+
         viewModelScope.launch {
             repository.addChore(flatId, newChore)
         }
@@ -120,6 +127,12 @@ class ChoresViewModel(
 
     fun swapChore(choreId: String, newAssignee: String) {
         val flatId = currentFlatId ?: return
+
+        // ACTUALIZACIÓN OPTIMISTA
+        _chores.value = _chores.value.map {
+            if (it.id == choreId) it.copy(assignee = newAssignee) else it
+        }
+
         viewModelScope.launch {
             repository.updateChoreAssignee(flatId, choreId, newAssignee)
         }
@@ -127,6 +140,10 @@ class ChoresViewModel(
 
     fun saveReconfiguredChores(updatedList: List<Chore>) {
         val flatId = currentFlatId ?: return
+
+        // ACTUALIZACIÓN OPTIMISTA
+        _chores.value = updatedList
+
         viewModelScope.launch {
             repository.saveChoresBatch(flatId, updatedList)
         }
@@ -142,13 +159,13 @@ class ChoresViewModel(
 
             val updatedList = currentChores.map { chore ->
                 if (chore.assignee == "Everyone") {
-                    chore.copy(isDone = false) // Shared chores just reset
+                    chore.copy(isDone = false)
                 } else {
                     val currentIndex = mates.indexOf(chore.assignee)
                     val nextAssignee = if (currentIndex != -1 && mates.size > 1) {
-                        mates[(currentIndex + 1) % mates.size] // Next person
+                        mates[(currentIndex + 1) % mates.size]
                     } else if (currentIndex == -1 && mates.isNotEmpty()) {
-                        mates[0] // Fallback
+                        mates[0]
                     } else {
                         chore.assignee
                     }
@@ -156,7 +173,8 @@ class ChoresViewModel(
                 }
             }
 
-            // Execute Batch Write (Updates all chores and resets timestamp safely)
+            // ACTUALIZACIÓN OPTIMISTA
+            _chores.value = updatedList
             repository.performAutoRotationBatch(flatId, updatedList, currentTime)
         }
     }
