@@ -18,7 +18,7 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.rememberUpdatedMarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 import es.uc3m.android.chillmates.R
 
@@ -90,8 +90,11 @@ fun SelectSupermarketScreen(
                     ) {
                         supermarkets.forEach { market ->
                             val isSelected = market.id in selectedIds
+                            val markerState = rememberUpdatedMarkerState(
+                                position = LatLng(market.latitude, market.longitude)
+                            )
                             Marker(
-                                state = MarkerState(position = LatLng(market.latitude, market.longitude)),
+                                state = markerState,
                                 title = market.name,
                                 snippet = market.id,
                                 alpha = if (isSelected) 1f else 0.85f,
