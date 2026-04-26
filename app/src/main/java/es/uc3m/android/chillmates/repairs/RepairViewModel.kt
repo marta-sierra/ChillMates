@@ -129,16 +129,16 @@ class RepairViewModel(
         }
     }
 
-    fun createSentRepair(rawDescription: String, finalMessage: String, photoUris: List<String>) {
+    fun createSentRepair(title: String, rawDescription: String, finalMessage: String, photoUris: List<String>) {
         val flatId = currentFlatId ?: return
         val description = rawDescription.trim()
         if (description.isBlank()) return
 
-        val title = description.lineSequence().firstOrNull()?.take(40)?.ifBlank { "Repair request" } ?: "Repair request"
+        val repairTitle = title.trim().ifBlank { "Repair request" }
 
         val newRepair = Repair(
             id = System.currentTimeMillis().toString(),
-            title = title,
+            title = repairTitle,
             description = description,
             reportedBy = uiState.currentUserName,
             landlordMessage = finalMessage.trim().ifBlank { description },

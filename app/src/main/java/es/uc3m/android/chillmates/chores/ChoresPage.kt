@@ -1,6 +1,14 @@
 package es.uc3m.android.chillmates.chores
 
 import android.content.Intent
+import android.Manifest
+import android.content.Context
+import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -31,6 +39,9 @@ import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.model.Chore
 
+
+private const val CHORE_REMINDER_ACTION = "es.uc3m.android.chillmates.CHORE_REMINDER"
+
 @Composable
 fun ChoresPage(
     navController: NavController,
@@ -39,6 +50,35 @@ fun ChoresPage(
     val chores by viewModel.chores.collectAsState()
     val flatmates by viewModel.flatmates.collectAsState()
     val currentUserName by viewModel.currentUserName.collectAsState()
+    val context = LocalContext.current
+    var pendingReminderChore by remember { mutableStateOf<Chore?>(null) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            pendingReminderChore?.let { chore ->
+                sendChoreReminderBroadcast(context, chore)
+            }
+        }
+        pendingReminderChore = null
+    }
+
+    DisposableEffect(Unit) {
+        val receiver = ChoreReminderReceiver()
+        val filter = IntentFilter(CHORE_REMINDER_ACTION)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            context.registerReceiver(receiver, filter)
+        }
+
+        onDispose {
+            context.unregisterReceiver(receiver)
+        }
+    }
 
     var showAddChoreDialog by remember { mutableStateOf(false) }
     var showReconfigureDialog by remember { mutableStateOf(false) }
@@ -124,7 +164,21 @@ fun ChoresPage(
                             onUpdateChore = { updatedChore ->
                                 viewModel.updateChoreStatus(updatedChore.id, updatedChore.isDone)
                             },
-                            onSwapRequest = { choreToSwap = it }
+                            onSwapRequest = { choreToSwap = it },
+                            onSendReminder = { chore ->
+                                if (
+                                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.POST_NOTIFICATIONS
+                                    ) != PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    pendingReminderChore = chore
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    sendChoreReminderBroadcast(context, chore)
+                                }
+                            }
                         )
                     }
                 }
@@ -324,9 +378,12 @@ fun ChoreCard(
     currentUserName: String,
     isPreview: Boolean,
     onUpdateChore: (Chore) -> Unit,
-    onSwapRequest: (Chore) -> Unit
-) {
-    val isMe = (chore.assignee == currentUserName || chore.assignee == "Everyone" || chore.assignee == "Me") && !isPreview
+    onSwapRequest: (Chore) -> Unit,
+    onSendReminder: (Chore) -> Unit
+){
+    val isAssignedToMe = chore.assignee == currentUserName || chore.assignee == "Me"
+    val isEveryone = chore.assignee == "Everyone"
+    val canComplete = (isAssignedToMe || isEveryone) && !isPreview
     val context = LocalContext.current
 
     Card(
@@ -357,32 +414,33 @@ fun ChoreCard(
             }
 
             if (!isPreview) {
-                if (isMe) {
-                    Checkbox(
-                        checked = chore.isDone,
-                        onCheckedChange = { onUpdateChore(chore.copy(isDone = it)) }
-                    )
+                if (canComplete) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (!chore.isDone) {
+                            IconButton(
+                                onClick = { onSendReminder(chore) }
+                            ) {
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = stringResource(R.string.cd_send_reminder),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+
+                        Checkbox(
+                            checked = chore.isDone,
+                            onCheckedChange = { onUpdateChore(chore.copy(isDone = it)) }
+                        )
+                }
                 } else {
                     if (chore.isDone) {
                         TextButton(onClick = { onUpdateChore(chore.copy(isDone = false)) }) {
                             Text(stringResource(R.string.btn_redo), color = MaterialTheme.colorScheme.error)
                         }
                     } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = { onSwapRequest(chore) }) {
-                                Text(stringResource(R.string.btn_swap))
-                            }
-                            IconButton(
-                                onClick = {
-                                    val intent = Intent(context, ChoreReminderReceiver::class.java).apply {
-                                        putExtra("choreTitle", chore.title)
-                                        putExtra("assignee", chore.assignee)
-                                    }
-                                    context.sendBroadcast(intent)
-                                }
-                            ) {
-                                Icon(Icons.Default.Notifications, contentDescription = stringResource(R.string.cd_send_reminder), tint = MaterialTheme.colorScheme.primary)
-                            }
+                        TextButton(onClick = { onSwapRequest(chore) }) {
+                            Text(stringResource(R.string.btn_swap))
                         }
                     }
                 }
@@ -391,4 +449,14 @@ fun ChoreCard(
             }
         }
     }
+}
+
+private fun sendChoreReminderBroadcast(context: Context, chore: Chore) {
+    val intent = Intent(CHORE_REMINDER_ACTION).apply {
+        setPackage(context.packageName)
+        putExtra("choreTitle", chore.title)
+        putExtra("assignee", chore.assignee)
+    }
+
+    context.sendBroadcast(intent)
 }

@@ -269,22 +269,38 @@ class UserViewModel : ViewModel() {
     fun onUpdateProfile(displayName: String) {
         viewModelScope.launch {
             val userId = auth.currentUser?.uid ?: return@launch
+            val cleanName = displayName.trim()
+
+            if (cleanName.isBlank()) return@launch
+
+            uiState = uiState.copy(isLoading = true, errorMessage = null)
+
             try {
-                firestore.collection(USERS_COLLECTION).document(userId)
-                    .update("displayName", displayName)
+                firestore.collection(USERS_COLLECTION)
+                    .document(userId)
+                    .update("displayName", cleanName)
                     .await()
-                
+
                 auth.currentUser?.updateProfile(
                     com.google.firebase.auth.userProfileChangeRequest {
-                        this.displayName = displayName
+                        this.displayName = cleanName
                     }
                 )?.await()
 
                 uiState = uiState.copy(
-                    user = uiState.user?.copy(displayName = displayName)
+                    isLoading = false,
+                    user = uiState.user?.copy(displayName = cleanName),
+                    successMessage = "Name updated successfully"
                 )
+
+                uiState.flat?.memberIds?.let { memberIds ->
+                    loadMembers(memberIds)
+                }
             } catch (e: Exception) {
-                uiState = uiState.copy(errorMessage = e.message)
+                uiState = uiState.copy(
+                    isLoading = false,
+                    errorMessage = e.message ?: "Failed to update name"
+                )
             }
         }
     }
@@ -312,9 +328,5 @@ class UserViewModel : ViewModel() {
                 )
             }
         }
-    }
-    fun onLogout() {
-        auth.signOut()
-        // The app state should ideally observe auth state to navigate to Login
     }
 }

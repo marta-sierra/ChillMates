@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import es.uc3m.android.chillmates.LargeSectionHeader
@@ -253,8 +254,6 @@ private fun ExpensesRoute(
     onAddExpenseClick: () -> Unit,
     onTicketClick: (String) -> Unit
 ) {
-    // Supongamos que identificamos al usuario actual por su nombre o ID
-    // Para el ejemplo, usaremos el primero de la lista de flatmates como "Yo"
     val currentUserName = state.availableFlatmates.firstOrNull() ?: ""
     var showOnlyMine by remember { mutableStateOf(false) }
 
@@ -263,46 +262,62 @@ private fun ExpensesRoute(
             title = stringResource(id = R.string.expenses_title)
         )
 
-        // Sección de Filtro
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Button(
-                onClick = { showOnlyMine = !showOnlyMine },
-                modifier = Modifier.fillMaxWidth(),
-                colors = if (showOnlyMine) ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                ) else ButtonDefaults.outlinedButtonColors()
-            ) {
-                Text(
-                    text = if (showOnlyMine) stringResource(R.string.btn_all_expenses)
-                    else stringResource(R.string.btn_my_expenses),
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
+        PageContentWrapper {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    OutlinedButton(
+                        onClick = { showOnlyMine = !showOnlyMine },
+                        modifier = Modifier.fillMaxWidth(),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(
+                            brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary)
+                        )
+                    ) {
+                        Text(
+                            text = if (showOnlyMine) {
+                                stringResource(R.string.btn_all_expenses)
+                            } else {
+                                stringResource(R.string.btn_my_expenses)
+                            },
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                val displayExpenses = if (showOnlyMine) {
+                    state.expenses.filter {
+                        it.paidBy == currentUserName || it.splitBetween.contains(currentUserName)
+                    }
+                } else {
+                    state.expenses
+                }
+
+                val displayBalances = if (showOnlyMine) {
+                    state.balances.filter { it.name == currentUserName }
+                } else {
+                    state.balances
+                }
+
+                ExpensesContentSection(
+                    expenses = displayExpenses,
+                    balances = displayBalances,
+                    showLargeBalance = showOnlyMine,
+                    onAddExpenseClick = onAddExpenseClick,
+                    onTicketClick = onTicketClick
                 )
             }
-        }
-
-        PageContentWrapper {
-            // Filtrado de datos
-            val displayExpenses = if (showOnlyMine) {
-                state.expenses.filter { it.paidBy == currentUserName || it.splitBetween.contains(currentUserName) }
-            } else state.expenses
-
-            val displayBalances = if (showOnlyMine) {
-                state.balances.filter { it.name == currentUserName }
-            } else state.balances
-
-            ExpensesContentSection(
-                expenses = displayExpenses,
-                balances = displayBalances,
-                showLargeBalance = showOnlyMine,
-                onAddExpenseClick = onAddExpenseClick,
-                onTicketClick = onTicketClick
-            )
         }
     }
 }

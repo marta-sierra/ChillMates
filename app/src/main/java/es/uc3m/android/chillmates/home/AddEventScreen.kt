@@ -79,7 +79,7 @@ fun AddEventScreen(
                 label = { Text(stringResource(R.string.add_event_label_time)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
             )
 
             Spacer(modifier = Modifier.height(12.dp))

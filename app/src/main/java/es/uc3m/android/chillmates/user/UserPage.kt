@@ -30,9 +30,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import es.uc3m.android.chillmates.R
+import es.uc3m.android.chillmates.viewmodel.AuthViewModel
 
 @Composable
-fun UserPage(navController: NavController) {
+fun UserPage(
+    navController: NavController,
+    authViewModel: AuthViewModel
+) {
     val vm: UserViewModel = viewModel()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -81,8 +85,7 @@ fun UserPage(navController: NavController) {
             onUpdateProfile = { vm.onUpdateProfile(it) },
             onPasswordClick = { showPasswordDialog = true },
             onLogoutClick = {
-                vm.onLogout()
-                navController.navigate("login") { popUpTo(0) }
+                authViewModel.logout()
             }
         )
     }
@@ -184,6 +187,7 @@ private fun UserRoute(
                 item {
                     FlatSectionCardClean(
                         flat = state.flat,
+                        members = state.members,
                         onLeaveFlatClick = onLeaveFlatClick
                     )
                 }
@@ -266,22 +270,22 @@ private fun ProfileSectionCard(
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(text = "My Profile", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
 
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = nameDraft,
-                    onValueChange = { nameDraft = it },
-                    label = { Text("Full Name") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    enabled = !isLoading
-                )
-                IconButton(
-                    onClick = { onUpdateProfile(nameDraft) },
-                    enabled = nameDraft != displayName && !isLoading && nameDraft.isNotBlank()
-                ) {
-                    Icon(Icons.Default.CheckCircle, "Update", tint = MaterialTheme.colorScheme.primary)
+            OutlinedTextField(
+                value = nameDraft,
+                onValueChange = { nameDraft = it },
+                label = { Text("Full Name") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !isLoading,
+                trailingIcon = {
+                    IconButton(
+                        onClick = { onUpdateProfile(nameDraft) },
+                        enabled = nameDraft != displayName && !isLoading && nameDraft.isNotBlank()
+                    ) {
+                        Icon(Icons.Default.CheckCircle, "Update", tint = MaterialTheme.colorScheme.primary)
+                    }
                 }
-            }
+            )
 
             OutlinedTextField(
                 value = email,
@@ -315,8 +319,9 @@ private fun ProfileSectionCard(
 @Composable
 private fun FlatSectionCardClean(
     flat: es.uc3m.android.chillmates.model.Flat,
+    members: List<FlatMemberUi>,
     onLeaveFlatClick: () -> Unit
-) {
+){
     val clipboardManager = LocalClipboardManager.current
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -349,6 +354,22 @@ private fun FlatSectionCardClean(
                     }
                 }
             }
+
+            if (members.isNotEmpty()) {
+                Text(
+                    text = "Flatmates",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                members.forEach { member ->
+                    Text(
+                        text = "• ${member.name}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+
             Button(
                 onClick = onLeaveFlatClick,
                 modifier = Modifier.fillMaxWidth(),

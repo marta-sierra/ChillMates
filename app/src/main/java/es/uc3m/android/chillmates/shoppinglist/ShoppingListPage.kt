@@ -36,6 +36,7 @@ import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import android.util.Log
 
 @Composable
 fun ShoppingListPage(navController: NavController) {
@@ -781,14 +782,9 @@ private fun AddSupermarketDialog(
                                     searchError = noPlacesFoundText
                                 }
                             } catch (e: Exception) {
-                                searchError = if (
-                                    e.message?.contains("DEVELOPER_ERROR", ignoreCase = true) == true ||
-                                    e.cause?.message?.contains("DEVELOPER_ERROR", ignoreCase = true) == true
-                                ) {
-                                    placesUnavailableText
-                                } else {
-                                    placesSearchFailedText
-                                }
+                                Log.e("PlacesSearch", "Could not search places", e)
+
+                                searchError = e.message ?: placesSearchFailedText
                                 predictions = emptyList()
                             } finally {
                                 isSearching = false
@@ -843,15 +839,10 @@ private fun AddSupermarketDialog(
                                             searchError = placeMissingLocationText
                                         }
                                     } catch (e: Exception) {
-                                        searchError = if (
-                                            e.message?.contains("DEVELOPER_ERROR", ignoreCase = true) == true ||
-                                            e.cause?.message?.contains("DEVELOPER_ERROR", ignoreCase = true) == true
-                                        ) {
-                                            placesUnavailableText
-                                        } else {
-                                            placeDetailsFailedText
-                                        }
-                                    } finally {
+                                        Log.e("PlacesSearch", "Could not fetch place details", e)
+
+                                        searchError = e.message ?: placeDetailsFailedText
+                                    }finally {
                                         isLoadingPlace = false
                                     }
                                 }

@@ -82,18 +82,6 @@ class HomeViewModel : ViewModel() {
                     return@launch
                 }
 
-                val noticesSnapshot = db.collection("flats").document(flatId).collection("notices").get().await()
-                val eventsSnapshot = db.collection("flats").document(flatId).collection("events").get().await()
-
-                // Si está vacío, inyectamos un par de prueba
-                if (noticesSnapshot.isEmpty && eventsSnapshot.isEmpty) {
-                    val me = auth.currentUser?.displayName ?: "Me"
-                    repository.addNotice(flatId, es.uc3m.android.chillmates.model.Notice(id = "n1", title = "Comprar papel higiénico", details = "Urge, queda un rollo.", poll = false))
-                    repository.addNotice(flatId, es.uc3m.android.chillmates.model.Notice(id = "n2", title = "¿Cena de piso el viernes?", details = "Votad para ver si compramos pizzas o hacemos pasta.", poll = true))
-                    repository.addEvent(flatId, es.uc3m.android.chillmates.model.UpcomingEvent(id = "ev1", dateLabel = "Fri 21:00", description = "Cena de piso \uD83C\uDF89", location = "Salón", attending = listOf("Laura", "Carlos", me)))
-                    repository.addEvent(flatId, es.uc3m.android.chillmates.model.UpcomingEvent(id = "ev2", dateLabel = "Sat 10:00", description = "Día de limpieza a fondo", location = "Toda la casa", attending = listOf("Laura", "Miguel")))
-                }
-
                 launch {
                     repository.observeNotices(flatId).collect { notices ->
                         mapNoticesToUi(notices)

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,6 +28,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
@@ -71,6 +74,7 @@ private const val GMAIL_PACKAGE = "com.google.android.gm"
 private const val REPAIR_SUBJECT = "Repair Request: Shared Flat"
 
 private data class PendingRepairDraft(
+    val title: String,
     val rawDescription: String,
     val finalMessage: String,
     val photoUris: List<String>
@@ -82,6 +86,7 @@ fun RepairPage(navController: NavController) {
     val context = LocalContext.current
 
     var requestText by rememberSaveable { mutableStateOf("") }
+    var repairTitle by rememberSaveable { mutableStateOf("") }
 
     val selectedPhotoUris = rememberSaveable(
         saver = listSaver(
@@ -94,6 +99,7 @@ fun RepairPage(navController: NavController) {
 
     var pendingDraft by remember { mutableStateOf<PendingRepairDraft?>(null) }
     var showSentConfirmationDialog by remember { mutableStateOf(false) }
+    var showRepairForm by rememberSaveable { mutableStateOf(false) }
 
     val pickImagesLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
@@ -132,7 +138,9 @@ fun RepairPage(navController: NavController) {
                     .padding(horizontal = 16.dp, vertical = 14.dp)
             ) {
                 LazyColumn(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(max = 220.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(vm.uiState.repairs) { repair ->
@@ -145,125 +153,163 @@ fun RepairPage(navController: NavController) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Send a new request",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp)
-                        .border(
-                            width = 2.dp,
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .padding(12.dp)
-                ) {
-                    TextField(
-                        value = requestText,
-                        onValueChange = { requestText = it },
-                        modifier = Modifier.fillMaxSize(),
-                        placeholder = { Text("Describe the issue...") }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                TextButton(
-                    onClick = { pickImagesLauncher.launch(arrayOf("image/*")) }
-                ) {
-                    Icon(Icons.Default.Image, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        if (selectedPhotoUris.isEmpty()) "Add images"
-                        else "${selectedPhotoUris.size} image(s) selected"
-                    )
-                }
-
-                if (selectedPhotoUris.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SelectedImagesPreview(
-                        photoUris = selectedPhotoUris,
-                        onRemovePhoto = { uriToRemove ->
-                            selectedPhotoUris.remove(uriToRemove)
-                        }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Row(
+                Button(
+                    onClick = { showRepairForm = !showRepairForm },
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    shape = RoundedCornerShape(50)
                 ) {
-                    // --- NEW: Botón inteligente de Gemini ---
-                    OutlinedButton(
-                        onClick = {
-                            vm.reviewMessageWithAI(requestText) { improvedText ->
-                                requestText = improvedText
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(50),
-                        enabled = requestText.isNotBlank() && !vm.isAiReviewing
-                    ) {
-                        if (vm.isAiReviewing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.primary
+                    Icon(
+                        imageVector = if (showRepairForm) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                        contentDescription = null
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (showRepairForm) "Hide request form" else "New repair request")
+                }
+
+                if (showRepairForm) {
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(
+                                width = 2.dp,
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = RoundedCornerShape(24.dp)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Thinking...")
-                        } else {
-                            Text("AI Review")
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = "Send a new request",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        TextField(
+                            value = repairTitle,
+                            onValueChange = { repairTitle = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Repair title...") },
+                            singleLine = true
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(90.dp)
+                                .border(
+                                    width = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .padding(12.dp)
+                        ) {
+                            TextField(
+                                value = requestText,
+                                onValueChange = { requestText = it },
+                                modifier = Modifier.fillMaxSize(),
+                                placeholder = { Text("Describe the issue...") }
+                            )
                         }
-                    }
 
-                    Button(
-                        onClick = {
-                            val trimmedText = requestText.trim()
-                            if (trimmedText.isBlank()) return@Button
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                            val draft = PendingRepairDraft(
-                                rawDescription = trimmedText,
-                                finalMessage = trimmedText,
-                                photoUris = selectedPhotoUris.toList()
+                        TextButton(
+                            onClick = { pickImagesLauncher.launch(arrayOf("image/*")) }
+                        ) {
+                            Icon(Icons.Default.Image, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                if (selectedPhotoUris.isEmpty()) "Add images"
+                                else "Add more images (${selectedPhotoUris.size} selected)"
                             )
+                        }
 
-                            val emailIntent = buildGmailIntent(
-                                context = context,
-                                to = LANDLORD_EMAIL,
-                                subject = REPAIR_SUBJECT,
-                                body = draft.finalMessage,
-                                attachmentUris = draft.photoUris.map(Uri::parse)
+                        if (selectedPhotoUris.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            SelectedImagesPreview(
+                                photoUris = selectedPhotoUris,
+                                onRemovePhoto = { uriToRemove ->
+                                    selectedPhotoUris.remove(uriToRemove)
+                                }
                             )
+                        }
 
-                            pendingDraft = draft
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                            try {
-                                gmailLauncher.launch(emailIntent)
-                            } catch (_: ActivityNotFoundException) {
-                                pendingDraft = null
-                                Toast.makeText(
-                                    context,
-                                    "Gmail is not installed on this device",
-                                    Toast.LENGTH_LONG
-                                ).show()
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    vm.reviewMessageWithAI(requestText) { improvedText ->
+                                        requestText = improvedText
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(50),
+                                enabled = requestText.isNotBlank() && !vm.isAiReviewing
+                            ) {
+                                if (vm.isAiReviewing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Thinking...")
+                                } else {
+                                    Text("AI Review")
+                                }
                             }
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(50),
-                        enabled = requestText.isNotBlank() && !vm.isAiReviewing
-                    ) {
-                        Text("Send")
+
+                            Button(
+                                onClick = {
+                                    val trimmedTitle = repairTitle.trim()
+                                    val trimmedText = requestText.trim()
+                                    if (trimmedTitle.isBlank() || trimmedText.isBlank()) return@Button
+
+                                    val draft = PendingRepairDraft(
+                                        title = trimmedTitle,
+                                        rawDescription = trimmedText,
+                                        finalMessage = trimmedText,
+                                        photoUris = selectedPhotoUris.toList()
+                                    )
+
+                                    val emailIntent = buildGmailIntent(
+                                        context = context,
+                                        to = LANDLORD_EMAIL,
+                                        subject = "$REPAIR_SUBJECT: ${draft.title}",
+                                        body = draft.finalMessage,
+                                        attachmentUris = draft.photoUris.map(Uri::parse)
+                                    )
+
+                                    pendingDraft = draft
+
+                                    try {
+                                        gmailLauncher.launch(emailIntent)
+                                    } catch (_: ActivityNotFoundException) {
+                                        pendingDraft = null
+                                        Toast.makeText(
+                                            context,
+                                            "Gmail is not installed on this device",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(50),
+                                enabled = repairTitle.isNotBlank() && requestText.isNotBlank() && !vm.isAiReviewing
+                            ) {
+                                Text("Send")
+                            }
+                        }
                     }
                 }
             }
@@ -281,12 +327,14 @@ fun RepairPage(navController: NavController) {
                         val draft = pendingDraft
                         if (draft != null) {
                             vm.createSentRepair(
+                                title = draft.title,
                                 rawDescription = draft.rawDescription,
                                 finalMessage = draft.finalMessage,
                                 photoUris = draft.photoUris
                             )
 
                             requestText = ""
+                            repairTitle = ""
                             selectedPhotoUris.clear()
                         }
 
@@ -365,7 +413,7 @@ private fun SelectedImagesPreview(
                     model = photoUri,
                     contentDescription = null,
                     modifier = Modifier
-                        .size(92.dp)
+                        .size(64.dp)
                         .border(
                             width = 1.dp,
                             color = MaterialTheme.colorScheme.outlineVariant,
@@ -432,12 +480,6 @@ private fun RepairRequestCard(
                     text = repair.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
-                )
-
-                Text(
-                    text = repair.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 if (repair.photoUris.isNotEmpty()) {

@@ -7,6 +7,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.widget.Toast
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
 import es.uc3m.android.chillmates.R
 
@@ -53,6 +56,15 @@ class ChoreReminderReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .build()
 
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         // Trigger notification with a unique ID based on current time
         notificationManager.notify(System.currentTimeMillis().toInt(), notification)
     }

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import java.util.Calendar
 import es.uc3m.android.chillmates.NavGraph
 import es.uc3m.android.chillmates.R
 
@@ -601,16 +602,37 @@ private fun toggleEventReminder(event: UpcomingEventUi, context: Context, viewMo
 }
 
 private fun exportEventToCalendar(context: Context, event: UpcomingEventUi) {
+    val startMillis = extractEventStartMillis(event.dateLabel)
+    val endMillis = startMillis + 60 * 60 * 1000
+
     val intent = Intent(Intent.ACTION_INSERT).apply {
         data = CalendarContract.Events.CONTENT_URI
         putExtra(CalendarContract.Events.TITLE, event.description)
         putExtra(CalendarContract.Events.EVENT_LOCATION, event.location)
+        putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startMillis)
+        putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endMillis)
     }
+
     try {
         context.startActivity(intent)
     } catch (e: ActivityNotFoundException) {
         Toast.makeText(context, context.getString(R.string.home_no_calendar_app), Toast.LENGTH_LONG).show()
     }
+}
+
+private fun extractEventStartMillis(dateLabel: String): Long {
+    val timeRegex = Regex("""(\d{1,2})[:.]?(\d{2})?""")
+    val match = timeRegex.find(dateLabel)
+
+    val hour = match?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 9
+    val minute = match?.groupValues?.getOrNull(2)?.toIntOrNull() ?: 0
+
+    return Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, hour.coerceIn(0, 23))
+        set(Calendar.MINUTE, minute.coerceIn(0, 59))
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
 }
 
 private fun scheduleReminder(context: Context, requestCode: Int, title: String, message: String, triggerAtMillis: Long) {

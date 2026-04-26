@@ -36,7 +36,8 @@ data class AuthUiState(
     val flatSetupMode: FlatSetupMode = FlatSetupMode.NONE,
     val flatName: String = "",
     val inviteCode: String = "",
-    val createdFlat: Flat? = null
+    val createdFlat: Flat? = null,
+    val justCompletedFlatSetup: Boolean = false
 )
 
 enum class FlatSetupMode {
@@ -152,7 +153,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     if (user?.hasFlat() == true) {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            authState = AuthState.Authenticated
+                            authState = AuthState.Authenticated,
+                            justCompletedFlatSetup = false
                         )
                     } else {
                         _uiState.value = _uiState.value.copy(
@@ -291,7 +293,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         authState = AuthState.Authenticated,
-                        createdFlat = flat
+                        createdFlat = flat,
+                        justCompletedFlatSetup = true
                     )
                 } else {
                     _uiState.value = _uiState.value.copy(
@@ -318,7 +321,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     _currentUser.value = updatedUser
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        authState = AuthState.Authenticated
+                        authState = AuthState.Authenticated,
+                        justCompletedFlatSetup = true
                     )
                 } else {
                     _uiState.value = _uiState.value.copy(
@@ -340,7 +344,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 auth.signOut()
                 _currentUser.value = null
-                _uiState.value = AuthUiState(authState = AuthState.Unauthenticated)
+                _uiState.value = AuthUiState(
+                    authState = AuthState.Unauthenticated,
+                    justCompletedFlatSetup = false
+                )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = e.message ?: "Logout failed"
