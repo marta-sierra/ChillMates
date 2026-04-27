@@ -329,4 +329,7 @@ class UserViewModel : ViewModel() {
             }
         }
     }
+    fun onLogout() {
+        auth.signOut()
+    }
 }

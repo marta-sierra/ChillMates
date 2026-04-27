@@ -236,4 +236,11 @@
     <string name="chore_reminder_in_30_min">In 30 minutes</string>
     <string name="chore_reminder_in_1_hour">In 1 hour</string>
     <string name="chore_reminder_in_3_hours">In 3 hours</string>
+    <string name="toast_generating_notification">🔔 Generating notification…</string>
+
+    <string name="repairs_placeholder_describe">Describe the issue…</string>
+
+    <string name="repairs_chooser_title">Send email…</string>
+
+    <string name="user_invite_chooser_title">Invite roommate via…</string>
 </resources>

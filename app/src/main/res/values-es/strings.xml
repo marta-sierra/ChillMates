@@ -215,4 +215,24 @@
     <string name="cd_back">Volver</string>
     <string name="cd_delete">Eliminar</string>
     <string name="cd_close">Cerrar</string>
+    <string name="flat_setup_title">Configura tu piso</string>
+    <string name="flat_setup_subtitle">Crea un nuevo piso o únete a uno existente usando un código de invitación</string>
+    <string name="flat_setup_create">Crear nuevo piso</string>
+    <string name="flat_setup_join">Unirse a piso existente</string>
+    <string name="flat_setup_flat_name_label">Nombre del piso</string>
+    <string name="flat_setup_flat_name_placeholder">p. ej., Casa de la playa, Piso del centro</string>
+    <string name="flat_setup_invite_code_label">Código de invitación</string>
+    <string name="flat_setup_invite_code_placeholder">Introduce el código de 8 caracteres</string>
+    <string name="flat_setup_select_option">Por favor, selecciona una opción arriba</string>
+    <string name="flat_setup_continue">Continuar</string>
+    <string name="flat_setup_success">¡Piso creado!</string>
+    <string name="flat_setup_invite_code">Código de invitación</string>
+    <string name="flat_setup_share_code">¡Comparte este código con tus compañeros para que puedan unirse!</string>
+    <string name="login_button">Iniciar sesión</string>
+    <string name="signup_button">registrarse</string>
+    <string name="home_notice_board">Tablón de anuncios</string>
+    <string name="home_upcoming_events">Próximos eventos</string>
+    <string name="home_add_event">Añadir evento</string>
+    <string name="home_toast_reminder_canceled">Recordatorio cancelado</string>
+    <string name="home_toast_reminder_set">¡Recordatorio establecido!</string>
 </resources>
