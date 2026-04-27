@@ -181,9 +181,38 @@
     <string name="user_menu_change_photo">Canvia foto</string>
     <string name="user_cd_back">Torna</string>
     <string name="user_cd_profile_photo">Foto de perfil</string>
+    <string name="user_display_name_fallback">Usuari</string>
+    <string name="user_create_join_cta">Crear o unir-se a un pis</string>
+    <string name="user_logout_session">Tancar sessió</string>
+    <string name="user_change_photo">Canvia foto</string>
+    <string name="user_profile_title">El meu perfil</string>
+    <string name="user_full_name_label">Nom complet</string>
+    <string name="user_email_label">Correu electrònic</string>
+    <string name="user_update_action">Actualitzar</string>
+    <string name="user_change_password">Canviar contrasenya</string>
+    <string name="user_current_flat_title">Pis actual</string>
+    <string name="user_flatmates_label">Companys</string>
+    <string name="user_leave_flat">Surt del pis</string>
+    <string name="user_update_password_title">Actualitzar contrasenya</string>
+    <string name="user_new_password">Nova contrasenya</string>
+    <string name="user_repeat_password">Repetir contrasenya</string>
+    <string name="user_create_flat_title">Crear pis</string>
+    <string name="user_join_flat_title">Unir-se a un pis</string>
+    <string name="user_create_label">Crear</string>
+    <string name="user_join_label">Unir-se</string>
+    <string name="user_flat_name_label">Nom del pis</string>
+    <string name="user_invite_code_label">Codi d\'invitació</string>
+    <string name="user_share_invite_message">Hola, pots unir-te al meu pis de ChillMates amb el següent codi %1$s</string>
+    <string name="user_share_flat_action">Comparteix pis</string>
 
     <string name="cd_back">Torna</string>
     <string name="cd_delete">Elimina</string>
     <string name="cd_close">Tanca</string>
 
+    <string name="chore_reminder_title">Programar recordatori</string>
+    <string name="chore_reminder_message">Quan vols que t\'ho recordi?</string>
+    <string name="chore_reminder_in_10_min">En 10 minuts</string>
+    <string name="chore_reminder_in_30_min">En 30 minuts</string>
+    <string name="chore_reminder_in_1_hour">En 1 hora</string>
+    <string name="chore_reminder_in_3_hours">En 3 hores</string>
 </resources>

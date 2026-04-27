@@ -1,8 +1,10 @@
 package es.uc3m.android.chillmates.chores
 
-import android.content.Intent
 import android.Manifest
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
@@ -18,6 +20,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Notifications
@@ -38,6 +41,7 @@ import es.uc3m.android.chillmates.LargeSectionHeader
 import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.model.Chore
+import java.util.concurrent.TimeUnit
 
 
 private const val CHORE_REMINDER_ACTION = "es.uc3m.android.chillmates.CHORE_REMINDER"
@@ -52,14 +56,19 @@ fun ChoresPage(
     val currentUserName by viewModel.currentUserName.collectAsState()
     val context = LocalContext.current
     var pendingReminderChore by remember { mutableStateOf<Chore?>(null) }
+    var showAddChoreDialog by remember { mutableStateOf(false) }
+    var showReconfigureDialog by remember { mutableStateOf(false) }
+    var choreToSwap by remember { mutableStateOf<Chore?>(null) }
+    var reminderTargetChore by remember { mutableStateOf<Chore?>(null) }
+    var showReminderDialog by remember { mutableStateOf(false) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            pendingReminderChore?.let { chore ->
-                sendChoreReminderBroadcast(context, chore)
-            }
+            showReminderDialog = reminderTargetChore != null
+        } else {
+            reminderTargetChore = null
         }
         pendingReminderChore = null
     }
@@ -79,10 +88,6 @@ fun ChoresPage(
             context.unregisterReceiver(receiver)
         }
     }
-
-    var showAddChoreDialog by remember { mutableStateOf(false) }
-    var showReconfigureDialog by remember { mutableStateOf(false) }
-    var choreToSwap by remember { mutableStateOf<Chore?>(null) }
 
     var weekOffset by remember { mutableIntStateOf(0) }
 
@@ -166,6 +171,7 @@ fun ChoresPage(
                             },
                             onSwapRequest = { choreToSwap = it },
                             onSendReminder = { chore ->
+                                reminderTargetChore = chore
                                 if (
                                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                                     ContextCompat.checkSelfPermission(
@@ -176,7 +182,7 @@ fun ChoresPage(
                                     pendingReminderChore = chore
                                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 } else {
-                                    sendChoreReminderBroadcast(context, chore)
+                                    showReminderDialog = true
                                 }
                             }
                         )
@@ -260,6 +266,52 @@ fun ChoresPage(
             }
         )
     }
+
+    if (showReminderDialog) {
+        ReminderTimeDialog(
+            onDismiss = {
+                showReminderDialog = false
+                reminderTargetChore = null
+            },
+            onSelectDelayMinutes = { minutes ->
+                reminderTargetChore?.let { chore ->
+                    scheduleChoreReminder(context, chore, TimeUnit.MINUTES.toMillis(minutes.toLong()))
+                }
+                showReminderDialog = false
+                reminderTargetChore = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun ReminderTimeDialog(
+    onDismiss: () -> Unit,
+    onSelectDelayMinutes: (Int) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.chore_reminder_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.chore_reminder_message))
+                TextButton(onClick = { onSelectDelayMinutes(10) }) {
+                    Text(stringResource(R.string.chore_reminder_in_10_min))
+                }
+                TextButton(onClick = { onSelectDelayMinutes(30) }) {
+                    Text(stringResource(R.string.chore_reminder_in_30_min))
+                }
+                TextButton(onClick = { onSelectDelayMinutes(60) }) {
+                    Text(stringResource(R.string.chore_reminder_in_1_hour))
+                }
+                TextButton(onClick = { onSelectDelayMinutes(180) }) {
+                    Text(stringResource(R.string.chore_reminder_in_3_hours))
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) } }
+    )
 }
 
 @Composable
@@ -315,7 +367,20 @@ fun ReconfigureChoresDialog(currentChores: List<Chore>, flatmates: List<String>,
             LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 itemsIndexed(tempChores) { index, chore ->
                     Column {
-                        Text(text = chore.title, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = chore.title, fontWeight = FontWeight.Bold)
+                            IconButton(onClick = { tempChores.removeAt(index) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete chore",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
                         Spacer(modifier = Modifier.height(4.dp))
                         FlatmateDropdown(
                             selected = chore.assignee,
@@ -459,4 +524,29 @@ private fun sendChoreReminderBroadcast(context: Context, chore: Chore) {
     }
 
     context.sendBroadcast(intent)
+}
+
+private fun scheduleChoreReminder(context: Context, chore: Chore, delayMs: Long) {
+    val intent = Intent(CHORE_REMINDER_ACTION).apply {
+        setPackage(context.packageName)
+        putExtra("choreTitle", chore.title)
+        putExtra("assignee", chore.assignee)
+    }
+
+    val requestCode = System.currentTimeMillis().toInt()
+    val pendingIntent = PendingIntent.getBroadcast(
+        context,
+        requestCode,
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    val triggerAtMillis = System.currentTimeMillis() + delayMs
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+    } else {
+        alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+    }
 }

@@ -147,7 +147,8 @@ private fun UserRoute(
                 }
 
                 Text(
-                    text = state.user?.displayName?.ifEmpty { "User" } ?: "User",
+                    text = state.user?.displayName?.ifEmpty { stringResource(R.string.user_display_name_fallback) }
+                        ?: stringResource(R.string.user_display_name_fallback),
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
@@ -200,7 +201,7 @@ private fun UserRoute(
                     ) {
                         Icon(Icons.Default.AddHome, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Create or Join a Flat")
+                        Text(stringResource(R.string.user_create_join_cta))
                     }
                 }
             }
@@ -214,7 +215,7 @@ private fun UserRoute(
                 ) {
                     Icon(Icons.Default.Logout, null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Logout Session")
+                    Text(stringResource(R.string.user_logout_session))
                 }
             }
         }
@@ -246,7 +247,7 @@ private fun ProfilePhotoSmall(photoUri: String?, onChangePhotoClick: () -> Unit)
         }
         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
             DropdownMenuItem(
-                text = { Text("Change Photo") },
+                text = { Text(stringResource(R.string.user_change_photo)) },
                 onClick = { menuExpanded = false; onChangePhotoClick() }
             )
         }
@@ -268,12 +269,15 @@ private fun ProfileSectionCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(text = "My Profile", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+            Text(
+                text = stringResource(R.string.user_profile_title),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            )
 
             OutlinedTextField(
                 value = nameDraft,
                 onValueChange = { nameDraft = it },
-                label = { Text("Full Name") },
+                label = { Text(stringResource(R.string.user_full_name_label)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !isLoading,
@@ -282,7 +286,7 @@ private fun ProfileSectionCard(
                         onClick = { onUpdateProfile(nameDraft) },
                         enabled = nameDraft != displayName && !isLoading && nameDraft.isNotBlank()
                     ) {
-                        Icon(Icons.Default.CheckCircle, "Update", tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Default.CheckCircle, stringResource(R.string.user_update_action), tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             )
@@ -290,7 +294,7 @@ private fun ProfileSectionCard(
             OutlinedTextField(
                 value = email,
                 onValueChange = { },
-                label = { Text("Email Address") },
+                label = { Text(stringResource(R.string.user_email_label)) },
                 modifier = Modifier.fillMaxWidth(),
                 readOnly = true,
                 enabled = true,
@@ -310,7 +314,7 @@ private fun ProfileSectionCard(
             ) {
                 Icon(Icons.Default.VpnKey, null)
                 Spacer(Modifier.width(8.dp))
-                Text("Change Password")
+                Text(stringResource(R.string.user_change_password))
             }
         }
     }
@@ -323,13 +327,18 @@ private fun FlatSectionCardClean(
     onLeaveFlatClick: () -> Unit
 ){
     val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+    val shareMessage = stringResource(R.string.user_share_invite_message, flat.inviteCode)
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(text = "Current Flat", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+            Text(
+                text = stringResource(R.string.user_current_flat_title),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -351,13 +360,25 @@ private fun FlatSectionCardClean(
                         ) {
                             Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp))
                         }
+                        IconButton(
+                            onClick = {
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, shareMessage)
+                                }
+                                context.startActivity(Intent.createChooser(shareIntent, null))
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.Share, stringResource(R.string.user_share_flat_action), modifier = Modifier.size(16.dp))
+                        }
                     }
                 }
             }
 
             if (members.isNotEmpty()) {
                 Text(
-                    text = "Flatmates",
+                    text = stringResource(R.string.user_flatmates_label),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -378,7 +399,7 @@ private fun FlatSectionCardClean(
             ) {
                 Icon(Icons.Default.ExitToApp, null)
                 Spacer(Modifier.width(8.dp))
-                Text("Leave Flat")
+                Text(stringResource(R.string.user_leave_flat))
             }
         }
     }
@@ -390,17 +411,30 @@ fun ChangePasswordDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var pass2 by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Update Password") },
+        title = { Text(stringResource(R.string.user_update_password_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = pass1, onValueChange = { pass1 = it }, label = { Text("New Password") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = pass2, onValueChange = { pass2 = it }, label = { Text("Repeat Password") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    value = pass1,
+                    onValueChange = { pass1 = it },
+                    label = { Text(stringResource(R.string.user_new_password)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = pass2,
+                    onValueChange = { pass2 = it },
+                    label = { Text(stringResource(R.string.user_repeat_password)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
-            Button(enabled = pass1.isNotEmpty() && pass1 == pass2 && pass1.length >= 6, onClick = { onConfirm(pass1) }) { Text("Update") }
+            Button(
+                enabled = pass1.isNotEmpty() && pass1 == pass2 && pass1.length >= 6,
+                onClick = { onConfirm(pass1) }
+            ) { Text(stringResource(R.string.user_update_action)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) } }
     )
 }
 
@@ -419,26 +453,54 @@ private fun CreateJoinFlatDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (mode == CreateJoinMode.CREATE) "Create Flat" else "Join Flat") },
+        title = {
+            Text(
+                if (mode == CreateJoinMode.CREATE) {
+                    stringResource(R.string.user_create_flat_title)
+                } else {
+                    stringResource(R.string.user_join_flat_title)
+                }
+            )
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = mode == CreateJoinMode.CREATE, onClick = { onModeChange(CreateJoinMode.CREATE) }, label = { Text("Create") }, modifier = Modifier.weight(1f))
-                    FilterChip(selected = mode == CreateJoinMode.JOIN, onClick = { onModeChange(CreateJoinMode.JOIN) }, label = { Text("Join") }, modifier = Modifier.weight(1f))
+                    FilterChip(
+                        selected = mode == CreateJoinMode.CREATE,
+                        onClick = { onModeChange(CreateJoinMode.CREATE) },
+                        label = { Text(stringResource(R.string.user_create_label)) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = mode == CreateJoinMode.JOIN,
+                        onClick = { onModeChange(CreateJoinMode.JOIN) },
+                        label = { Text(stringResource(R.string.user_join_label)) },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
                 if (mode == CreateJoinMode.CREATE) {
-                    OutlinedTextField(value = flatName, onValueChange = onFlatNameChange, label = { Text("Flat Name") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(
+                        value = flatName,
+                        onValueChange = onFlatNameChange,
+                        label = { Text(stringResource(R.string.user_flat_name_label)) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 } else {
-                    OutlinedTextField(value = inviteCode, onValueChange = onInviteCodeChange, label = { Text("Invite Code") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(
+                        value = inviteCode,
+                        onValueChange = onInviteCodeChange,
+                        label = { Text(stringResource(R.string.user_invite_code_label)) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
                 if (errorMessage != null) Text(text = errorMessage, color = Color.Red, style = MaterialTheme.typography.bodySmall)
             }
         },
         confirmButton = {
             Button(onClick = onConfirm, enabled = !isLoading) {
-                if (isLoading) CircularProgressIndicator(modifier = Modifier.size(16.dp)) else Text("Confirm")
+                if (isLoading) CircularProgressIndicator(modifier = Modifier.size(16.dp)) else Text(stringResource(R.string.btn_confirm))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) } }
     )
 }

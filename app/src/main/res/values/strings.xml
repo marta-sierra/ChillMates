@@ -182,6 +182,29 @@
     <string name="user_menu_change_photo">Change photo</string>
     <string name="user_cd_back">Back</string>
     <string name="user_cd_profile_photo">Profile photo</string>
+    <string name="user_display_name_fallback">User</string>
+    <string name="user_create_join_cta">Create or join a flat</string>
+    <string name="user_logout_session">Logout session</string>
+    <string name="user_change_photo">Change photo</string>
+    <string name="user_profile_title">My profile</string>
+    <string name="user_full_name_label">Full name</string>
+    <string name="user_email_label">Email address</string>
+    <string name="user_update_action">Update</string>
+    <string name="user_change_password">Change password</string>
+    <string name="user_current_flat_title">Current flat</string>
+    <string name="user_flatmates_label">Flatmates</string>
+    <string name="user_leave_flat">Leave flat</string>
+    <string name="user_update_password_title">Update password</string>
+    <string name="user_new_password">New password</string>
+    <string name="user_repeat_password">Repeat password</string>
+    <string name="user_create_flat_title">Create flat</string>
+    <string name="user_join_flat_title">Join flat</string>
+    <string name="user_create_label">Create</string>
+    <string name="user_join_label">Join</string>
+    <string name="user_flat_name_label">Flat name</string>
+    <string name="user_invite_code_label">Invite code</string>
+    <string name="user_share_invite_message">Hi, you can join my ChillMates flat with the following code %1$s</string>
+    <string name="user_share_flat_action">Share flat</string>
 
     <string name="cd_back">Back</string>
     <string name="cd_delete">Delete</string>
@@ -207,4 +230,10 @@
     <string name="home_add_event">Add Event</string>
     <string name="home_toast_reminder_canceled">Reminder canceled</string>
     <string name="home_toast_reminder_set">Reminder set!</string>
+    <string name="chore_reminder_title">Set reminder</string>
+    <string name="chore_reminder_message">When do you want to be reminded?</string>
+    <string name="chore_reminder_in_10_min">In 10 minutes</string>
+    <string name="chore_reminder_in_30_min">In 30 minutes</string>
+    <string name="chore_reminder_in_1_hour">In 1 hour</string>
+    <string name="chore_reminder_in_3_hours">In 3 hours</string>
 </resources>

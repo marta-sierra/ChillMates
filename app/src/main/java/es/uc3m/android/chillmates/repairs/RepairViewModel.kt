@@ -85,7 +85,7 @@ class RepairViewModel(
             try {
                 val generativeModel = GenerativeModel(
                     modelName = "gemini-1.5-flash",
-                    apiKey = "TU_API_KEY_AQUI" // <-- PON TU CLAVE AQUÍ
+                    apiKey = "AQ.Ab8RN6IT4ieMw3oYtlTZEt0wWnSdQBDptqAl0KpDlvH7uqfikA"
                 )
 
                 val prompt = """

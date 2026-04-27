@@ -123,6 +123,12 @@
     <string name="cd_add_chore">Añadir tarea</string>
     <string name="cd_reconfigure">Reconfigurar</string>
     <string name="cd_send_reminder">Enviar recordatorio</string>
+    <string name="chore_reminder_title">Programar recordatorio</string>
+    <string name="chore_reminder_message">¿Cuándo quieres que te lo recuerde?</string>
+    <string name="chore_reminder_in_10_min">En 10 minutos</string>
+    <string name="chore_reminder_in_30_min">En 30 minutos</string>
+    <string name="chore_reminder_in_1_hour">En 1 hora</string>
+    <string name="chore_reminder_in_3_hours">En 3 horas</string>
 
     <string name="expenses_title">Gastos</string>
     <string name="ticket_add_label">añadir ticket</string>
@@ -182,6 +188,29 @@
     <string name="user_menu_change_photo">Cambiar foto</string>
     <string name="user_cd_back">Volver</string>
     <string name="user_cd_profile_photo">Foto de perfil</string>
+    <string name="user_display_name_fallback">Usuario</string>
+    <string name="user_create_join_cta">Crear o unirse a un piso</string>
+    <string name="user_logout_session">Cerrar sesión</string>
+    <string name="user_change_photo">Cambiar foto</string>
+    <string name="user_profile_title">Mi perfil</string>
+    <string name="user_full_name_label">Nombre completo</string>
+    <string name="user_email_label">Correo electrónico</string>
+    <string name="user_update_action">Actualizar</string>
+    <string name="user_change_password">Cambiar contraseña</string>
+    <string name="user_current_flat_title">Piso actual</string>
+    <string name="user_flatmates_label">Compañeros</string>
+    <string name="user_leave_flat">Salir del piso</string>
+    <string name="user_update_password_title">Actualizar contraseña</string>
+    <string name="user_new_password">Nueva contraseña</string>
+    <string name="user_repeat_password">Repetir contraseña</string>
+    <string name="user_create_flat_title">Crear piso</string>
+    <string name="user_join_flat_title">Unirse a un piso</string>
+    <string name="user_create_label">Crear</string>
+    <string name="user_join_label">Unirse</string>
+    <string name="user_flat_name_label">Nombre del piso</string>
+    <string name="user_invite_code_label">Código de invitación</string>
+    <string name="user_share_invite_message">Hola, puedes unirte a mi piso de ChillMates con el siguiente codigo %1$s</string>
+    <string name="user_share_flat_action">Compartir piso</string>
 
     <string name="cd_back">Volver</string>
     <string name="cd_delete">Eliminar</string>
