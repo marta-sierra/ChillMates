@@ -217,6 +217,31 @@ fun ChillMatesApp(
         return
     }
 
+    // Pantalla de carga mientras se sincroniza después de crear/unirse a un piso
+    if (authState.justCompletedFlatSetup && authState.authState !is AuthState.Authenticated) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(32.dp)
+            ) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = "Preparando tu piso...",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        return
+    }
+
     if (authState.authState is AuthState.Unauthenticated) {
         LoginPage(navController, authViewModel)
         return

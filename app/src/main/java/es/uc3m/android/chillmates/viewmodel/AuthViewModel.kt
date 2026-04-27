@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 
 sealed class AuthState {
@@ -281,63 +282,71 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun createFlat(name: String, userId: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-            try {
-                val result = flatRepository.createFlat(name, userId)
-                if (result.isSuccess) {
-                    val flat = result.getOrThrow()
-                    val updatedUser = loadUserFromFirestore(userId)
-                    _currentUser.value = updatedUser
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        authState = AuthState.Authenticated,
-                        createdFlat = flat,
-                        justCompletedFlatSetup = true
-                    )
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = result.exceptionOrNull()?.message ?: "Failed to create flat"
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = e.message ?: "Failed to create flat"
-                )
-            }
-        }
-    }
+     private fun createFlat(name: String, userId: String) {
+         viewModelScope.launch {
+             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+             try {
+                 val result = flatRepository.createFlat(name, userId)
+                 if (result.isSuccess) {
+                     val flat = result.getOrThrow()
+                     val updatedUser = loadUserFromFirestore(userId)
+                     _currentUser.value = updatedUser
+                     _uiState.value = _uiState.value.copy(
+                         isLoading = false,
+                         createdFlat = flat,
+                         justCompletedFlatSetup = true
+                     )
+                     // Esperar 2 segundos para que los datos se sincronicen completamente
+                     delay(2000)
+                     _uiState.value = _uiState.value.copy(
+                         authState = AuthState.Authenticated
+                     )
+                 } else {
+                     _uiState.value = _uiState.value.copy(
+                         isLoading = false,
+                         errorMessage = result.exceptionOrNull()?.message ?: "Failed to create flat"
+                     )
+                 }
+             } catch (e: Exception) {
+                 _uiState.value = _uiState.value.copy(
+                     isLoading = false,
+                     errorMessage = e.message ?: "Failed to create flat"
+                 )
+             }
+         }
+     }
 
-    private fun joinFlat(code: String, userId: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-            try {
-                val result = flatRepository.joinFlat(code, userId)
-                if (result.isSuccess) {
-                    val updatedUser = loadUserFromFirestore(userId)
-                    _currentUser.value = updatedUser
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        authState = AuthState.Authenticated,
-                        justCompletedFlatSetup = true
-                    )
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = result.exceptionOrNull()?.message ?: "Invalid invite code"
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = e.message ?: "Failed to join flat"
-                )
-            }
-        }
-    }
+     private fun joinFlat(code: String, userId: String) {
+         viewModelScope.launch {
+             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+             try {
+                 val result = flatRepository.joinFlat(code, userId)
+                 if (result.isSuccess) {
+                     val updatedUser = loadUserFromFirestore(userId)
+                     _currentUser.value = updatedUser
+                     _uiState.value = _uiState.value.copy(
+                         isLoading = false,
+                         justCompletedFlatSetup = true
+                     )
+                     // Esperar 2 segundos para que los datos se sincronicen completamente
+                     delay(2000)
+                     _uiState.value = _uiState.value.copy(
+                         authState = AuthState.Authenticated
+                     )
+                 } else {
+                     _uiState.value = _uiState.value.copy(
+                         isLoading = false,
+                         errorMessage = result.exceptionOrNull()?.message ?: "Invalid invite code"
+                     )
+                 }
+             } catch (e: Exception) {
+                 _uiState.value = _uiState.value.copy(
+                     isLoading = false,
+                     errorMessage = e.message ?: "Failed to join flat"
+                 )
+             }
+         }
+     }
 
     fun logout() {
         viewModelScope.launch {
