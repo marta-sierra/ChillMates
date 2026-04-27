@@ -116,7 +116,7 @@
     <string name="dialog_add_chore_title">Add New Chore</string>
     <string name="dialog_swap_chore_title">Swap Chore</string>
     <string name="dialog_swap_chore_text">Who will take over \'%s\'?</string>
-    <string name="toast_generating_notification">🔔 Generating notification...</string>
+    <string name="toast_generating_notification">🔔 Generating notification…</string>
     <string name="notif_channel_name">Chores Reminders</string>
     <string name="notif_channel_desc">Notifications to remind flatmates about their chores</string>
     <string name="notif_title_reminder">Reminder: ChillMates</string>
@@ -145,7 +145,7 @@
     <string name="repairs_title">Repairs</string>
     <string name="repairs_section_current">Current reparations</string>
     <string name="repairs_section_new_request">Send a new request</string>
-    <string name="repairs_placeholder_describe">Describe the issue...</string>
+    <string name="repairs_placeholder_describe">Describe the issue…</string>
     <string name="repairs_btn_add_images">Add images</string>
     <string name="repairs_btn_retake_photo">Retake photo</string>
     <string name="repairs_btn_ai_review">AI Review</string>
@@ -153,7 +153,7 @@
     <string name="repairs_error_no_email">No email app installed to handle this request.</string>
     <string name="repairs_email_subject">Repair Request: Shared Flat</string>
     <string name="repairs_email_body_prefix">Issue description:\n</string>
-    <string name="repairs_chooser_title">Send email...</string>
+    <string name="repairs_chooser_title">Send email…</string>
 
     <string name="settings_title">Settings</string>
     <string name="settings_section_general">General</string>
@@ -178,7 +178,7 @@
     <string name="user_btn_invite">Invite roommate</string>
     <string name="user_btn_leave">Leave flat</string>
     <string name="user_btn_create_join">Create/join a new flat</string>
-    <string name="user_invite_chooser_title">Invite roommate via...</string>
+    <string name="user_invite_chooser_title">Invite roommate via …</string>
     <string name="user_menu_change_photo">Change photo</string>
     <string name="user_cd_back">Back</string>
     <string name="user_cd_profile_photo">Profile photo</string>
@@ -236,11 +236,5 @@
     <string name="chore_reminder_in_30_min">In 30 minutes</string>
     <string name="chore_reminder_in_1_hour">In 1 hour</string>
     <string name="chore_reminder_in_3_hours">In 3 hours</string>
-    <string name="toast_generating_notification">🔔 Generating notification…</string>
 
-    <string name="repairs_placeholder_describe">Describe the issue…</string>
-
-    <string name="repairs_chooser_title">Send email…</string>
-
-    <string name="user_invite_chooser_title">Invite roommate via…</string>
 </resources>
