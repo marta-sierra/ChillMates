@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="btn_cancel">Cancel·la</string>
+    <string name="btn_cancel">Cancella</string>
     <string name="btn_confirm">Confirma</string>
     <string name="btn_save">Desa</string>
     <string name="btn_add">Afegeix</string>
     <string name="btn_close">Tanca</string>
-    <string name="toast_cancelled">Cancel·lat</string>
+    <string name="toast_cancelled">Cancellat</string>
     <string name="toast_invalid_data">Dades no vàlides</string>
 
     <string name="login_route">login</string>
@@ -13,13 +13,13 @@
     <string name="login_label_email">Correu electrònic</string>
     <string name="login_label_password">Contrasenya</string>
     <string name="login_btn_signin">Inicia sessió</string>
-    <string name="login_footer_signup">No tens compte? Registra\'t</string>
+    <string name="login_footer_signup">No tens compte? Registrat</string>
     <string name="signup_welcome_title">Crea el teu compte</string>
     <string name="login_label_name">Nom</string>
     <string name="login_label_confirm_password">Confirmar contrasenya</string>
-    <string name="signup_btn_signup">Registra\'t</string>
+    <string name="signup_btn_signup">Registrat</string>
     <string name="signup_footer_login">Ja tens compte? Inicia sessió</string>
-    <string name="nav_cd_profile">Perfil d\'usuari</string>
+    <string name="nav_cd_profile">Perfil dusuari</string>
     <string name="nav_cd_settings">Configuració</string>
     <string name="nav_home">Inici</string>
     <string name="nav_chores">Tasques</string>
@@ -30,7 +30,7 @@
     <string name="welcome_back_continue">Continuar</string>
     <string name="welcome_back_change_account">Canviar compte</string>
 
-    <string name="home_section_news_board">Tauler d\'anuncis</string>
+    <string name="home_section_news_board">Tauler danuncis</string>
     <string name="home_section_upcoming_events">Propers esdeveniments  →</string>
     <string name="home_show_less">Mostra menys</string>
     <string name="home_show_all">Mostra-ho tot</string>
@@ -42,9 +42,9 @@
     <string name="home_view_details">Veure més detalls</string>
     <string name="home_hide_details">Amaga detalls</string>
     <string name="home_location_prefix">Ubicació: %1$s</string>
-    <string name="home_remind_me">Recorda-m\'ho</string>
+    <string name="home_remind_me">Recordamho</string>
     <string name="home_stop_notifying">Deixa de notificar</string>
-    <string name="home_no_calendar_app">No s\'ha trobat cap app de Calendari</string>
+    <string name="home_no_calendar_app">No sha trobat cap app de Calendari</string>
     <string name="home_reminder_title">Recordatori de ChillMates</string>
     <string name="notif_channel_reminders_name">Recordatoris de ChillMates</string>
     <string name="home_cd_calendar">Afegeix al calendari</string>
@@ -78,21 +78,20 @@
     <string name="label_for_who">Per a qui</string>
     <string name="btn_add_new_supermarket">Afegeix nou supermercat</string>
     <string name="dialog_add_supermarket_title">Afegeix supermercat</string>
-    <string name="label_supermarket_alias">Àlies per mostrar a l\'app</string>
+    <string name="label_supermarket_alias">Alies per mostrar a lapp</string>
     <string name="label_search_place">Cerca supermercat oficial a Google Places</string>
     <string name="btn_search_place">Cerca lloc</string>
     <string name="btn_confirm_add_supermarket">Afegeix supermercat</string>
     <string name="label_selected_place">Lloc seleccionat: %1$s</string>
     <string name="error_supermarket_alias_exists">Aquest àlies ja existeix</string>
-    <string name="error_no_places_found">No s\'han trobat llocs per a aquesta cerca</string>
-    <string name="error_places_search_failed">No s\'han pogut cercar llocs ara mateix</string>
-    <string name="error_place_details_failed">No s\'han pogut carregar els detalls del lloc</string>
-    <string name="error_place_missing_location">El lloc seleccionat no té ubicació</string>
-    <string name="error_add_supermarket_failed">No s\'ha pogut afegir el supermercat ara mateix</string>
+    <string name="error_no_places_found">No shan trobat llocs per a aquesta cerca</string>
+    <string name="error_places_search_failed">No shan pogut cercar llocs ara mateix</string>
+    <string name="error_place_details_failed">No shan pogut carregar els detalls del lloc</string>
+    <string name="error_add_supermarket_failed">No sha pogut afegir el supermercat ara mateix</string>
     <string name="needed_by_all">per a tots</string>
     <string name="needed_by_format">per a %s</string>
     <string name="dialog_add_expense_title">Afegir a despeses?</string>
-    <string name="dialog_add_expense_text">Vols crear una despesa per a \'%s\'?</string>
+    <string name="dialog_add_expense_text">Vols crear una despesa per a %s?</string>
     <string name="btn_create_expense">Sí, crear despesa</string>
     <string name="btn_not_now">Ara no</string>
     <string name="cd_open_map">Obrir mapa</string>
@@ -114,7 +113,7 @@
     <string name="default_assignee">Algú</string>
     <string name="dialog_add_chore_title">Afegeix nova tasca</string>
     <string name="dialog_swap_chore_title">Intercanvia tasca</string>
-    <string name="dialog_swap_chore_text">Qui s\'encarregarà de \'%s\'?</string>
+    <string name="dialog_swap_chore_text">Qui sencarregara de %s?</string>
     <string name="toast_generating_notification">🔔 Generant notificació...</string>
     <string name="notif_channel_name">Recordatoris de tasques</string>
     <string name="notif_channel_desc">Notificacions per recordar les tasques als companys</string>
@@ -139,7 +138,7 @@
     <string name="toast_ticket_attached">Tiquet adjuntat ✅</string>
     <string name="toast_expense_added">Despesa afegida ✅</string>
     <string name="cd_add_expense">Afegeix despesa</string>
-    <string name="toast_no_app_found_open_file">No s\'ha trobat cap aplicació per obrir aquest fitxer</string>
+    <string name="toast_no_app_found_open_file">No sha trobat cap aplicacio per obrir aquest fitxer</string>
 
     <string name="repairs_title">Avaries</string>
     <string name="repairs_section_current">Reparacions actuals</string>
@@ -201,7 +200,7 @@
     <string name="user_create_label">Crear</string>
     <string name="user_join_label">Unir-se</string>
     <string name="user_flat_name_label">Nom del pis</string>
-    <string name="user_invite_code_label">Codi d\'invitació</string>
+    <string name="user_invite_code_label">Codi dinvitacio</string>
     <string name="user_share_invite_message">Hola, pots unir-te al meu pis de ChillMates amb el següent codi %1$s</string>
     <string name="user_share_flat_action">Comparteix pis</string>
 
@@ -210,7 +209,7 @@
     <string name="cd_close">Tanca</string>
 
     <string name="chore_reminder_title">Programar recordatori</string>
-    <string name="chore_reminder_message">Quan vols que t\'ho recordi?</string>
+    <string name="chore_reminder_message">Quan vols que tho recordi?</string>
     <string name="chore_reminder_in_10_min">En 10 minuts</string>
     <string name="chore_reminder_in_30_min">En 30 minuts</string>
     <string name="chore_reminder_in_1_hour">En 1 hora</string>
