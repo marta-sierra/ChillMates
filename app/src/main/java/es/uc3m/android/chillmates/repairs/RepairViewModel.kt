@@ -1,5 +1,6 @@
 package es.uc3m.android.chillmates.repairs
 
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -8,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import es.uc3m.android.chillmates.model.Repair
 import es.uc3m.android.chillmates.model.USERS_COLLECTION
 import es.uc3m.android.chillmates.repository.FlatRepository
@@ -15,6 +17,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import java.util.UUID
+import android.util.Log
 
 data class RepairUi(
     val id: String,
@@ -45,6 +49,7 @@ class RepairViewModel(
 
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
+    private val storage = FirebaseStorage.getInstance() // Instancia de Firebase Storage
 
     init {
         loadUserAndFlatData()
@@ -62,7 +67,6 @@ class RepairViewModel(
                 currentFlatId = flatId
                 uiState = uiState.copy(currentUserName = userName)
 
-                // NUEVO: Escuchamos la subcolección de reparaciones directamente
                 launch {
                     repository.observeRepairs(flatId).collect { repairsList ->
                         uiState = uiState.copy(
@@ -84,7 +88,7 @@ class RepairViewModel(
             isAiReviewing = true
             try {
                 val generativeModel = GenerativeModel(
-                    modelName = "gemini-1.5-flash",
+                    modelName = "gemini-2.5-flash",
                     apiKey = "AQ.Ab8RN6IT4ieMw3oYtlTZEt0wWnSdQBDptqAl0KpDlvH7uqfikA"
                 )
 
@@ -94,21 +98,40 @@ class RepairViewModel(
                     
                     Please rewrite the following issue description into a clear, formal, and polite email body.
                     Fix any spelling or grammar mistakes.
-                    Do NOT add any conversational filler (like "Here is your email"), just return the finalized email text.
+                    Do NOT add any conversational filler, just return the finalized email text.
                     
                     Here is the issue description:
                     $cleaned
                 """.trimIndent()
 
-                val response = withContext(Dispatchers.IO) {
-                    generativeModel.generateContent(prompt)
+                var responseText: String? = null
+                var success = false
+                var retries = 0
+
+                // 🚀 SISTEMA DE REINTENTOS: Intentará conectar hasta 3 veces si Google está saturado
+                while (!success && retries < 3) {
+                    try {
+                        val response = withContext(Dispatchers.IO) {
+                            generativeModel.generateContent(prompt)
+                        }
+                        responseText = response.text
+                        success = true
+                    } catch (e: Exception) {
+                        retries++
+                        if (retries >= 3) {
+                            throw e // Si falla 3 veces, nos rendimos y vamos al Catch principal
+                        }
+                        // Esperamos 1.5 segundos antes del siguiente intento
+                        kotlinx.coroutines.delay(1500)
+                    }
                 }
 
-                response.text?.let { improvedText ->
+                responseText?.let { improvedText ->
                     onResult(improvedText.trim())
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                // Si incluso después de 3 reintentos falla, usamos el texto de emergencia
+                android.util.Log.e("GeminiAI", "Falló tras 3 intentos: ${e.message}")
                 val fallbackText = """
                     Hello,
 
@@ -129,6 +152,7 @@ class RepairViewModel(
         }
     }
 
+    // 🚀 MODIFICADO: Sube las fotos a Firebase Storage primero
     fun createSentRepair(title: String, rawDescription: String, finalMessage: String, photoUris: List<String>) {
         val flatId = currentFlatId ?: return
         val description = rawDescription.trim()
@@ -136,25 +160,44 @@ class RepairViewModel(
 
         val repairTitle = title.trim().ifBlank { "Repair request" }
 
-        val newRepair = Repair(
-            id = System.currentTimeMillis().toString(),
-            title = repairTitle,
-            description = description,
-            reportedBy = uiState.currentUserName,
-            landlordMessage = finalMessage.trim().ifBlank { description },
-            photoUris = photoUris,
-            status = "SENT"
-        )
-
-        // NUEVO: Guardamos el documento directamente en la subcolección usando el repositorio
         viewModelScope.launch {
+            val uploadedUrls = mutableListOf<String>()
+
+            // 1. Subir cada imagen a Firebase Storage
+            for (localUriStr in photoUris) {
+                try {
+                    val uri = Uri.parse(localUriStr)
+                    val fileName = UUID.randomUUID().toString() + ".jpg"
+                    val ref = storage.reference.child("flats/$flatId/repairs/$fileName")
+
+                    // Sube el archivo
+                    ref.putFile(uri).await()
+
+                    // Obtiene la URL pública HTTP
+                    val downloadUrl = ref.downloadUrl.await().toString()
+                    uploadedUrls.add(downloadUrl)
+                } catch (e: Exception) {
+                    e.printStackTrace() // Si falla una foto, simplemente la saltamos
+                }
+            }
+
+            // 2. Crear el objeto con las URLs públicas
+            val newRepair = Repair(
+                id = System.currentTimeMillis().toString(),
+                title = repairTitle,
+                description = description,
+                reportedBy = uiState.currentUserName,
+                landlordMessage = finalMessage.trim().ifBlank { description },
+                photoUris = uploadedUrls, // Usamos las URLs de Firebase!
+                status = "SENT"
+            )
+
             repository.addRepair(flatId, newRepair)
         }
     }
 
     fun updateRepairStatus(repairId: String, newStatus: String) {
         val flatId = currentFlatId ?: return
-        // NUEVO: Actualizamos solo el estado de ese documento concreto
         viewModelScope.launch {
             repository.updateRepairStatus(flatId, repairId, newStatus)
         }
