@@ -1,13 +1,15 @@
 package es.uc3m.android.chillmates.user
 
+import android.app.Application
 import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.model.Flat
 import es.uc3m.android.chillmates.model.User
 import es.uc3m.android.chillmates.model.USERS_COLLECTION
@@ -38,7 +40,7 @@ enum class CreateJoinMode {
     JOIN
 }
 
-class UserViewModel : ViewModel() {
+class UserViewModel(application: Application) : AndroidViewModel(application) {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
     private val flatRepository = FlatRepository()
@@ -125,7 +127,6 @@ class UserViewModel : ViewModel() {
                 }
                 uiState = uiState.copy(members = members)
             } catch (e: Exception) {
-                // Silently fail for member loading
             }
         }
     }
@@ -179,7 +180,7 @@ class UserViewModel : ViewModel() {
                     if (flatName.isEmpty()) {
                         uiState = uiState.copy(
                             isLoading = false,
-                            errorMessage = "Please enter a flat name"
+                            errorMessage = getApplication<Application>().resources.getString(R.string.user_error_flat_name_required)
                         )
                         return@launch
                     }
@@ -188,7 +189,7 @@ class UserViewModel : ViewModel() {
                     if (result.isSuccess) {
                         uiState = uiState.copy(
                             showCreateJoinDialog = false,
-                            successMessage = "Flat created successfully!"
+                            successMessage = getApplication<Application>().resources.getString(R.string.user_success_flat_created)
                         )
                         loadUserData()
                     } else {
@@ -203,7 +204,7 @@ class UserViewModel : ViewModel() {
                     if (code.isEmpty()) {
                         uiState = uiState.copy(
                             isLoading = false,
-                            errorMessage = "Please enter an invite code"
+                            errorMessage = getApplication<Application>().resources.getString(R.string.user_error_invite_code_required)
                         )
                         return@launch
                     }
@@ -212,7 +213,7 @@ class UserViewModel : ViewModel() {
                     if (result.isSuccess) {
                         uiState = uiState.copy(
                             showCreateJoinDialog = false,
-                            successMessage = "Joined flat successfully!"
+                            successMessage = getApplication<Application>().resources.getString(R.string.user_success_flat_joined)
                         )
                         loadUserData()
                     } else {
@@ -238,7 +239,7 @@ class UserViewModel : ViewModel() {
                 uiState = uiState.copy(
                     flat = null,
                     members = emptyList(),
-                    successMessage = "You have left the flat"
+                    successMessage = getApplication<Application>().resources.getString(R.string.user_success_left_flat)
                 )
                 loadUserData()
             } else {
@@ -290,7 +291,7 @@ class UserViewModel : ViewModel() {
                 uiState = uiState.copy(
                     isLoading = false,
                     user = uiState.user?.copy(displayName = cleanName),
-                    successMessage = "Name updated successfully"
+                    successMessage = getApplication<Application>().resources.getString(R.string.user_success_name_updated)
                 )
 
                 uiState.flat?.memberIds?.let { memberIds ->
@@ -319,7 +320,7 @@ class UserViewModel : ViewModel() {
                 auth.currentUser?.updatePassword(newPassword)?.await()
                 uiState = uiState.copy(
                     isLoading = false,
-                    successMessage = "Password updated successfully"
+                    successMessage = getApplication<Application>().resources.getString(R.string.user_success_password_updated)
                 )
             } catch (e: Exception) {
                 uiState = uiState.copy(

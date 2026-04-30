@@ -56,7 +56,6 @@ class ExpensesViewModel(
                 if (flatId != null) {
                     currentFlatId = flatId
 
-                    // Listen to Flat for members
                     launch {
                         repository.observeFlat(flatId).collect { flat ->
                             if (flat != null) {
@@ -68,7 +67,6 @@ class ExpensesViewModel(
                         }
                     }
 
-                    // Listen to Expenses Subcollection
                     launch {
                         repository.observeExpenses(flatId).collect { dbExpenses ->
                             uiState = uiState.copy(expenses = dbExpenses)

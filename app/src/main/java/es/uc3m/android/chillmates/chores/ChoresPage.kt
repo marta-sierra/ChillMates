@@ -18,8 +18,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
@@ -73,54 +75,57 @@ fun ChoresPage(
 
     var weekOffset by remember { mutableIntStateOf(0) }
 
-    val displayedChores = remember(chores, flatmates, weekOffset) {
-        val currentWeekKey = weekKeyForOffset(0)
-        val targetWeekKey = weekKeyForOffset(weekOffset)
-        val mates = flatmates.filter { it != "Everyone" }
-        chores.map { chore ->
-            when {
-                weekOffset == 0 -> {
-                    val assignment = chore.assignments[targetWeekKey]
-                        ?: ChoreAssignment(assignee = chore.assignee, isDone = chore.isDone)
-                    ChoreWeekUi(
-                        chore = chore,
-                        assignee = assignment.assignee,
-                        isDone = assignment.isDone,
-                        mode = ChoreWeekMode.CURRENT,
-                        hasRecord = chore.assignments.containsKey(targetWeekKey)
-                    )
-                }
-                weekOffset < 0 -> {
-                    val assignment = chore.assignments[targetWeekKey]
-                    ChoreWeekUi(
-                        chore = chore,
-                        assignee = assignment?.assignee ?: chore.assignee,
-                        isDone = assignment?.isDone ?: false,
-                        mode = ChoreWeekMode.PAST,
-                        hasRecord = assignment != null
-                    )
-                }
-                else -> {
-                    val baseAssignee = chore.assignments[currentWeekKey]?.assignee ?: chore.assignee
-                    val tentativeAssignee = if (baseAssignee == "Everyone" || mates.isEmpty()) {
-                        baseAssignee
-                    } else {
-                        val currentIndex = mates.indexOf(baseAssignee)
-                        if (currentIndex == -1) {
+    val targetWeekKey = weekKeyForOffset(weekOffset)
+
+    val displayedChores by remember(chores, flatmates, weekOffset) {
+        derivedStateOf {
+            val mates = flatmates.filter { it != "Everyone" }
+            chores.map { chore ->
+                when {
+                    weekOffset == 0 -> {
+                        val assignment = chore.assignments[targetWeekKey]
+                            ?: ChoreAssignment(assignee = chore.assignee, isDone = chore.isDone)
+                        ChoreWeekUi(
+                            chore = chore,
+                            assignee = assignment.assignee,
+                            isDone = assignment.isDone,
+                            mode = ChoreWeekMode.CURRENT,
+                            hasRecord = chore.assignments.containsKey(targetWeekKey)
+                        )
+                    }
+                    weekOffset < 0 -> {
+                        val assignment = chore.assignments[targetWeekKey]
+                        ChoreWeekUi(
+                            chore = chore,
+                            assignee = assignment?.assignee ?: chore.assignee,
+                            isDone = assignment?.isDone ?: false,
+                            mode = ChoreWeekMode.PAST,
+                            hasRecord = assignment != null
+                        )
+                    }
+                    else -> {
+                        val currentWeekKey = weekKeyForOffset(0)
+                        val baseAssignee = chore.assignments[currentWeekKey]?.assignee ?: chore.assignee
+                        val tentativeAssignee = if (baseAssignee == "Everyone" || mates.isEmpty()) {
                             baseAssignee
                         } else {
-                            val size = mates.size
-                            val shiftedIndex = ((currentIndex + weekOffset) % size + size) % size
-                            mates[shiftedIndex]
+                            val currentIndex = mates.indexOf(baseAssignee)
+                            if (currentIndex == -1) {
+                                baseAssignee
+                            } else {
+                                val size = mates.size
+                                val shiftedIndex = ((currentIndex + weekOffset) % size + size) % size
+                                mates[shiftedIndex]
+                            }
                         }
+                        ChoreWeekUi(
+                            chore = chore,
+                            assignee = tentativeAssignee,
+                            isDone = false,
+                            mode = ChoreWeekMode.FUTURE,
+                            hasRecord = false
+                        )
                     }
-                    ChoreWeekUi(
-                        chore = chore,
-                        assignee = tentativeAssignee,
-                        isDone = false,
-                        mode = ChoreWeekMode.FUTURE,
-                        hasRecord = false
-                    )
                 }
             }
         }
@@ -147,16 +152,16 @@ fun ChoresPage(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             IconButton(onClick = { weekOffset-- }) {
-                                Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Previous Week")
+                                Icon(Icons.Default.KeyboardArrowLeft, contentDescription = stringResource(R.string.home_cd_previous))
                             }
 
                             Text(
                                 text = when {
-                                    weekOffset == 0 -> "Current Week"
-                                    weekOffset == 1 -> "Next Week"
-                                    weekOffset == -1 -> "Last Week"
-                                    weekOffset > 1 -> "In $weekOffset weeks"
-                                    else -> "${-weekOffset} weeks ago"
+                                    weekOffset == 0 -> stringResource(R.string.chores_week_current)
+                                    weekOffset == 1 -> stringResource(R.string.chores_week_next)
+                                    weekOffset == -1 -> stringResource(R.string.chores_week_last)
+                                    weekOffset > 1 -> stringResource(R.string.chores_week_future, weekOffset)
+                                    else -> stringResource(R.string.chores_week_past, -weekOffset)
                                 },
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
@@ -164,7 +169,7 @@ fun ChoresPage(
                             )
 
                             IconButton(onClick = { weekOffset++ }) {
-                                Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Next Week")
+                                Icon(Icons.Default.KeyboardArrowRight, contentDescription = stringResource(R.string.home_cd_next))
                             }
                         }
                     }
@@ -375,7 +380,6 @@ fun SwapChoreDialog(chore: Chore, flatmates: List<String>, onDismiss: () -> Unit
 
 @Composable
 fun ReconfigureChoresDialog(currentChores: List<Chore>, flatmates: List<String>, onDismiss: () -> Unit, onSave: (List<Chore>) -> Unit) {
-    // Inicialización segura para que no crashee al cargar la lista
     val tempChores = remember(currentChores) { mutableStateListOf<Chore>().apply { addAll(currentChores) } }
 
     AlertDialog(
@@ -394,7 +398,7 @@ fun ReconfigureChoresDialog(currentChores: List<Chore>, flatmates: List<String>,
                             IconButton(onClick = { tempChores.removeAt(index) }) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
-                                    contentDescription = "Delete chore",
+                                    contentDescription = stringResource(R.string.chores_cd_delete),
                                     tint = MaterialTheme.colorScheme.error
                                 )
                             }
@@ -414,7 +418,6 @@ fun ReconfigureChoresDialog(currentChores: List<Chore>, flatmates: List<String>,
     )
 }
 
-// 🚀 LA SOLUCIÓN MÁGICA ANTICRASHEOS: Un Dropdown hecho a mano, 100% seguro 🚀
 @Composable
 fun FlatmateDropdown(selected: String, flatmates: List<String>, onSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
@@ -425,12 +428,11 @@ fun FlatmateDropdown(selected: String, flatmates: List<String>, onSelected: (Str
             onValueChange = {},
             readOnly = true,
             trailingIcon = {
-                Icon(Icons.Default.ArrowDropDown, contentDescription = "Expandir")
+                Icon(Icons.Default.ArrowDropDown, contentDescription = stringResource(R.string.chores_cd_expand))
             },
             modifier = Modifier.fillMaxWidth()
         )
 
-        // Esta caja invisible atrapa el clic y abre el menú SIN usar el ExperimentalMaterial3Api bugueado
         Box(
             modifier = Modifier
                 .matchParentSize()
@@ -467,9 +469,7 @@ private fun ChoreCard(
     onSwapRequest: (Chore) -> Unit,
     onSendReminder: (Chore) -> Unit
 ){
-    val isAssignedToMe = displayedAssignee == currentUserName || displayedAssignee == "Me"
-    val isEveryone = displayedAssignee == "Everyone"
-    val canComplete = mode == ChoreWeekMode.CURRENT && (isAssignedToMe || isEveryone)
+    val canComplete = mode == ChoreWeekMode.CURRENT
     val showActions = mode == ChoreWeekMode.CURRENT
     val cardColors = when (mode) {
         ChoreWeekMode.CURRENT -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -547,10 +547,14 @@ private fun ChoreCard(
                              }
                          }
 
-                         Checkbox(
-                            checked = displayedIsDone,
-                            onCheckedChange = { onUpdateChore(chore.id, it) }
-                         )
+                         IconButton(
+                             onClick = { onUpdateChore(chore.id, !displayedIsDone) }
+                         ) {
+                             Icon(
+                                 imageVector = if (displayedIsDone) Icons.AutoMirrored.Filled.Undo else Icons.Default.Check,
+                                 contentDescription = stringResource(R.string.cd_toggle_bought)
+                             )
+                         }
                      }
                  } else {
                      if (displayedIsDone) {
@@ -564,7 +568,7 @@ private fun ChoreCard(
                      }
                  }
              } else {
-                 Checkbox(checked = false, onCheckedChange = null, enabled = false)
+                 Spacer(modifier = Modifier.width(48.dp))
              }
          }
      }
@@ -578,7 +582,7 @@ private fun ChoreCard(
     val hasRecord: Boolean
 )
 
- private enum class ChoreWeekMode {
+ enum class ChoreWeekMode {
     CURRENT,
     PAST,
     FUTURE

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.auth.userProfileChangeRequest
+import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.model.Flat
 import es.uc3m.android.chillmates.model.User
 import es.uc3m.android.chillmates.model.USERS_COLLECTION
@@ -88,20 +89,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun loadUserFromFirestore(uid: String): User? {
         return try {
             val doc = firestore.collection(USERS_COLLECTION).document(uid).get().await()
-
-            println("DEBUG uid = $uid")
-            println("DEBUG exists = ${doc.exists()}")
-            println("DEBUG data = ${doc.data}")
-
             val user = doc.toObject(User::class.java)?.apply { id = uid }
-
-            println("DEBUG user object = $user")
-            println("DEBUG user flatId = ${user?.flatId}")
-
             user
         } catch (e: Exception) {
             e.printStackTrace()
-            println("DEBUG firestore error = ${e.message}")
             null
         }
     }
@@ -139,7 +130,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val password = _uiState.value.password
 
         if (email.isEmpty() || password.isEmpty()) {
-            _uiState.value = _uiState.value.copy(errorMessage = "Please fill in all fields")
+            _uiState.value = _uiState.value.copy(errorMessage = getApplication<Application>().resources.getString(R.string.auth_error_fill_fields))
             return
         }
 
@@ -180,17 +171,17 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val displayName = _uiState.value.displayName.trim()
 
         if (email.isEmpty() || password.isEmpty() || displayName.isEmpty()) {
-            _uiState.value = _uiState.value.copy(errorMessage = "Please fill in all fields")
+            _uiState.value = _uiState.value.copy(errorMessage = getApplication<Application>().resources.getString(R.string.auth_error_fill_fields))
             return
         }
 
         if (password != confirmPassword) {
-            _uiState.value = _uiState.value.copy(errorMessage = "Passwords do not match")
+            _uiState.value = _uiState.value.copy(errorMessage = getApplication<Application>().resources.getString(R.string.auth_error_passwords_no_match))
             return
         }
 
         if (password.length < 6) {
-            _uiState.value = _uiState.value.copy(errorMessage = "Password must be at least 6 characters")
+            _uiState.value = _uiState.value.copy(errorMessage = getApplication<Application>().resources.getString(R.string.auth_error_password_too_short))
             return
         }
 
@@ -254,7 +245,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val userId = _currentUser.value?.id
         if (userId == null) {
             _uiState.value = _uiState.value.copy(
-                errorMessage = "Current user could not be loaded from Firestore"
+                errorMessage = getApplication<Application>().resources.getString(R.string.auth_error_user_not_loaded)
             )
             return
         }
@@ -263,7 +254,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             FlatSetupMode.CREATE -> {
                 val flatName = currentState.flatName.trim()
                 if (flatName.isEmpty()) {
-                    _uiState.value = currentState.copy(errorMessage = "Please enter a flat name")
+                    _uiState.value = currentState.copy(errorMessage = getApplication<Application>().resources.getString(R.string.auth_error_flat_name_required))
                     return
                 }
                 createFlat(flatName, userId)
@@ -271,13 +262,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             FlatSetupMode.JOIN -> {
                 val code = currentState.inviteCode.trim()
                 if (code.isEmpty()) {
-                    _uiState.value = currentState.copy(errorMessage = "Please enter an invite code")
+                    _uiState.value = currentState.copy(errorMessage = getApplication<Application>().resources.getString(R.string.auth_error_invite_code_required))
                     return
                 }
                 joinFlat(code, userId)
             }
             FlatSetupMode.NONE -> {
-                _uiState.value = currentState.copy(errorMessage = "Please select an option")
+                _uiState.value = currentState.copy(errorMessage = getApplication<Application>().resources.getString(R.string.auth_error_select_option))
             }
         }
     }
@@ -290,10 +281,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 if (result.isSuccess) {
                     val flat = result.getOrThrow()
 
-                    // 🚀 ESPERA DINÁMICA: Verificamos en bucle hasta que Firebase confirme que el usuario tiene el 'flatId'
                     var updatedUser = loadUserFromFirestore(userId)
                     var retries = 0
-                    // Máximo 10 intentos (5 segundos) por seguridad, comprobando cada 0.5 segundos
                     while (updatedUser?.flatId == null && retries < 10) {
                         delay(500)
                         updatedUser = loadUserFromFirestore(userId)
@@ -305,7 +294,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         isLoading = false,
                         createdFlat = flat,
                         justCompletedFlatSetup = true,
-                        authState = AuthState.Authenticated // Pasa de pantalla exactamente cuando los datos están listos
+                        authState = AuthState.Authenticated
                     )
                 } else {
                     _uiState.value = _uiState.value.copy(
@@ -329,7 +318,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 val result = flatRepository.joinFlat(code, userId)
                 if (result.isSuccess) {
 
-                    // 🚀 ESPERA DINÁMICA: Verificamos en bucle hasta que Firebase confirme la unión
                     var updatedUser = loadUserFromFirestore(userId)
                     var retries = 0
                     while (updatedUser?.flatId == null && retries < 10) {
@@ -342,7 +330,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         justCompletedFlatSetup = true,
-                        authState = AuthState.Authenticated // Pasa de pantalla exactamente cuando los datos están listos
+                        authState = AuthState.Authenticated
                     )
                 } else {
                     _uiState.value = _uiState.value.copy(
@@ -370,7 +358,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    errorMessage = e.message ?: "Logout failed"
+                    errorMessage = "Logout failed"
                 )
             }
         }

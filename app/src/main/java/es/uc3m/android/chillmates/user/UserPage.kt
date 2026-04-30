@@ -70,7 +70,6 @@ fun UserPage(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-        // Al anular los insets por defecto evitamos el hueco superior de la barra de estado
         contentWindowInsets = WindowInsets(0.dp)
     ) { paddingValues ->
         UserRoute(
@@ -130,7 +129,6 @@ private fun UserRoute(
     onLogoutClick: () -> Unit
 ) {
     Column(modifier = modifier.fillMaxSize()) {
-        // Header
         Surface(color = MaterialTheme.colorScheme.primaryContainer) {
             Row(
                 modifier = Modifier
@@ -161,14 +159,13 @@ private fun UserRoute(
             }
         }
 
-        // LazyColumn de contenido
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.surfaceContainerLowest),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(
-                top = 16.dp,     // <-- AQUÍ SEPARADO DEL HEADER (antes estaba a 0.dp)
+                top = 16.dp,
                 start = 16.dp,
                 end = 16.dp,
                 bottom = 16.dp
@@ -385,7 +382,7 @@ private fun FlatSectionCardClean(
 
                 members.forEach { member ->
                     Text(
-                        text = "• ${member.name}",
+                        text = "${stringResource(R.string.user_flatmate_bullet)}${member.name}",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }

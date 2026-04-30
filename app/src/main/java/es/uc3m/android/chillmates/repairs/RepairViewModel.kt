@@ -1,15 +1,18 @@
 package es.uc3m.android.chillmates.repairs
 
+import android.app.Application
 import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
+import es.uc3m.android.chillmates.BuildConfig
+import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.model.Repair
 import es.uc3m.android.chillmates.model.USERS_COLLECTION
 import es.uc3m.android.chillmates.repository.FlatRepository
@@ -18,7 +21,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.util.UUID
-import android.util.Log
 
 data class RepairUi(
     val id: String,
@@ -36,8 +38,9 @@ data class RepairUiState(
 )
 
 class RepairViewModel(
+    application: Application,
     private val repository: FlatRepository = FlatRepository()
-) : ViewModel() {
+) : AndroidViewModel(application) {
 
     var uiState by mutableStateOf(RepairUiState())
         private set
@@ -49,7 +52,7 @@ class RepairViewModel(
 
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
-    private val storage = FirebaseStorage.getInstance() // Instancia de Firebase Storage
+    private val storage = FirebaseStorage.getInstance()
 
     init {
         loadUserAndFlatData()
@@ -89,7 +92,7 @@ class RepairViewModel(
             try {
                 val generativeModel = GenerativeModel(
                     modelName = "gemini-2.5-flash",
-                    apiKey = "AQ.Ab8RN6IT4ieMw3oYtlTZEt0wWnSdQBDptqAl0KpDlvH7uqfikA"
+                    apiKey = BuildConfig.GEMINI_API_KEY
                 )
 
                 val prompt = """
@@ -108,7 +111,6 @@ class RepairViewModel(
                 var success = false
                 var retries = 0
 
-                // 🚀 SISTEMA DE REINTENTOS: Intentará conectar hasta 3 veces si Google está saturado
                 while (!success && retries < 3) {
                     try {
                         val response = withContext(Dispatchers.IO) {
@@ -119,9 +121,8 @@ class RepairViewModel(
                     } catch (e: Exception) {
                         retries++
                         if (retries >= 3) {
-                            throw e // Si falla 3 veces, nos rendimos y vamos al Catch principal
+                            throw e
                         }
-                        // Esperamos 1.5 segundos antes del siguiente intento
                         kotlinx.coroutines.delay(1500)
                     }
                 }
@@ -130,8 +131,6 @@ class RepairViewModel(
                     onResult(improvedText.trim())
                 }
             } catch (e: Exception) {
-                // Si incluso después de 3 reintentos falla, usamos el texto de emergencia
-                android.util.Log.e("GeminiAI", "Falló tras 3 intentos: ${e.message}")
                 val fallbackText = """
                     Hello,
 
@@ -152,36 +151,31 @@ class RepairViewModel(
         }
     }
 
-    // 🚀 MODIFICADO: Sube las fotos a Firebase Storage primero
     fun createSentRepair(title: String, rawDescription: String, finalMessage: String, photoUris: List<String>) {
         val flatId = currentFlatId ?: return
         val description = rawDescription.trim()
         if (description.isBlank()) return
 
-        val repairTitle = title.trim().ifBlank { "Repair request" }
+        val repairTitle = title.trim().ifBlank { getApplication<Application>().resources.getString(R.string.repairs_default_title) }
 
         viewModelScope.launch {
             val uploadedUrls = mutableListOf<String>()
 
-            // 1. Subir cada imagen a Firebase Storage
             for (localUriStr in photoUris) {
                 try {
                     val uri = Uri.parse(localUriStr)
                     val fileName = UUID.randomUUID().toString() + ".jpg"
                     val ref = storage.reference.child("flats/$flatId/repairs/$fileName")
 
-                    // Sube el archivo
                     ref.putFile(uri).await()
 
-                    // Obtiene la URL pública HTTP
                     val downloadUrl = ref.downloadUrl.await().toString()
                     uploadedUrls.add(downloadUrl)
                 } catch (e: Exception) {
-                    e.printStackTrace() // Si falla una foto, simplemente la saltamos
+                    e.printStackTrace()
                 }
             }
 
-            // 2. Crear el objeto con las URLs públicas
             val newRepair = Repair(
                 id = System.currentTimeMillis().toString(),
                 title = repairTitle,

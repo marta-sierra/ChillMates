@@ -10,8 +10,6 @@ import es.uc3m.android.chillmates.model.USERS_COLLECTION
 import es.uc3m.android.chillmates.repository.FlatRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.Calendar
@@ -29,10 +27,8 @@ class ChoresViewModel(
     private val _currentUserName = MutableStateFlow<String>("Me")
     val currentUserName: StateFlow<String> = _currentUserName
 
-    private val pendingChoreStatusOverrides = MutableStateFlow<Map<String, Boolean>>(emptyMap())
-
     private var currentFlatId: String? = null
-    private var lastRotationChecked = false // Prevents infinite rotation loops
+    private var lastRotationChecked = false
 
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
@@ -53,7 +49,6 @@ class ChoresViewModel(
                 _currentUserName.value = userName
                 currentFlatId = flatId
 
-                // 1. Observe Flat (for members and auto-rotation timestamp)
                 launch {
                     repository.observeFlat(flatId).collect { flat ->
                         if (flat != null) {
@@ -71,29 +66,10 @@ class ChoresViewModel(
                     }
                 }
 
-                // 2. Observe Chores Subcollection
                 launch {
-                    repository.observeChores(flatId)
-                        .combine(pendingChoreStatusOverrides) { choresList, overrides ->
-                            val weekKey = currentWeekKey()
-                             choresList.map { chore ->
-                                val override = overrides[chore.id]
-                                if (override == null) {
-                                    chore
-                                } else {
-                                    val assignment = chore.assignments[weekKey]
-                                        ?: ChoreAssignment(assignee = chore.assignee, isDone = chore.isDone)
-                                    val updatedAssignment = assignment.copy(isDone = override)
-                                    chore.copy(
-                                        isDone = override,
-                                        assignments = chore.assignments + (weekKey to updatedAssignment)
-                                    )
-                                }
-                             }
-                         }
-                         .collect { mergedChores ->
-                             _chores.value = mergedChores
-                         }
+                    repository.observeChores(flatId).collect { dbChores ->
+                        _chores.value = dbChores
+                    }
                 }
 
             } catch (e: Exception) {
@@ -125,20 +101,27 @@ class ChoresViewModel(
         val currentChore = _chores.value.firstOrNull { it.id == choreId } ?: return
         val assignee = currentChore.assignments[weekKey]?.assignee ?: currentChore.assignee
 
-         pendingChoreStatusOverrides.update { it + (choreId to isDone) }
+        _chores.value = _chores.value.map { chore ->
+            if (chore.id == choreId) {
+                val assignment = chore.assignments[weekKey]
+                    ?: ChoreAssignment(assignee = chore.assignee, isDone = chore.isDone)
+                chore.copy(
+                    isDone = isDone,
+                    assignments = chore.assignments + (weekKey to assignment.copy(isDone = isDone))
+                )
+            } else chore
+        }
 
-         viewModelScope.launch {
-             try {
+        viewModelScope.launch {
+            try {
                 repository.updateChoreStatus(flatId, choreId, weekKey, isDone, assignee)
-                 pendingChoreStatusOverrides.update { it - choreId }
-             } catch (e: Exception) {
-                 pendingChoreStatusOverrides.update { it - choreId }
-                 repository.getChoresOnce(flatId).getOrNull()?.let { refreshed ->
-                     _chores.value = refreshed
-                 }
-             }
-         }
-     }
+            } catch (e: Exception) {
+                repository.getChoresOnce(flatId).getOrNull()?.let { refreshed ->
+                    _chores.value = refreshed
+                }
+            }
+        }
+    }
 
      fun addChore(title: String, assignee: String) {
          val flatId = currentFlatId ?: return
@@ -151,8 +134,7 @@ class ChoresViewModel(
              assignments = mapOf(weekKey to ChoreAssignment(assignee = assignee, isDone = false))
          )
 
-        // ACTUALIZACIÓN OPTIMISTA
-        _chores.value = _chores.value + newChore
+         _chores.value = _chores.value + newChore
 
         viewModelScope.launch {
             repository.addChore(flatId, newChore)
@@ -167,7 +149,6 @@ class ChoresViewModel(
             ?: ChoreAssignment(assignee = currentChore.assignee, isDone = currentChore.isDone)
         val updatedAssignment = currentAssignment.copy(assignee = newAssignee)
 
-         // ACTUALIZACIÓN OPTIMISTA
          _chores.value = _chores.value.map {
             if (it.id == choreId) {
                 it.copy(
@@ -193,7 +174,6 @@ class ChoresViewModel(
     fun saveReconfiguredChores(updatedList: List<Chore>) {
         val flatId = currentFlatId ?: return
 
-        // ACTUALIZACIÓN OPTIMISTA
         _chores.value = updatedList
 
         viewModelScope.launch {
@@ -235,7 +215,6 @@ class ChoresViewModel(
                 }
             }
 
-            // ACTUALIZACIÓN OPTIMISTA
             _chores.value = updatedList
             repository.performAutoRotationBatch(flatId, updatedList, currentTime)
         }
