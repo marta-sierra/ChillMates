@@ -282,71 +282,82 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-     private fun createFlat(name: String, userId: String) {
-         viewModelScope.launch {
-             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-             try {
-                 val result = flatRepository.createFlat(name, userId)
-                 if (result.isSuccess) {
-                     val flat = result.getOrThrow()
-                     val updatedUser = loadUserFromFirestore(userId)
-                     _currentUser.value = updatedUser
-                     _uiState.value = _uiState.value.copy(
-                         isLoading = false,
-                         createdFlat = flat,
-                         justCompletedFlatSetup = true
-                     )
-                     // Esperar 2 segundos para que los datos se sincronicen completamente
-                     delay(2000)
-                     _uiState.value = _uiState.value.copy(
-                         authState = AuthState.Authenticated
-                     )
-                 } else {
-                     _uiState.value = _uiState.value.copy(
-                         isLoading = false,
-                         errorMessage = result.exceptionOrNull()?.message ?: "Failed to create flat"
-                     )
-                 }
-             } catch (e: Exception) {
-                 _uiState.value = _uiState.value.copy(
-                     isLoading = false,
-                     errorMessage = e.message ?: "Failed to create flat"
-                 )
-             }
-         }
-     }
+    private fun createFlat(name: String, userId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            try {
+                val result = flatRepository.createFlat(name, userId)
+                if (result.isSuccess) {
+                    val flat = result.getOrThrow()
 
-     private fun joinFlat(code: String, userId: String) {
-         viewModelScope.launch {
-             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-             try {
-                 val result = flatRepository.joinFlat(code, userId)
-                 if (result.isSuccess) {
-                     val updatedUser = loadUserFromFirestore(userId)
-                     _currentUser.value = updatedUser
-                     _uiState.value = _uiState.value.copy(
-                         isLoading = false,
-                         justCompletedFlatSetup = true
-                     )
-                     // Esperar 2 segundos para que los datos se sincronicen completamente
-                     delay(2000)
-                     _uiState.value = _uiState.value.copy(
-                         authState = AuthState.Authenticated
-                     )
-                 } else {
-                     _uiState.value = _uiState.value.copy(
-                         isLoading = false,
-                         errorMessage = result.exceptionOrNull()?.message ?: "Invalid invite code"
-                     )
-                 }
-             } catch (e: Exception) {
-                 _uiState.value = _uiState.value.copy(
-                     isLoading = false,
-                     errorMessage = e.message ?: "Failed to join flat"
-                 )
-             }
-         }
-     }
+                    // 🚀 ESPERA DINÁMICA: Verificamos en bucle hasta que Firebase confirme que el usuario tiene el 'flatId'
+                    var updatedUser = loadUserFromFirestore(userId)
+                    var retries = 0
+                    // Máximo 10 intentos (5 segundos) por seguridad, comprobando cada 0.5 segundos
+                    while (updatedUser?.flatId == null && retries < 10) {
+                        delay(500)
+                        updatedUser = loadUserFromFirestore(userId)
+                        retries++
+                    }
+
+                    _currentUser.value = updatedUser
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        createdFlat = flat,
+                        justCompletedFlatSetup = true,
+                        authState = AuthState.Authenticated // Pasa de pantalla exactamente cuando los datos están listos
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = result.exceptionOrNull()?.message ?: "Failed to create flat"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = e.message ?: "Failed to create flat"
+                )
+            }
+        }
+    }
+
+    private fun joinFlat(code: String, userId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            try {
+                val result = flatRepository.joinFlat(code, userId)
+                if (result.isSuccess) {
+
+                    // 🚀 ESPERA DINÁMICA: Verificamos en bucle hasta que Firebase confirme la unión
+                    var updatedUser = loadUserFromFirestore(userId)
+                    var retries = 0
+                    while (updatedUser?.flatId == null && retries < 10) {
+                        delay(500)
+                        updatedUser = loadUserFromFirestore(userId)
+                        retries++
+                    }
+
+                    _currentUser.value = updatedUser
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        justCompletedFlatSetup = true,
+                        authState = AuthState.Authenticated // Pasa de pantalla exactamente cuando los datos están listos
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = result.exceptionOrNull()?.message ?: "Invalid invite code"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = e.message ?: "Failed to join flat"
+                )
+            }
+        }
+    }
 
     fun logout() {
         viewModelScope.launch {
