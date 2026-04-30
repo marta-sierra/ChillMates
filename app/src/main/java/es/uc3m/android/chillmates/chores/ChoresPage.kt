@@ -5,10 +5,12 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,6 +20,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Notifications
@@ -32,15 +35,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import es.uc3m.android.chillmates.LargeSectionHeader
 import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.model.Chore
+import java.util.concurrent.TimeUnit
 
-// Constants for broadcasts
+
 private const val CHORE_REMINDER_ACTION = "es.uc3m.android.chillmates.CHORE_REMINDER"
 
 @Composable
@@ -51,10 +54,40 @@ fun ChoresPage(
     val chores by viewModel.chores.collectAsState()
     val flatmates by viewModel.flatmates.collectAsState()
     val currentUserName by viewModel.currentUserName.collectAsState()
-
+    val context = LocalContext.current
+    var pendingReminderChore by remember { mutableStateOf<Chore?>(null) }
     var showAddChoreDialog by remember { mutableStateOf(false) }
     var showReconfigureDialog by remember { mutableStateOf(false) }
     var choreToSwap by remember { mutableStateOf<Chore?>(null) }
+    var reminderTargetChore by remember { mutableStateOf<Chore?>(null) }
+    var showReminderDialog by remember { mutableStateOf(false) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            showReminderDialog = reminderTargetChore != null
+        } else {
+            reminderTargetChore = null
+        }
+        pendingReminderChore = null
+    }
+
+    DisposableEffect(Unit) {
+        val receiver = ChoreReminderReceiver()
+        val filter = IntentFilter(CHORE_REMINDER_ACTION)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            context.registerReceiver(receiver, filter)
+        }
+
+        onDispose {
+            context.unregisterReceiver(receiver)
+        }
+    }
 
     var weekOffset by remember { mutableIntStateOf(0) }
 
@@ -128,11 +161,7 @@ fun ChoresPage(
                         }
                     }
 
-                    // FIX: Using key = { it.id } prevents Compose from crashing when elements are modified in large lists
-                    items(
-                        items = displayedChores,
-                        key = { chore -> chore.id }
-                    ) { chore ->
+                    items(displayedChores) { chore ->
                         ChoreCard(
                             chore = chore,
                             currentUserName = currentUserName,
@@ -140,7 +169,22 @@ fun ChoresPage(
                             onUpdateChore = { updatedChore ->
                                 viewModel.updateChoreStatus(updatedChore.id, updatedChore.isDone)
                             },
-                            onSwapRequest = { choreToSwap = it }
+                            onSwapRequest = { choreToSwap = it },
+                            onSendReminder = { chore ->
+                                reminderTargetChore = chore
+                                if (
+                                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.POST_NOTIFICATIONS
+                                    ) != PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    pendingReminderChore = chore
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    showReminderDialog = true
+                                }
+                            }
                         )
                     }
                 }
@@ -222,6 +266,52 @@ fun ChoresPage(
             }
         )
     }
+
+    if (showReminderDialog) {
+        ReminderTimeDialog(
+            onDismiss = {
+                showReminderDialog = false
+                reminderTargetChore = null
+            },
+            onSelectDelayMinutes = { minutes ->
+                reminderTargetChore?.let { chore ->
+                    scheduleChoreReminder(context, chore, TimeUnit.MINUTES.toMillis(minutes.toLong()))
+                }
+                showReminderDialog = false
+                reminderTargetChore = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun ReminderTimeDialog(
+    onDismiss: () -> Unit,
+    onSelectDelayMinutes: (Int) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.chore_reminder_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.chore_reminder_message))
+                TextButton(onClick = { onSelectDelayMinutes(10) }) {
+                    Text(stringResource(R.string.chore_reminder_in_10_min))
+                }
+                TextButton(onClick = { onSelectDelayMinutes(30) }) {
+                    Text(stringResource(R.string.chore_reminder_in_30_min))
+                }
+                TextButton(onClick = { onSelectDelayMinutes(60) }) {
+                    Text(stringResource(R.string.chore_reminder_in_1_hour))
+                }
+                TextButton(onClick = { onSelectDelayMinutes(180) }) {
+                    Text(stringResource(R.string.chore_reminder_in_3_hours))
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) } }
+    )
 }
 
 @Composable
@@ -267,22 +357,30 @@ fun SwapChoreDialog(chore: Chore, flatmates: List<String>, onDismiss: () -> Unit
 
 @Composable
 fun ReconfigureChoresDialog(currentChores: List<Chore>, flatmates: List<String>, onDismiss: () -> Unit, onSave: (List<Chore>) -> Unit) {
-    // FIX: Removing 'currentChores' from the 'remember' key prevents the list from completely
-    // resetting and crashing if a background update arrives from Firebase while editing.
-    val tempChores = remember { mutableStateListOf<Chore>().apply { addAll(currentChores) } }
+    // Inicialización segura para que no crashee al cargar la lista
+    val tempChores = remember(currentChores) { mutableStateListOf<Chore>().apply { addAll(currentChores) } }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.btn_reconfigure_chores)) },
         text = {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                // FIX: Use key to uniquely identify dialog items during fast recomposition
-                itemsIndexed(
-                    items = tempChores,
-                    key = { _, chore -> chore.id }
-                ) { index, chore ->
+                itemsIndexed(tempChores) { index, chore ->
                     Column {
-                        Text(text = chore.title, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = chore.title, fontWeight = FontWeight.Bold)
+                            IconButton(onClick = { tempChores.removeAt(index) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete chore",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
                         Spacer(modifier = Modifier.height(4.dp))
                         FlatmateDropdown(
                             selected = chore.assignee,
@@ -298,6 +396,7 @@ fun ReconfigureChoresDialog(currentChores: List<Chore>, flatmates: List<String>,
     )
 }
 
+// 🚀 LA SOLUCIÓN MÁGICA ANTICRASHEOS: Un Dropdown hecho a mano, 100% seguro 🚀
 @Composable
 fun FlatmateDropdown(selected: String, flatmates: List<String>, onSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
@@ -308,11 +407,12 @@ fun FlatmateDropdown(selected: String, flatmates: List<String>, onSelected: (Str
             onValueChange = {},
             readOnly = true,
             trailingIcon = {
-                Icon(Icons.Default.ArrowDropDown, contentDescription = "Expand")
+                Icon(Icons.Default.ArrowDropDown, contentDescription = "Expandir")
             },
             modifier = Modifier.fillMaxWidth()
         )
 
+        // Esta caja invisible atrapa el clic y abre el menú SIN usar el ExperimentalMaterial3Api bugueado
         Box(
             modifier = Modifier
                 .matchParentSize()
@@ -343,9 +443,12 @@ fun ChoreCard(
     currentUserName: String,
     isPreview: Boolean,
     onUpdateChore: (Chore) -> Unit,
-    onSwapRequest: (Chore) -> Unit
-) {
-    val isMe = (chore.assignee == currentUserName || chore.assignee == "Everyone" || chore.assignee == "Me") && !isPreview
+    onSwapRequest: (Chore) -> Unit,
+    onSendReminder: (Chore) -> Unit
+){
+    val isAssignedToMe = chore.assignee == currentUserName || chore.assignee == "Me"
+    val isEveryone = chore.assignee == "Everyone"
+    val canComplete = (isAssignedToMe || isEveryone) && !isPreview
     val context = LocalContext.current
 
     Card(
@@ -376,33 +479,37 @@ fun ChoreCard(
             }
 
             if (!isPreview) {
-                if (isMe) {
-                    Checkbox(
-                        checked = chore.isDone,
-                        onCheckedChange = { onUpdateChore(chore.copy(isDone = it)) }
-                    )
+                if (canComplete) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (!chore.isDone) {
+                            IconButton(
+                                onClick = { onSendReminder(chore) }
+                            ) {
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = stringResource(R.string.cd_send_reminder),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+
+                        Checkbox(
+                            checked = chore.isDone,
+                            onCheckedChange = { onUpdateChore(chore.copy(isDone = it)) }
+                        )
+                }
                 } else {
                     if (chore.isDone) {
                         TextButton(onClick = { onUpdateChore(chore.copy(isDone = false)) }) {
                             Text(stringResource(R.string.btn_redo), color = MaterialTheme.colorScheme.error)
                         }
                     } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = { onSwapRequest(chore) }) {
-                                Text(stringResource(R.string.btn_swap))
-                            }
-                            IconButton(
-                                onClick = {
-                                    sendChoreReminderBroadcast(context, chore)
-                                }
-                            ) {
-                                Icon(Icons.Default.Notifications, contentDescription = stringResource(R.string.cd_send_reminder), tint = MaterialTheme.colorScheme.primary)
-                            }
+                        TextButton(onClick = { onSwapRequest(chore) }) {
+                            Text(stringResource(R.string.btn_swap))
                         }
                     }
                 }
             } else {
-                // If it's a preview, show a disabled checkbox just to indicate it's a pending chore
                 Checkbox(checked = false, onCheckedChange = null, enabled = false)
             }
         }
