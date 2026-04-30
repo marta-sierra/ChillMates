@@ -11,7 +11,7 @@ import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme // NUEVO: Importación necesaria
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -39,7 +39,7 @@ import es.uc3m.android.chillmates.home.HomePage
 import es.uc3m.android.chillmates.home.AddEventScreen
 import es.uc3m.android.chillmates.expensestracker.ExpensesTrackerPage
 import es.uc3m.android.chillmates.repairs.RepairPage
-import es.uc3m.android.chillmates.settings.SettingsDataStoreHelper // NUEVO: Importación del DataStore
+import es.uc3m.android.chillmates.settings.SettingsDataStoreHelper
 import es.uc3m.android.chillmates.settings.SettingsPage
 import es.uc3m.android.chillmates.shoppinglist.SelectSupermarketScreen
 import es.uc3m.android.chillmates.shoppinglist.Supermarket
@@ -58,18 +58,14 @@ class MainActivity : ComponentActivity() {
             val flatId = data.lastPathSegment
         }
 
-        // NUEVO: Instanciamos el helper para leer tus ajustes
         val dataStoreHelper = SettingsDataStoreHelper(applicationContext)
 
         enableEdgeToEdge()
         setContent {
-            // NUEVO: Leemos el estado del modo oscuro en tiempo real.
-            // Si el usuario no ha tocado el ajuste, tomará el del sistema.
             val isDarkMode by dataStoreHelper.darkModeEnabled.collectAsState(
                 initial = isSystemInDarkTheme()
             )
 
-            // NUEVO: Forzamos al tema a usar el valor leído
             val soundEffectsEnabled by dataStoreHelper.soundEnabled.collectAsState(initial = true)
 
             ChillMatesTheme(darkTheme = isDarkMode) {
@@ -122,13 +118,13 @@ fun WelcomeBackScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
-                text = "Welcome back,",
+                text = stringResource(R.string.main_welcome_back),
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
 
             Text(
-                text = userName.ifEmpty { "mate" },
+                text = userName.ifEmpty { stringResource(R.string.main_welcome_fallback_name) },
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -137,13 +133,13 @@ fun WelcomeBackScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "to",
+                text = stringResource(R.string.main_welcome_to),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Text(
-                text = flatName ?: "your flat",
+                text = flatName ?: stringResource(R.string.main_welcome_fallback_flat),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -217,7 +213,6 @@ fun ChillMatesApp(
         return
     }
 
-    // Pantalla de carga mientras se sincroniza después de crear/unirse a un piso
     if (authState.justCompletedFlatSetup && authState.authState !is AuthState.Authenticated) {
         Box(
             modifier = Modifier
@@ -233,7 +228,7 @@ fun ChillMatesApp(
                 CircularProgressIndicator()
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "Preparando tu piso...",
+                    text = stringResource(R.string.main_preparing_flat),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

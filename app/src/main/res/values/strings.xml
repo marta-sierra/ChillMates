@@ -241,4 +241,101 @@
     <string name="chore_status_no_record">No record</string>
     <string name="chore_tentative_next_week">Tentative next week rotation</string>
 
+    <!-- MainActivity.kt -->
+    <string name="main_welcome_back">Welcome back,</string>
+    <string name="main_welcome_fallback_name">mate</string>
+    <string name="main_welcome_to">to</string>
+    <string name="main_welcome_fallback_flat">your flat</string>
+    <string name="main_preparing_flat">Preparing your flat...</string>
+
+    <!-- AuthViewModel.kt -->
+    <string name="auth_error_fill_fields">Please fill in all fields</string>
+    <string name="auth_error_passwords_no_match">Passwords do not match</string>
+    <string name="auth_error_password_too_short">Password must be at least 6 characters</string>
+    <string name="auth_error_user_not_loaded">Current user could not be loaded from Firestore</string>
+    <string name="auth_error_flat_name_required">Please enter a flat name</string>
+    <string name="auth_error_invite_code_required">Please enter an invite code</string>
+    <string name="auth_error_select_option">Please select an option</string>
+
+    <!-- home/HomePage.kt -->
+    <string name="home_error_prefix">Error: </string>
+    <string name="home_notice_empty">No notices yet.</string>
+    <string name="home_cd_previous">Previous</string>
+    <string name="home_cd_next">Next</string>
+    <string name="home_add_notice">Add Notice</string>
+    <string name="home_poll_going">Going: </string>
+    <string name="home_poll_not_going_prefix">Not going: </string>
+    <string name="home_poll_im_in">I\'m in!</string>
+    <string name="home_poll_not_going_btn">Not going</string>
+    <string name="home_new_notice_title">New Notice</string>
+    <string name="home_notice_title_label">Title</string>
+    <string name="home_notice_details_label">Details</string>
+    <string name="home_notice_poll_label">Is this a poll? (RSVP)</string>
+    <string name="home_events_empty">No events scheduled.</string>
+    <string name="home_permission_denied">Permission required for alarms.</string>
+    <string name="home_cd_toggle_reminder">Toggle reminder</string>
+    <string name="home_cd_expand_details">Expand details</string>
+    <string name="home_export_calendar">Export to Calendar</string>
+    <string name="home_notification_prefix">Upcoming Event: </string>
+
+    <!-- home/HomeViewModel.kt -->
+    <string name="home_fallback_user">Me</string>
+
+    <!-- shoppinglist/ShoppingListPage.kt -->
+    <string name="shopping_places_unavailable">Google Places is unavailable. Check MAPS_API_KEY and Play Services setup.</string>
+
+    <!-- shoppinglist/ShoppingListViewModel.kt -->
+    <string name="shopping_error_no_flat">No flat selected</string>
+    <string name="shopping_error_add_supermarket">Failed to add supermarket</string>
+
+    <!-- chores/ChoresPage.kt -->
+    <string name="chores_week_current">Current Week</string>
+    <string name="chores_week_next">Next Week</string>
+    <string name="chores_week_last">Last Week</string>
+    <string name="chores_week_future">In %d weeks</string>
+    <string name="chores_week_past">%d weeks ago</string>
+    <string name="chores_cd_delete">Delete chore</string>
+    <string name="chores_cd_expand">Expand</string>
+
+    <!-- repairs/RepairPage.kt -->
+    <string name="repairs_hide_form">Hide request form</string>
+    <string name="repairs_new_request">New repair request</string>
+    <string name="repairs_title_placeholder">Repair title...</string>
+    <string name="repairs_description_placeholder">Describe the issue...</string>
+    <string name="repairs_add_more_images">Add more images (%d selected)</string>
+    <string name="repairs_ai_thinking">Thinking...</string>
+    <string name="repairs_gmail_not_installed">Gmail is not installed on this device</string>
+    <string name="repairs_confirm_dialog_title">Confirm email sending</string>
+    <string name="repairs_confirm_dialog_text">Did you finally send the email from Gmail?</string>
+    <string name="repairs_confirm_yes">Yes, sent</string>
+    <string name="repairs_confirm_no">No</string>
+    <string name="repairs_cd_remove_image">Remove image</string>
+
+    <!-- repairs/RepairViewModel.kt -->
+    <string name="repairs_default_title">Repair request</string>
+
+    <!-- expensestracker/ExpensesTrackerPage.kt -->
+    <string name="expenses_your_balance">Your Total Balance</string>
+
+    <!-- expensestracker/AddExpenseScreen.kt -->
+    <string name="add_expense_amount_label">Amount (€)</string>
+
+    <!-- user/UserPage.kt -->
+    <string name="user_flatmate_bullet">\u2022\u0020</string>
+
+    <!-- user/UserViewModel.kt -->
+    <string name="user_error_flat_name_required">Please enter a flat name</string>
+    <string name="user_success_flat_created">Flat created successfully!</string>
+    <string name="user_error_invite_code_required">Please enter an invite code</string>
+    <string name="user_success_flat_joined">Joined flat successfully!</string>
+    <string name="user_success_left_flat">You have left the flat</string>
+    <string name="user_success_name_updated">Name updated successfully</string>
+    <string name="user_success_password_updated">Password updated successfully</string>
+
+    <!-- repository/FlatRepository.kt -->
+    <string name="repo_error_flat_not_found">Flat not found</string>
+    <string name="repo_error_parse">Parse error</string>
+    <string name="repo_error_already_member">Already a member</string>
+    <string name="repo_unknown_user">Unknown</string>
+
 </resources>

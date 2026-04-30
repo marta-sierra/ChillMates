@@ -17,8 +17,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
@@ -108,18 +110,23 @@ fun ChoresPage(
                         if (currentIndex == -1) {
                             baseAssignee
                         } else {
-                            val size = mates.size
-                            val shiftedIndex = ((currentIndex + weekOffset) % size + size) % size
-                            mates[shiftedIndex]
+                            val currentIndex = mates.indexOf(baseAssignee)
+                            if (currentIndex == -1) {
+                                baseAssignee
+                            } else {
+                                val size = mates.size
+                                val shiftedIndex = ((currentIndex + weekOffset) % size + size) % size
+                                mates[shiftedIndex]
+                            }
                         }
+                        ChoreWeekUi(
+                            chore = chore,
+                            assignee = tentativeAssignee,
+                            isDone = false,
+                            mode = ChoreWeekMode.FUTURE,
+                            hasRecord = false
+                        )
                     }
-                    ChoreWeekUi(
-                        chore = chore,
-                        assignee = tentativeAssignee,
-                        isDone = false,
-                        mode = ChoreWeekMode.FUTURE,
-                        hasRecord = false
-                    )
                 }
             }
         }
@@ -146,16 +153,16 @@ fun ChoresPage(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             IconButton(onClick = { weekOffset-- }) {
-                                Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Previous Week")
+                                Icon(Icons.Default.KeyboardArrowLeft, contentDescription = stringResource(R.string.home_cd_previous))
                             }
 
                             Text(
                                 text = when {
-                                    weekOffset == 0 -> "Current Week"
-                                    weekOffset == 1 -> "Next Week"
-                                    weekOffset == -1 -> "Last Week"
-                                    weekOffset > 1 -> "In $weekOffset weeks"
-                                    else -> "${-weekOffset} weeks ago"
+                                    weekOffset == 0 -> stringResource(R.string.chores_week_current)
+                                    weekOffset == 1 -> stringResource(R.string.chores_week_next)
+                                    weekOffset == -1 -> stringResource(R.string.chores_week_last)
+                                    weekOffset > 1 -> stringResource(R.string.chores_week_future, weekOffset)
+                                    else -> stringResource(R.string.chores_week_past, -weekOffset)
                                 },
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
@@ -163,7 +170,7 @@ fun ChoresPage(
                             )
 
                             IconButton(onClick = { weekOffset++ }) {
-                                Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Next Week")
+                                Icon(Icons.Default.KeyboardArrowRight, contentDescription = stringResource(R.string.home_cd_next))
                             }
                         }
                     }
@@ -409,7 +416,7 @@ fun ReconfigureChoresDialog(
                             IconButton(onClick = { tempChores.removeAt(index) }) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
-                                    contentDescription = "Delete chore",
+                                    contentDescription = stringResource(R.string.chores_cd_delete),
                                     tint = MaterialTheme.colorScheme.error
                                 )
                             }
@@ -439,7 +446,7 @@ fun FlatmateDropdown(selected: String, flatmates: List<String>, onSelected: (Str
             onValueChange = {},
             readOnly = true,
             trailingIcon = {
-                Icon(Icons.Default.ArrowDropDown, contentDescription = "Expandir")
+                Icon(Icons.Default.ArrowDropDown, contentDescription = stringResource(R.string.chores_cd_expand))
             },
             modifier = Modifier.fillMaxWidth()
         )
@@ -560,7 +567,7 @@ private fun ChoreCard(
 
                         Checkbox(
                             checked = displayedIsDone,
-                            onCheckedChange = null // 🚀 100% pasivo, igual que ShoppingList
+                            onCheckedChange = null
                         )
                     }
                 } else {

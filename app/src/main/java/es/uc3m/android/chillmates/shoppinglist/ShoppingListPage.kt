@@ -36,7 +36,6 @@ import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import android.util.Log
 
 @Composable
 fun ShoppingListPage(navController: NavController) {
@@ -706,7 +705,7 @@ private fun AddSupermarketDialog(
     val placesSearchFailedText = stringResource(R.string.error_places_search_failed)
     val placeDetailsFailedText = stringResource(R.string.error_place_details_failed)
     val placeMissingLocationText = stringResource(R.string.error_place_missing_location)
-    val placesUnavailableText = "Google Places is unavailable. Check MAPS_API_KEY and Play Services setup."
+    val placesUnavailableText = stringResource(R.string.shopping_places_unavailable)
 
     var alias by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
@@ -790,8 +789,6 @@ private fun AddSupermarketDialog(
                                     searchError = noPlacesFoundText
                                 }
                             } catch (e: Exception) {
-                                Log.e("PlacesSearch", "Could not search places", e)
-
                                 searchError = e.message ?: placesSearchFailedText
                                 predictions = emptyList()
                             } finally {
@@ -847,8 +844,6 @@ private fun AddSupermarketDialog(
                                             searchError = placeMissingLocationText
                                         }
                                     } catch (e: Exception) {
-                                        Log.e("PlacesSearch", "Could not fetch place details", e)
-
                                         searchError = e.message ?: placeDetailsFailedText
                                     }finally {
                                         isLoadingPlace = false

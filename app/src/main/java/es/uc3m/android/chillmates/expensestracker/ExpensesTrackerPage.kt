@@ -333,11 +333,10 @@ private fun ExpensesContentSection(
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        // 1. LISTA DE GASTOS (Scrollable)
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f) // Ocupa todo el espacio disponible
+                .weight(1f)
                 .padding(horizontal = 24.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -351,12 +350,10 @@ private fun ExpensesContentSection(
             }
         }
 
-        // 2. BOTÓN AÑADIR (Anclado)
         Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
             AddExpenseAction(onAddClick = onAddExpenseClick)
         }
 
-        // 3. SECCIÓN DE SALDOS (Anclada al fondo)
         BalancesFooterSection(
             balances = balances,
             isLargeView = showLargeBalance,
@@ -373,18 +370,16 @@ private fun BalancesFooterSection(
     isLargeView: Boolean,
     modifier: Modifier = Modifier
 ) {
-    // Si solo hay una persona (filtro activo), mostramos una tarjeta grande
     if (isLargeView && balances.isNotEmpty()) {
         Box(modifier = modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
             BalanceCardItem(
-                name = "Your Total Balance",
+                name = stringResource(R.string.expenses_your_balance),
                 balance = balances[0].balance,
                 modifier = Modifier.fillMaxWidth().height(90.dp),
                 isLarge = true
             )
         }
     } else {
-        // Carrusel horizontal para múltiples personas
         LazyRow(
             modifier = modifier
                 .fillMaxWidth()
@@ -393,11 +388,10 @@ private fun BalancesFooterSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(balances) { b ->
-                // Calculamos el ancho dinámicamente según el número de personas
                 val itemWidth = when (balances.size) {
-                    1 -> 340.dp // Casi pantalla completa
+                    1 -> 340.dp
                     2 -> 160.dp
-                    else -> 110.dp // Para que quepan 3 aprox
+                    else -> 110.dp
                 }
 
                 BalanceCardItem(

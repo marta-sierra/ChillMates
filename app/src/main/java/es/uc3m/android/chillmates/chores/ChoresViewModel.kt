@@ -67,7 +67,6 @@ class ChoresViewModel(
                     }
                 }
 
-                // 🚀 IGUAL QUE EN SHOPPING LIST: Escuchamos directamente de Firebase. Cero delays.
                 launch {
                     repository.observeChores(flatId).collect { dbChores ->
                         _chores.value = dbChores
@@ -103,7 +102,6 @@ class ChoresViewModel(
         val currentChore = _chores.value.firstOrNull { it.id == choreId } ?: return
         val assignee = currentChore.assignments[weekKey]?.assignee ?: currentChore.assignee
 
-        // 1. Preparamos el objeto con la tarea tachada
         val updatedAssignments = currentChore.assignments.toMutableMap()
         updatedAssignments[weekKey] = ChoreAssignment(assignee = assignee, isDone = isDone)
 
@@ -111,12 +109,7 @@ class ChoresViewModel(
             isDone = isDone,
             assignments = updatedAssignments
         )
-
-        // 🚀 2. ACTUALIZACIÓN INSTANTÁNEA EN PANTALLA
-        // Esta es la línea que faltaba. Le dice a Compose que dibuje el tachado ¡AHORA MISMO!
         _chores.value = _chores.value.map { if (it.id == choreId) updatedChore else it }
-
-        // 3. Guardamos en Firebase silenciosamente en segundo plano
         viewModelScope.launch {
             try {
                 db.collection("flats").document(flatId)

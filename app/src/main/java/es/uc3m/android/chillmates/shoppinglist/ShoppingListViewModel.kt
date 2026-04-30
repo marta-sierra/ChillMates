@@ -65,7 +65,6 @@ class ShoppingViewModel(
                 currentFlatId = flatId
                 uiState = uiState.copy(currentUserName = userName)
 
-                // Observe members and supermarkets
                 launch {
                     repository.observeFlat(flatId).collect { flat ->
                         if (flat != null) {
@@ -89,7 +88,6 @@ class ShoppingViewModel(
                     }
                 }
 
-                // Observe Shopping Items
                 launch {
                     repository.observeShoppingItems(flatId).collect { dbItems ->
                         uiState = uiState.copy(items = dbItems.map { it.toUi() })

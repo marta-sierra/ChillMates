@@ -1,13 +1,15 @@
 package es.uc3m.android.chillmates.home
 
+import android.app.Application
 import androidx.compose.runtime.Immutable
-import androidx.lifecycle.ViewModel
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.model.Notice
 import es.uc3m.android.chillmates.model.UpcomingEvent
 import es.uc3m.android.chillmates.model.USERS_COLLECTION
@@ -46,7 +48,7 @@ data class HomeUiState(
     val errorMessage: String? = null
 )
 
-class HomeViewModel : ViewModel() {
+class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
     private val repository = FlatRepository()
@@ -134,7 +136,7 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val userId = auth.currentUser?.uid ?: return@launch
-                val userName = auth.currentUser?.displayName.takeIf { !it.isNullOrBlank() } ?: "Me"
+                val userName = auth.currentUser?.displayName.takeIf { !it.isNullOrBlank() } ?: getApplication<Application>().resources.getString(R.string.home_fallback_user)
                 val userDoc = db.collection(USERS_COLLECTION).document(userId).get().await()
                 val flatId = userDoc.getString("flatId") ?: return@launch
 
@@ -146,7 +148,6 @@ class HomeViewModel : ViewModel() {
                     currentAccepted.add(userName)
                     repository.updateNoticeAcceptedBy(flatId, noticeId, currentAccepted)
                 }
-                // Remove from declined if was there
                 if (currentDeclined.contains(userName)) {
                     currentDeclined.remove(userName)
                     repository.updateNoticeDeclinedBy(flatId, noticeId, currentDeclined)
@@ -159,7 +160,7 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val userId = auth.currentUser?.uid ?: return@launch
-                val userName = auth.currentUser?.displayName.takeIf { !it.isNullOrBlank() } ?: "Me"
+                val userName = auth.currentUser?.displayName.takeIf { !it.isNullOrBlank() } ?: getApplication<Application>().resources.getString(R.string.home_fallback_user)
                 val userDoc = db.collection(USERS_COLLECTION).document(userId).get().await()
                 val flatId = userDoc.getString("flatId") ?: return@launch
 
@@ -167,7 +168,6 @@ class HomeViewModel : ViewModel() {
                 val currentAccepted = currentNotice.acceptedBy.map { it.name }.toMutableList()
                 val currentDeclined = currentNotice.declinedBy.map { it.name }.toMutableList()
 
-                // Remove from accepted, add to declined
                 if (currentAccepted.contains(userName)) {
                     currentAccepted.remove(userName)
                     repository.updateNoticeAcceptedBy(flatId, noticeId, currentAccepted)
@@ -180,7 +180,6 @@ class HomeViewModel : ViewModel() {
         }
     }
 
-    // NUEVO: Función para guardar un anuncio en Firebase
     fun addNotice(title: String, details: String, poll: Boolean) {
         viewModelScope.launch {
             try {

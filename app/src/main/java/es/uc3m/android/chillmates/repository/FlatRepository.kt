@@ -18,10 +18,6 @@ class FlatRepository {
         return (1..8).map { chars[Random.nextInt(chars.length)] }.joinToString("")
     }
 
-    // =========================================================================
-    // CORE FLAT & USERS METHODS
-    // =========================================================================
-
     suspend fun createFlat(name: String, creatorId: String): Result<Flat> {
         return try {
             val inviteCode = generateInviteCode()
@@ -63,10 +59,7 @@ class FlatRepository {
                 val flatRef = firestore.collection(FLATS_COLLECTION).document(flatId)
                 val userRef = firestore.collection(USERS_COLLECTION).document(userId)
 
-                // 1. Remove user from flat's member array
                 batch.update(flatRef, "memberIds", FieldValue.arrayRemove(userId))
-
-                // 2. Clear user's flat data
                 batch.update(userRef, mapOf("flatId" to null, "flatName" to null))
             }.await()
             Result.success(Unit)
@@ -106,10 +99,6 @@ class FlatRepository {
         } catch (e: Exception) { Result.failure(e) }
     }
 
-    // =========================================================================
-    // SUPERMARKETS
-    // =========================================================================
-
     suspend fun getSupermarketsForFlat(flatId: String): Result<List<Supermarket>> {
         return try {
             val flatDoc = firestore.collection(FLATS_COLLECTION).document(flatId).get().await()
@@ -136,11 +125,6 @@ class FlatRepository {
         } catch (e: Exception) { Result.failure(e) }
     }
 
-    // =========================================================================
-    // SUBCOLLECTIONS (Chores, Repairs, Expenses, Shopping, Home)
-    // =========================================================================
-
-    // --- CHORES ---
     fun observeChores(flatId: String): Flow<List<Chore>> = callbackFlow {
         val listener = firestore.collection(FLATS_COLLECTION).document(flatId).collection(CHORES_SUBCOLLECTION)
             .addSnapshotListener { snapshot, error ->
@@ -218,7 +202,6 @@ class FlatRepository {
         }.await()
     }
 
-    // --- REPAIRS ---
     fun observeRepairs(flatId: String): Flow<List<Repair>> = callbackFlow {
         val listener = firestore.collection(FLATS_COLLECTION).document(flatId).collection(REPAIRS_SUBCOLLECTION)
             .addSnapshotListener { snapshot, error ->
@@ -236,7 +219,6 @@ class FlatRepository {
         firestore.collection(FLATS_COLLECTION).document(flatId).collection(REPAIRS_SUBCOLLECTION).document(repairId).update("status", newStatus).await()
     }
 
-    // --- EXPENSES ---
     fun observeExpenses(flatId: String): Flow<List<Expense>> = callbackFlow {
         val listener = firestore.collection(FLATS_COLLECTION).document(flatId).collection(EXPENSES_SUBCOLLECTION)
             .addSnapshotListener { snapshot, error ->
@@ -254,7 +236,6 @@ class FlatRepository {
         firestore.collection(FLATS_COLLECTION).document(flatId).collection(EXPENSES_SUBCOLLECTION).document(expenseId).update("ticketUri", uriString).await()
     }
 
-    // --- SHOPPING ITEMS ---
     fun observeShoppingItems(flatId: String): Flow<List<ShoppingItem>> = callbackFlow {
         val listener = firestore.collection(FLATS_COLLECTION).document(flatId).collection(SHOPPING_SUBCOLLECTION)
             .addSnapshotListener { snapshot, error ->
@@ -276,7 +257,6 @@ class FlatRepository {
         firestore.collection(FLATS_COLLECTION).document(flatId).collection(SHOPPING_SUBCOLLECTION).document(itemId).delete().await()
     }
 
-    // --- HOME: NOTICES & EVENTS ---
     fun observeNotices(flatId: String): Flow<List<Notice>> = callbackFlow {
         val listener = firestore.collection(FLATS_COLLECTION).document(flatId).collection(NOTICES_SUBCOLLECTION)
             .addSnapshotListener { snapshot, error ->

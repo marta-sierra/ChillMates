@@ -79,7 +79,7 @@ fun HomePage(navController: NavController, viewModel: HomeViewModel = viewModel(
 
     if (uiState.errorMessage != null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(text = "Error: ${uiState.errorMessage}", color = MaterialTheme.colorScheme.error)
+            Text(text = "${stringResource(R.string.home_error_prefix)}${uiState.errorMessage}", color = MaterialTheme.colorScheme.error)
         }
         return
     }
@@ -147,7 +147,7 @@ fun NoticeBoardSection(
 
         if (notices.isEmpty()) {
             Text(
-                text = "No notices yet.",
+                text = stringResource(R.string.home_notice_empty),
                 modifier = Modifier.padding(horizontal = 16.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -168,7 +168,7 @@ fun NoticeBoardSection(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBack,
-                                contentDescription = "Previous",
+                                contentDescription = stringResource(R.string.home_cd_previous),
                                 tint = if (notices.size > 1) MaterialTheme.colorScheme.onSurfaceVariant
                                 else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
                             )
@@ -190,7 +190,7 @@ fun NoticeBoardSection(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowForward,
-                                contentDescription = "Next",
+                                contentDescription = stringResource(R.string.home_cd_next),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -234,7 +234,7 @@ fun NoticeBoardSection(
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Add Notice",
+                    text = stringResource(R.string.home_add_notice),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -284,7 +284,7 @@ fun NoticeCard(
 
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Going: ${if (notice.acceptedBy.isEmpty()) "-" else notice.acceptedBy.joinToString { it.name }}",
+                        text = "${stringResource(R.string.home_poll_going)}${if (notice.acceptedBy.isEmpty()) "-" else notice.acceptedBy.joinToString { it.name }}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold,
@@ -294,7 +294,7 @@ fun NoticeCard(
 
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Not going: ${if (notice.declinedBy.isEmpty()) "-" else notice.declinedBy.joinToString { it.name }}",
+                        text = "${stringResource(R.string.home_poll_not_going_prefix)}${if (notice.declinedBy.isEmpty()) "-" else notice.declinedBy.joinToString { it.name }}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                         maxLines = 1,
@@ -315,14 +315,14 @@ fun NoticeCard(
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
-                        Text("I'm in!", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.home_poll_im_in), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     OutlinedButton(
                         onClick = { onDeclineClick(notice.id) },
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(0.dp)
                     ) {
-                        Text("Not going", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.home_poll_not_going_btn), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -355,7 +355,6 @@ fun NoticeCard(
     }
 }
 
-// NUEVO: Dialogo para rellenar los datos del Anuncio
 @Composable
 fun AddNoticeDialog(
     onDismiss: () -> Unit,
@@ -367,20 +366,20 @@ fun AddNoticeDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("New Notice") },
+        title = { Text(stringResource(R.string.home_new_notice_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Title") },
+                    label = { Text(stringResource(R.string.home_notice_title_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = details,
                     onValueChange = { details = it },
-                    label = { Text("Details") },
+                    label = { Text(stringResource(R.string.home_notice_details_label)) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3
                 )
@@ -389,7 +388,7 @@ fun AddNoticeDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Checkbox(checked = poll, onCheckedChange = { poll = it })
-                    Text("Is this a poll? (RSVP)")
+                    Text(stringResource(R.string.home_notice_poll_label))
                 }
             }
         },
@@ -433,7 +432,7 @@ fun UpcomingEventsSection(
 
         if (events.isEmpty()) {
             Text(
-                text = "No events scheduled.",
+                text = stringResource(R.string.home_events_empty),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
@@ -473,7 +472,7 @@ fun EventCard(event: UpcomingEventUi, context: Context, viewModel: HomeViewModel
         if (isGranted) {
             toggleEventReminder(event, context, viewModel)
         } else {
-            Toast.makeText(context, "Permission required for alarms.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.home_permission_denied), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -537,7 +536,7 @@ fun EventCard(event: UpcomingEventUi, context: Context, viewModel: HomeViewModel
                 }) {
                     Icon(
                         imageVector = if (event.isRemindMeEnabled) Icons.Default.Notifications else Icons.Default.NotificationsNone,
-                        contentDescription = "Toggle reminder",
+                        contentDescription = stringResource(R.string.home_cd_toggle_reminder),
                         tint = if (event.isRemindMeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -545,7 +544,7 @@ fun EventCard(event: UpcomingEventUi, context: Context, viewModel: HomeViewModel
                 IconButton(onClick = { isExpanded = !isExpanded }) {
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
-                        contentDescription = "Expand details",
+                        contentDescription = stringResource(R.string.home_cd_expand_details),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -558,7 +557,7 @@ fun EventCard(event: UpcomingEventUi, context: Context, viewModel: HomeViewModel
 
                 if (event.location.isNotEmpty()) {
                     Text(
-                        text = "Location: ${event.location}",
+                        text = "${stringResource(R.string.home_location_prefix)}${event.location}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -567,7 +566,7 @@ fun EventCard(event: UpcomingEventUi, context: Context, viewModel: HomeViewModel
                 if (event.attending.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Attending: ${event.attending.joinToString { it.name }}",
+                        text = "${stringResource(R.string.home_attending_prefix)}${event.attending.joinToString { it.name }}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -579,7 +578,7 @@ fun EventCard(event: UpcomingEventUi, context: Context, viewModel: HomeViewModel
                     contentPadding = PaddingValues(0.dp)
                 ) {
                     Text(
-                        text = "Export to Calendar",
+                        text = stringResource(R.string.home_export_calendar),
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -595,7 +594,7 @@ private fun toggleEventReminder(event: UpcomingEventUi, context: Context, viewMo
         Toast.makeText(context, context.getString(R.string.home_toast_reminder_canceled), Toast.LENGTH_SHORT).show()
     } else {
         val triggerAtMillis = System.currentTimeMillis() + 10_000
-        scheduleReminder(context, event.id.hashCode(), "Upcoming Event: ${event.description}", "Starts at ${event.dateLabel}", triggerAtMillis)
+        scheduleReminder(context, event.id.hashCode(), "${context.getString(R.string.home_notification_prefix)}${event.description}", "Starts at ${event.dateLabel}", triggerAtMillis)
         viewModel.toggleReminder(event.id)
         Toast.makeText(context, context.getString(R.string.home_toast_reminder_set), Toast.LENGTH_SHORT).show()
     }
