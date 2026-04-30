@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 data class SettingsUiState(
-    val notificationsEnabled: Boolean = true,
     val darkModeEnabled: Boolean = false,
     val soundEnabled: Boolean = true
 )
@@ -23,11 +22,6 @@ class SettingsViewModel(
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
-            dataStoreHelper.notificationsEnabled.collectLatest { enabled ->
-                _uiState.value = _uiState.value.copy(notificationsEnabled = enabled)
-            }
-        }
 
         viewModelScope.launch {
             dataStoreHelper.darkModeEnabled.collectLatest { enabled ->
@@ -41,12 +35,6 @@ class SettingsViewModel(
             dataStoreHelper.soundEnabled.collectLatest { enabled ->
                 _uiState.value = _uiState.value.copy(soundEnabled = enabled)
             }
-        }
-    }
-
-    fun onNotificationsToggle(enabled: Boolean) {
-        viewModelScope.launch {
-            dataStoreHelper.saveNotificationsEnabled(enabled)
         }
     }
 

@@ -57,7 +57,6 @@ fun SettingsPage(
     SettingsRoute(
         state = state,
         onBackClick = { navController.popBackStack() },
-        onNotificationsToggle = vm::onNotificationsToggle,
         onDarkModeToggle = vm::onDarkModeToggle,
         onSoundToggle = vm::onSoundToggle
     )
@@ -67,7 +66,6 @@ fun SettingsPage(
 private fun SettingsRoute(
     state: SettingsUiState,
     onBackClick: () -> Unit,
-    onNotificationsToggle: (Boolean) -> Unit,
     onDarkModeToggle: (Boolean) -> Unit,
     onSoundToggle: (Boolean) -> Unit
 ) {
@@ -107,14 +105,6 @@ private fun SettingsRoute(
 
             item {
                 SettingsCard {
-                    SettingsSwitchItem(
-                        title = stringResource(R.string.settings_label_notifications),
-                        checked = state.notificationsEnabled,
-                        onCheckedChange = onNotificationsToggle
-                    )
-
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-
                     SettingsSwitchItem(
                         title = stringResource(R.string.settings_label_sound),
                         checked = state.soundEnabled,

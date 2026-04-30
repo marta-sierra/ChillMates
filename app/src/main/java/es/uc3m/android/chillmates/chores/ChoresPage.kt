@@ -9,7 +9,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -35,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import es.uc3m.android.chillmates.LargeSectionHeader
@@ -44,7 +44,6 @@ import es.uc3m.android.chillmates.model.Chore
 import es.uc3m.android.chillmates.model.ChoreAssignment
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
-
 
 @Composable
 fun ChoresPage(
@@ -94,14 +93,14 @@ fun ChoresPage(
                     val assignment = chore.assignments[targetWeekKey]
                     ChoreWeekUi(
                         chore = chore,
-                        assignee = assignment?.assignee ?: chore.assignee,
+                        assignee = assignment?.assignee ?: "No record",
                         isDone = assignment?.isDone ?: false,
                         mode = ChoreWeekMode.PAST,
                         hasRecord = assignment != null
                     )
                 }
                 else -> {
-                    val baseAssignee = chore.assignments[currentWeekKey]?.assignee ?: chore.assignee
+                    val baseAssignee = chore.assignee
                     val tentativeAssignee = if (baseAssignee == "Everyone" || mates.isEmpty()) {
                         baseAssignee
                     } else {
@@ -169,7 +168,10 @@ fun ChoresPage(
                         }
                     }
 
-                    items(displayedChores) { choreUi ->
+                    items(
+                        items = displayedChores,
+                        key = { choreUi -> choreUi.chore.id }
+                    ) { choreUi ->
                         ChoreCard(
                             chore = choreUi.chore,
                             displayedAssignee = choreUi.assignee,
@@ -182,21 +184,21 @@ fun ChoresPage(
                             },
                             onSwapRequest = { choreToSwap = it },
                             onSendReminder = { chore ->
-                                 reminderTargetChore = chore
-                                 if (
-                                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                                     ContextCompat.checkSelfPermission(
-                                         context,
-                                         Manifest.permission.POST_NOTIFICATIONS
-                                     ) != PackageManager.PERMISSION_GRANTED
-                                 ) {
-                                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                 } else {
-                                     showReminderDialog = true
-                                 }
-                             }
-                         )
-                     }
+                                reminderTargetChore = chore
+                                if (
+                                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.POST_NOTIFICATIONS
+                                    ) != PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    showReminderDialog = true
+                                }
+                            }
+                        )
+                    }
                 }
 
                 Surface(
@@ -269,6 +271,7 @@ fun ChoresPage(
         ReconfigureChoresDialog(
             currentChores = chores,
             flatmates = flatmates,
+            currentWeekKey = weekKeyForOffset(0),
             onDismiss = { showReconfigureDialog = false },
             onSave = { updatedList ->
                 viewModel.saveReconfiguredChores(updatedList)
@@ -374,9 +377,21 @@ fun SwapChoreDialog(chore: Chore, flatmates: List<String>, onDismiss: () -> Unit
 }
 
 @Composable
-fun ReconfigureChoresDialog(currentChores: List<Chore>, flatmates: List<String>, onDismiss: () -> Unit, onSave: (List<Chore>) -> Unit) {
-    // Inicialización segura para que no crashee al cargar la lista
-    val tempChores = remember(currentChores) { mutableStateListOf<Chore>().apply { addAll(currentChores) } }
+fun ReconfigureChoresDialog(
+    currentChores: List<Chore>,
+    flatmates: List<String>,
+    currentWeekKey: String,
+    onDismiss: () -> Unit,
+    onSave: (List<Chore>) -> Unit
+) {
+    val tempChores = remember(currentChores) {
+        mutableStateListOf<Chore>().apply {
+            addAll(currentChores.map { chore ->
+                val actualAssignee = chore.assignments[currentWeekKey]?.assignee ?: chore.assignee
+                chore.copy(assignee = actualAssignee)
+            })
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -414,7 +429,6 @@ fun ReconfigureChoresDialog(currentChores: List<Chore>, flatmates: List<String>,
     )
 }
 
-// 🚀 LA SOLUCIÓN MÁGICA ANTICRASHEOS: Un Dropdown hecho a mano, 100% seguro 🚀
 @Composable
 fun FlatmateDropdown(selected: String, flatmates: List<String>, onSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
@@ -430,7 +444,6 @@ fun FlatmateDropdown(selected: String, flatmates: List<String>, onSelected: (Str
             modifier = Modifier.fillMaxWidth()
         )
 
-        // Esta caja invisible atrapa el clic y abre el menú SIN usar el ExperimentalMaterial3Api bugueado
         Box(
             modifier = Modifier
                 .matchParentSize()
@@ -466,11 +479,12 @@ private fun ChoreCard(
     onUpdateChore: (String, Boolean) -> Unit,
     onSwapRequest: (Chore) -> Unit,
     onSendReminder: (Chore) -> Unit
-){
+) {
     val isAssignedToMe = displayedAssignee == currentUserName || displayedAssignee == "Me"
     val isEveryone = displayedAssignee == "Everyone"
     val canComplete = mode == ChoreWeekMode.CURRENT && (isAssignedToMe || isEveryone)
     val showActions = mode == ChoreWeekMode.CURRENT
+
     val cardColors = when (mode) {
         ChoreWeekMode.CURRENT -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ChoreWeekMode.PAST -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -478,30 +492,34 @@ private fun ChoreCard(
     }
     val cardBorder = if (mode == ChoreWeekMode.CURRENT) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
 
-     Card(
-         modifier = Modifier.fillMaxWidth(),
-         colors = cardColors,
-         border = cardBorder
-     ) {
-         Row(
-             modifier = Modifier
-                 .fillMaxWidth()
-                 .padding(16.dp),
-             verticalAlignment = Alignment.CenterVertically,
-             horizontalArrangement = Arrangement.SpaceBetween
-         ) {
-             Column(modifier = Modifier.weight(1f)) {
-                 Text(
-                     text = chore.title,
-                     style = MaterialTheme.typography.titleMedium,
-                     fontWeight = FontWeight.Bold,
-                     textDecoration = if (displayedIsDone && mode == ChoreWeekMode.CURRENT) TextDecoration.LineThrough else null
-                 )
-                 Spacer(modifier = Modifier.height(4.dp))
-                 Text(
-                     text = stringResource(R.string.label_assigned_to, displayedAssignee),
-                     style = MaterialTheme.typography.bodySmall
-                 )
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = cardColors,
+        border = cardBorder
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = canComplete && showActions) {
+                    // 🚀 La tarjeta manda la orden a Firebase, y Firebase redibuja instantáneamente.
+                    onUpdateChore(chore.id, !displayedIsDone)
+                }
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = chore.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    textDecoration = if (displayedIsDone && mode == ChoreWeekMode.CURRENT) TextDecoration.LineThrough else null
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.label_assigned_to, displayedAssignee),
+                    style = MaterialTheme.typography.bodySmall
+                )
                 when (mode) {
                     ChoreWeekMode.PAST -> {
                         val statusText = if (hasRecord) {
@@ -520,57 +538,48 @@ private fun ChoreCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    ChoreWeekMode.FUTURE -> {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = stringResource(R.string.chore_tentative_next_week),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    ChoreWeekMode.FUTURE -> Unit
                     ChoreWeekMode.CURRENT -> Unit
                 }
-             }
+            }
 
             if (showActions) {
                 if (canComplete) {
-                     Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         if (!displayedIsDone) {
-                             IconButton(
-                                 onClick = { onSendReminder(chore) }
-                             ) {
-                                 Icon(
-                                     Icons.Default.Notifications,
-                                     contentDescription = stringResource(R.string.cd_send_reminder),
-                                     tint = MaterialTheme.colorScheme.primary
-                                 )
-                             }
-                         }
+                            IconButton(
+                                onClick = { onSendReminder(chore) }
+                            ) {
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = stringResource(R.string.cd_send_reminder),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
 
-                         Checkbox(
+                        Checkbox(
                             checked = displayedIsDone,
-                            onCheckedChange = { onUpdateChore(chore.id, it) }
-                         )
-                     }
-                 } else {
-                     if (displayedIsDone) {
-                         TextButton(onClick = { onUpdateChore(chore.id, false) }) {
-                             Text(stringResource(R.string.btn_redo), color = MaterialTheme.colorScheme.error)
-                         }
-                     } else {
-                         TextButton(onClick = { onSwapRequest(chore) }) {
-                             Text(stringResource(R.string.btn_swap))
-                         }
-                     }
-                 }
-             } else {
-                 Checkbox(checked = false, onCheckedChange = null, enabled = false)
-             }
-         }
-     }
- }
+                            onCheckedChange = null // 🚀 100% pasivo, igual que ShoppingList
+                        )
+                    }
+                } else {
+                    if (displayedIsDone) {
+                        TextButton(onClick = { onUpdateChore(chore.id, false) }) {
+                            Text(stringResource(R.string.btn_redo), color = MaterialTheme.colorScheme.error)
+                        }
+                    } else {
+                        TextButton(onClick = { onSwapRequest(chore) }) {
+                            Text(stringResource(R.string.btn_swap))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
- private data class ChoreWeekUi(
+private data class ChoreWeekUi(
     val chore: Chore,
     val assignee: String,
     val isDone: Boolean,
@@ -578,13 +587,13 @@ private fun ChoreCard(
     val hasRecord: Boolean
 )
 
- private enum class ChoreWeekMode {
+private enum class ChoreWeekMode {
     CURRENT,
     PAST,
     FUTURE
 }
 
- private fun weekKeyForOffset(weekOffset: Int): String {
+private fun weekKeyForOffset(weekOffset: Int): String {
     val calendar = Calendar.getInstance().apply {
         firstDayOfWeek = Calendar.MONDAY
         minimalDaysInFirstWeek = 4
