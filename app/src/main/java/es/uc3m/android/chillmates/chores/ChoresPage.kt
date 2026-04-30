@@ -5,12 +5,12 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -41,10 +41,10 @@ import es.uc3m.android.chillmates.LargeSectionHeader
 import es.uc3m.android.chillmates.PageContentWrapper
 import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.model.Chore
+import es.uc3m.android.chillmates.model.ChoreAssignment
+import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
-
-private const val CHORE_REMINDER_ACTION = "es.uc3m.android.chillmates.CHORE_REMINDER"
 
 @Composable
 fun ChoresPage(
@@ -55,7 +55,6 @@ fun ChoresPage(
     val flatmates by viewModel.flatmates.collectAsState()
     val currentUserName by viewModel.currentUserName.collectAsState()
     val context = LocalContext.current
-    var pendingReminderChore by remember { mutableStateOf<Chore?>(null) }
     var showAddChoreDialog by remember { mutableStateOf(false) }
     var showReconfigureDialog by remember { mutableStateOf(false) }
     var choreToSwap by remember { mutableStateOf<Chore?>(null) }
@@ -70,49 +69,58 @@ fun ChoresPage(
         } else {
             reminderTargetChore = null
         }
-        pendingReminderChore = null
-    }
-
-    DisposableEffect(Unit) {
-        val receiver = ChoreReminderReceiver()
-        val filter = IntentFilter(CHORE_REMINDER_ACTION)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("UnspecifiedRegisterReceiverFlag")
-            context.registerReceiver(receiver, filter)
-        }
-
-        onDispose {
-            context.unregisterReceiver(receiver)
-        }
     }
 
     var weekOffset by remember { mutableIntStateOf(0) }
 
     val displayedChores = remember(chores, flatmates, weekOffset) {
-        if (weekOffset == 0) {
-            chores
-        } else {
-            val mates = flatmates.filter { it != "Everyone" }
-            if (mates.isEmpty()) {
-                chores
-            } else {
-                chores.map { chore ->
-                    if (chore.assignee == "Everyone") {
-                        chore.copy(isDone = false)
+        val currentWeekKey = weekKeyForOffset(0)
+        val targetWeekKey = weekKeyForOffset(weekOffset)
+        val mates = flatmates.filter { it != "Everyone" }
+        chores.map { chore ->
+            when {
+                weekOffset == 0 -> {
+                    val assignment = chore.assignments[targetWeekKey]
+                        ?: ChoreAssignment(assignee = chore.assignee, isDone = chore.isDone)
+                    ChoreWeekUi(
+                        chore = chore,
+                        assignee = assignment.assignee,
+                        isDone = assignment.isDone,
+                        mode = ChoreWeekMode.CURRENT,
+                        hasRecord = chore.assignments.containsKey(targetWeekKey)
+                    )
+                }
+                weekOffset < 0 -> {
+                    val assignment = chore.assignments[targetWeekKey]
+                    ChoreWeekUi(
+                        chore = chore,
+                        assignee = assignment?.assignee ?: chore.assignee,
+                        isDone = assignment?.isDone ?: false,
+                        mode = ChoreWeekMode.PAST,
+                        hasRecord = assignment != null
+                    )
+                }
+                else -> {
+                    val baseAssignee = chore.assignments[currentWeekKey]?.assignee ?: chore.assignee
+                    val tentativeAssignee = if (baseAssignee == "Everyone" || mates.isEmpty()) {
+                        baseAssignee
                     } else {
-                        val currentIndex = mates.indexOf(chore.assignee)
-                        val newAssignee = if (currentIndex != -1) {
-                            val size = mates.size
-                            val shiftedIndex = (((currentIndex + weekOffset) % size) + size) % size
-                            mates[shiftedIndex]
+                        val currentIndex = mates.indexOf(baseAssignee)
+                        if (currentIndex == -1) {
+                            baseAssignee
                         } else {
-                            chore.assignee
+                            val size = mates.size
+                            val shiftedIndex = ((currentIndex + weekOffset) % size + size) % size
+                            mates[shiftedIndex]
                         }
-                        chore.copy(assignee = newAssignee, isDone = false)
                     }
+                    ChoreWeekUi(
+                        chore = chore,
+                        assignee = tentativeAssignee,
+                        isDone = false,
+                        mode = ChoreWeekMode.FUTURE,
+                        hasRecord = false
+                    )
                 }
             }
         }
@@ -161,32 +169,34 @@ fun ChoresPage(
                         }
                     }
 
-                    items(displayedChores) { chore ->
+                    items(displayedChores) { choreUi ->
                         ChoreCard(
-                            chore = chore,
+                            chore = choreUi.chore,
+                            displayedAssignee = choreUi.assignee,
+                            displayedIsDone = choreUi.isDone,
+                            mode = choreUi.mode,
+                            hasRecord = choreUi.hasRecord,
                             currentUserName = currentUserName,
-                            isPreview = weekOffset != 0,
-                            onUpdateChore = { updatedChore ->
-                                viewModel.updateChoreStatus(updatedChore.id, updatedChore.isDone)
+                            onUpdateChore = { choreId, isDone ->
+                                viewModel.updateChoreStatus(choreId, isDone)
                             },
                             onSwapRequest = { choreToSwap = it },
                             onSendReminder = { chore ->
-                                reminderTargetChore = chore
-                                if (
-                                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                                    ContextCompat.checkSelfPermission(
-                                        context,
-                                        Manifest.permission.POST_NOTIFICATIONS
-                                    ) != PackageManager.PERMISSION_GRANTED
-                                ) {
-                                    pendingReminderChore = chore
-                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                } else {
-                                    showReminderDialog = true
-                                }
-                            }
-                        )
-                    }
+                                 reminderTargetChore = chore
+                                 if (
+                                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                     ContextCompat.checkSelfPermission(
+                                         context,
+                                         Manifest.permission.POST_NOTIFICATIONS
+                                     ) != PackageManager.PERMISSION_GRANTED
+                                 ) {
+                                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                 } else {
+                                     showReminderDialog = true
+                                 }
+                             }
+                         )
+                     }
                 }
 
                 Surface(
@@ -275,7 +285,15 @@ fun ChoresPage(
             },
             onSelectDelayMinutes = { minutes ->
                 reminderTargetChore?.let { chore ->
-                    scheduleChoreReminder(context, chore, TimeUnit.MINUTES.toMillis(minutes.toLong()))
+                    val title = context.getString(R.string.notif_title_reminder)
+                    val message = context.getString(R.string.notif_text_format, chore.assignee, chore.title)
+                    scheduleChoreReminder(
+                        context = context,
+                        requestCode = chore.id.hashCode(),
+                        title = title,
+                        message = message,
+                        delayMs = TimeUnit.MINUTES.toMillis(minutes.toLong())
+                    )
                 }
                 showReminderDialog = false
                 reminderTargetChore = null
@@ -438,102 +456,160 @@ fun FlatmateDropdown(selected: String, flatmates: List<String>, onSelected: (Str
 }
 
 @Composable
-fun ChoreCard(
+private fun ChoreCard(
     chore: Chore,
+    displayedAssignee: String,
+    displayedIsDone: Boolean,
+    mode: ChoreWeekMode,
+    hasRecord: Boolean,
     currentUserName: String,
-    isPreview: Boolean,
-    onUpdateChore: (Chore) -> Unit,
+    onUpdateChore: (String, Boolean) -> Unit,
     onSwapRequest: (Chore) -> Unit,
     onSendReminder: (Chore) -> Unit
 ){
-    val isAssignedToMe = chore.assignee == currentUserName || chore.assignee == "Me"
-    val isEveryone = chore.assignee == "Everyone"
-    val canComplete = (isAssignedToMe || isEveryone) && !isPreview
-    val context = LocalContext.current
+    val isAssignedToMe = displayedAssignee == currentUserName || displayedAssignee == "Me"
+    val isEveryone = displayedAssignee == "Everyone"
+    val canComplete = mode == ChoreWeekMode.CURRENT && (isAssignedToMe || isEveryone)
+    val showActions = mode == ChoreWeekMode.CURRENT
+    val cardColors = when (mode) {
+        ChoreWeekMode.CURRENT -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ChoreWeekMode.PAST -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ChoreWeekMode.FUTURE -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    }
+    val cardBorder = if (mode == ChoreWeekMode.CURRENT) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = chore.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    textDecoration = if (chore.isDone && !isPreview) TextDecoration.LineThrough else null
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.label_assigned_to, chore.assignee),
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            if (!isPreview) {
-                if (canComplete) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (!chore.isDone) {
-                            IconButton(
-                                onClick = { onSendReminder(chore) }
-                            ) {
-                                Icon(
-                                    Icons.Default.Notifications,
-                                    contentDescription = stringResource(R.string.cd_send_reminder),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
+     Card(
+         modifier = Modifier.fillMaxWidth(),
+         colors = cardColors,
+         border = cardBorder
+     ) {
+         Row(
+             modifier = Modifier
+                 .fillMaxWidth()
+                 .padding(16.dp),
+             verticalAlignment = Alignment.CenterVertically,
+             horizontalArrangement = Arrangement.SpaceBetween
+         ) {
+             Column(modifier = Modifier.weight(1f)) {
+                 Text(
+                     text = chore.title,
+                     style = MaterialTheme.typography.titleMedium,
+                     fontWeight = FontWeight.Bold,
+                     textDecoration = if (displayedIsDone && mode == ChoreWeekMode.CURRENT) TextDecoration.LineThrough else null
+                 )
+                 Spacer(modifier = Modifier.height(4.dp))
+                 Text(
+                     text = stringResource(R.string.label_assigned_to, displayedAssignee),
+                     style = MaterialTheme.typography.bodySmall
+                 )
+                when (mode) {
+                    ChoreWeekMode.PAST -> {
+                        val statusText = if (hasRecord) {
+                            if (displayedIsDone) {
+                                stringResource(R.string.chore_status_completed)
+                            } else {
+                                stringResource(R.string.chore_status_not_completed)
                             }
+                        } else {
+                            stringResource(R.string.chore_status_no_record)
                         }
-
-                        Checkbox(
-                            checked = chore.isDone,
-                            onCheckedChange = { onUpdateChore(chore.copy(isDone = it)) }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = statusText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                }
-                } else {
-                    if (chore.isDone) {
-                        TextButton(onClick = { onUpdateChore(chore.copy(isDone = false)) }) {
-                            Text(stringResource(R.string.btn_redo), color = MaterialTheme.colorScheme.error)
-                        }
-                    } else {
-                        TextButton(onClick = { onSwapRequest(chore) }) {
-                            Text(stringResource(R.string.btn_swap))
-                        }
                     }
+                    ChoreWeekMode.FUTURE -> {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.chore_tentative_next_week),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    ChoreWeekMode.CURRENT -> Unit
                 }
-            } else {
-                Checkbox(checked = false, onCheckedChange = null, enabled = false)
-            }
-        }
-    }
+             }
+
+            if (showActions) {
+                if (canComplete) {
+                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (!displayedIsDone) {
+                             IconButton(
+                                 onClick = { onSendReminder(chore) }
+                             ) {
+                                 Icon(
+                                     Icons.Default.Notifications,
+                                     contentDescription = stringResource(R.string.cd_send_reminder),
+                                     tint = MaterialTheme.colorScheme.primary
+                                 )
+                             }
+                         }
+
+                         Checkbox(
+                            checked = displayedIsDone,
+                            onCheckedChange = { onUpdateChore(chore.id, it) }
+                         )
+                     }
+                 } else {
+                     if (displayedIsDone) {
+                         TextButton(onClick = { onUpdateChore(chore.id, false) }) {
+                             Text(stringResource(R.string.btn_redo), color = MaterialTheme.colorScheme.error)
+                         }
+                     } else {
+                         TextButton(onClick = { onSwapRequest(chore) }) {
+                             Text(stringResource(R.string.btn_swap))
+                         }
+                     }
+                 }
+             } else {
+                 Checkbox(checked = false, onCheckedChange = null, enabled = false)
+             }
+         }
+     }
+ }
+
+ private data class ChoreWeekUi(
+    val chore: Chore,
+    val assignee: String,
+    val isDone: Boolean,
+    val mode: ChoreWeekMode,
+    val hasRecord: Boolean
+)
+
+ private enum class ChoreWeekMode {
+    CURRENT,
+    PAST,
+    FUTURE
 }
 
-private fun sendChoreReminderBroadcast(context: Context, chore: Chore) {
-    val intent = Intent(CHORE_REMINDER_ACTION).apply {
-        setPackage(context.packageName)
-        putExtra("choreTitle", chore.title)
-        putExtra("assignee", chore.assignee)
+ private fun weekKeyForOffset(weekOffset: Int): String {
+    val calendar = Calendar.getInstance().apply {
+        firstDayOfWeek = Calendar.MONDAY
+        minimalDaysInFirstWeek = 4
+        add(Calendar.WEEK_OF_YEAR, weekOffset)
     }
-
-    context.sendBroadcast(intent)
+    val week = calendar.get(Calendar.WEEK_OF_YEAR)
+    val year = calendar.get(Calendar.YEAR)
+    return String.format("%04d-W%02d", year, week)
 }
 
-private fun scheduleChoreReminder(context: Context, chore: Chore, delayMs: Long) {
-    val intent = Intent(CHORE_REMINDER_ACTION).apply {
-        setPackage(context.packageName)
-        putExtra("choreTitle", chore.title)
-        putExtra("assignee", chore.assignee)
+private fun scheduleChoreReminder(
+    context: Context,
+    requestCode: Int,
+    title: String,
+    message: String,
+    delayMs: Long
+) {
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    val triggerAtMillis = System.currentTimeMillis() + delayMs
+    val intent = Intent(context, ChoreReminderReceiver::class.java).apply {
+        putExtra(ChoreReminderReceiver.EXTRA_TITLE, title)
+        putExtra(ChoreReminderReceiver.EXTRA_MESSAGE, message)
+        putExtra(ChoreReminderReceiver.EXTRA_NOTIFICATION_ID, requestCode)
     }
 
-    val requestCode = System.currentTimeMillis().toInt()
     val pendingIntent = PendingIntent.getBroadcast(
         context,
         requestCode,
@@ -541,12 +617,14 @@ private fun scheduleChoreReminder(context: Context, chore: Chore, delayMs: Long)
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
-    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-    val triggerAtMillis = System.currentTimeMillis() + delayMs
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+    val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) alarmManager.canScheduleExactAlarms() else true
+    if (canExact) {
+        try {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+        } catch (e: SecurityException) {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+        }
     } else {
-        alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
     }
 }

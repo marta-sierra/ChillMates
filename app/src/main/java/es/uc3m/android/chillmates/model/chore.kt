@@ -3,9 +3,15 @@ package es.uc3m.android.chillmates.model
 // Subcollection name inside a Flat document
 const val CHORES_SUBCOLLECTION = "chores"
 
+data class ChoreAssignment(
+    val assignee: String = "",
+    val isDone: Boolean = false
+)
+
 data class Chore(
     val id: String = "",
     val title: String = "",
     val assignee: String = "",
-    val isDone: Boolean = false
+    val isDone: Boolean = false,
+    val assignments: Map<String, ChoreAssignment> = emptyMap()
 )

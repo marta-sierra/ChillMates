@@ -49,6 +49,11 @@ fun ShoppingListPage(navController: NavController) {
     val selectedSupermarketIds = savedStateHandle
         ?.get<ArrayList<String>>(NavGraph.RESULT_MAP_SELECTED_IDS)
         ?.toSet()
+    val selectedSupermarketNames = selectedSupermarketIds
+        ?.mapNotNull { id ->
+            vm.uiState.availableSupermarkets.firstOrNull { it.id == id }?.name
+        }
+        ?.toSet()
 
     val returnedExpenseTitle = savedStateHandle?.get<String>(NavGraph.RESULT_EXPENSE_TITLE)
     val returnedExpenseAmount = savedStateHandle?.get<Double>(NavGraph.RESULT_EXPENSE_AMOUNT)
@@ -58,9 +63,9 @@ fun ShoppingListPage(navController: NavController) {
         ?.toList()
     val returnedExpenseItemId = savedStateHandle?.get<String?>(NavGraph.RESULT_EXPENSE_ITEM_ID)
 
-    LaunchedEffect(selectedSupermarketIds) {
-        if (selectedSupermarketIds != null) {
-            vm.onFilterSupermarkets(selectedSupermarketIds)
+    LaunchedEffect(selectedSupermarketIds, vm.uiState.availableSupermarkets) {
+        if (selectedSupermarketNames != null) {
+            vm.onFilterSupermarkets(selectedSupermarketNames)
             savedStateHandle?.remove<ArrayList<String>>(NavGraph.RESULT_MAP_SELECTED_IDS)
         }
     }
@@ -113,28 +118,31 @@ fun ShoppingListPage(navController: NavController) {
             )
         },
         onOpenMap = {
-            savedStateHandle?.set(
-                NavGraph.REQUEST_MAP_SUPERMARKET_IDS,
-                ArrayList(vm.uiState.availableSupermarkets.map { it.id })
-            )
-            savedStateHandle?.set(
-                NavGraph.REQUEST_MAP_SUPERMARKET_NAMES,
-                ArrayList(vm.uiState.availableSupermarkets.map { it.name })
-            )
-            savedStateHandle?.set(
-                NavGraph.REQUEST_MAP_SUPERMARKET_LATITUDES,
-                ArrayList(vm.uiState.availableSupermarkets.map { it.latitude })
-            )
-            savedStateHandle?.set(
-                NavGraph.REQUEST_MAP_SUPERMARKET_LONGITUDES,
-                ArrayList(vm.uiState.availableSupermarkets.map { it.longitude })
-            )
-            savedStateHandle?.set(
-                NavGraph.REQUEST_MAP_SELECTED_IDS,
-                ArrayList(vm.uiState.selectedSupermarkets)
-            )
-            navController.navigate(NavGraph.SelectSupermarket.route)
-        }
+            val selectedIds = vm.uiState.selectedSupermarkets.mapNotNull { selectedName ->
+                vm.uiState.availableSupermarkets.firstOrNull { it.name == selectedName }?.id
+            }
+             savedStateHandle?.set(
+                 NavGraph.REQUEST_MAP_SUPERMARKET_IDS,
+                 ArrayList(vm.uiState.availableSupermarkets.map { it.id })
+             )
+             savedStateHandle?.set(
+                 NavGraph.REQUEST_MAP_SUPERMARKET_NAMES,
+                 ArrayList(vm.uiState.availableSupermarkets.map { it.name })
+             )
+             savedStateHandle?.set(
+                 NavGraph.REQUEST_MAP_SUPERMARKET_LATITUDES,
+                 ArrayList(vm.uiState.availableSupermarkets.map { it.latitude })
+             )
+             savedStateHandle?.set(
+                 NavGraph.REQUEST_MAP_SUPERMARKET_LONGITUDES,
+                 ArrayList(vm.uiState.availableSupermarkets.map { it.longitude })
+             )
+             savedStateHandle?.set(
+                 NavGraph.REQUEST_MAP_SELECTED_IDS,
+                 ArrayList(selectedIds)
+             )
+             navController.navigate(NavGraph.SelectSupermarket.route)
+         }
     )
 
     if (itemToPrompt != null) {

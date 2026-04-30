@@ -235,4 +235,8 @@
     <string name="home_add_event">Afegeix esdeveniment</string>
     <string name="home_toast_reminder_canceled">Recordatori cancel·lat</string>
     <string name="home_toast_reminder_set">Recordatori establert!</string>
+    <string name="chore_status_completed">Completat</string>
+    <string name="chore_status_not_completed">No completat</string>
+    <string name="chore_status_no_record">Sense registre</string>
+    <string name="chore_tentative_next_week">Rotacio tentativa per a la proxima setmana</string>
 </resources>

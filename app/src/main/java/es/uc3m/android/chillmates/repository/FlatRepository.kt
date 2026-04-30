@@ -161,12 +161,42 @@ class FlatRepository {
         firestore.collection(FLATS_COLLECTION).document(flatId).collection(CHORES_SUBCOLLECTION).document(chore.id).set(chore).await()
     }
 
-    suspend fun updateChoreStatus(flatId: String, choreId: String, isDone: Boolean) {
-        firestore.collection(FLATS_COLLECTION).document(flatId).collection(CHORES_SUBCOLLECTION).document(choreId).update("isDone", isDone).await()
+    suspend fun updateChoreStatus(
+        flatId: String,
+        choreId: String,
+        weekKey: String,
+        isDone: Boolean,
+        assignee: String
+    ) {
+        val updates = mapOf(
+            "isDone" to isDone,
+            "assignments.$weekKey" to ChoreAssignment(assignee = assignee, isDone = isDone)
+        )
+        firestore.collection(FLATS_COLLECTION)
+            .document(flatId)
+            .collection(CHORES_SUBCOLLECTION)
+            .document(choreId)
+            .update(updates)
+            .await()
     }
 
-    suspend fun updateChoreAssignee(flatId: String, choreId: String, newAssignee: String) {
-        firestore.collection(FLATS_COLLECTION).document(flatId).collection(CHORES_SUBCOLLECTION).document(choreId).update("assignee", newAssignee).await()
+    suspend fun updateChoreAssignee(
+        flatId: String,
+        choreId: String,
+        weekKey: String,
+        newAssignee: String,
+        isDone: Boolean
+    ) {
+        val updates = mapOf(
+            "assignee" to newAssignee,
+            "assignments.$weekKey" to ChoreAssignment(assignee = newAssignee, isDone = isDone)
+        )
+        firestore.collection(FLATS_COLLECTION)
+            .document(flatId)
+            .collection(CHORES_SUBCOLLECTION)
+            .document(choreId)
+            .update(updates)
+            .await()
     }
 
     suspend fun saveChoresBatch(flatId: String, chores: List<Chore>) {

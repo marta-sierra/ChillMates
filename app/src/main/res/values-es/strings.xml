@@ -235,4 +235,8 @@
     <string name="home_add_event">Añadir evento</string>
     <string name="home_toast_reminder_canceled">Recordatorio cancelado</string>
     <string name="home_toast_reminder_set">¡Recordatorio establecido!</string>
+    <string name="chore_status_completed">Completado</string>
+    <string name="chore_status_not_completed">No completado</string>
+    <string name="chore_status_no_record">Sin registro</string>
+    <string name="chore_tentative_next_week">Rotacion tentativa para la proxima semana</string>
 </resources>
