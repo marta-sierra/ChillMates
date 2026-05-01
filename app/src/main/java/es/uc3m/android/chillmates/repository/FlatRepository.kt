@@ -1,4 +1,3 @@
-// Siempre que te pida algo de un código y escribas un código, escribe tanto el codigo como los comentarios en inglés.
 package es.uc3m.android.chillmates.repository
 
 import com.google.firebase.firestore.FirebaseFirestore
@@ -152,7 +151,7 @@ class FlatRepository {
         flatId: String,
         choreId: String,
         weekKey: String,
-        isDone: Boolean,
+        done: Boolean,
         assignee: String
     ) {
         val choreRef = firestore.collection(FLATS_COLLECTION)
@@ -160,30 +159,23 @@ class FlatRepository {
             .collection(CHORES_SUBCOLLECTION)
             .document(choreId)
 
-        // 🚀 BULLETPROOF FIX: Use Firestore Transactions for safe nested updates
-        // This guarantees that the server reads the current state, merges the new data safely,
-        // and commits without silent failures, even with rapid user clicking.
         firestore.runTransaction { transaction ->
             val snapshot = transaction.get(choreRef)
 
-            // Read existing assignments map, or create a new one if it doesn't exist
             val existingAssignments = snapshot.get("assignments") as? Map<String, Any> ?: emptyMap()
 
-            // Create the new nested data for the current week
             val updatedWeekData = mapOf(
                 "assignee" to assignee,
-                "isDone" to isDone
+                "done" to done
             )
 
-            // Merge the old map with the new week data safely
             val newAssignmentsMap = existingAssignments.toMutableMap()
             newAssignmentsMap[weekKey] = updatedWeekData
 
-            // Update the document atomically
-            transaction.update(choreRef, "isDone", isDone)
+            transaction.update(choreRef, "done", done)
             transaction.update(choreRef, "assignments", newAssignmentsMap)
 
-            null // Return null to indicate success in the transaction
+            null
         }.await()
     }
 
@@ -192,14 +184,13 @@ class FlatRepository {
         choreId: String,
         weekKey: String,
         newAssignee: String,
-        isDone: Boolean
+        done: Boolean
     ) {
         val choreRef = firestore.collection(FLATS_COLLECTION)
             .document(flatId)
             .collection(CHORES_SUBCOLLECTION)
             .document(choreId)
 
-        // 🚀 BULLETPROOF FIX: Use Firestore Transactions for safe assignee swaps as well
         firestore.runTransaction { transaction ->
             val snapshot = transaction.get(choreRef)
 
@@ -207,7 +198,7 @@ class FlatRepository {
 
             val updatedWeekData = mapOf(
                 "assignee" to newAssignee,
-                "isDone" to isDone
+                "done" to done
             )
 
             val newAssignmentsMap = existingAssignments.toMutableMap()

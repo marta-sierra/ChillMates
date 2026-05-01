@@ -82,7 +82,7 @@ class ChoresViewModel(
     private fun checkAutoRotation(flatId: String, lastRotationTimestamp: Long, memberIds: List<String>) {
         viewModelScope.launch {
             val currentTime = System.currentTimeMillis()
-            val oneWeekInMillis = 7L * 24 * 60 * 60 * 1000 // 7 days
+            val oneWeekInMillis = 7L * 24 * 60 * 60 * 1000
 
             if (lastRotationTimestamp == 0L) {
                 repository.updateFlatRotationTimestamp(flatId, currentTime)
@@ -96,30 +96,34 @@ class ChoresViewModel(
         }
     }
 
-    fun updateChoreStatus(choreId: String, isDone: Boolean) {
+    fun updateChoreStatus(choreId: String, done: Boolean) {
         val flatId = currentFlatId ?: return
         val weekKey = currentWeekKey()
-        val currentChore = _chores.value.firstOrNull { it.id == choreId } ?: return
-        val assignee = currentChore.assignments[weekKey]?.assignee ?: currentChore.assignee
 
-        val updatedAssignments = currentChore.assignments.toMutableMap()
-        updatedAssignments[weekKey] = ChoreAssignment(assignee = assignee, isDone = isDone)
+        val currentList = _chores.value.toMutableList()
+        val index = currentList.indexOfFirst { it.id == choreId }
 
-        val updatedChore = currentChore.copy(
-            isDone = isDone,
-            assignments = updatedAssignments
-        )
-        _chores.value = _chores.value.map { if (it.id == choreId) updatedChore else it }
-        viewModelScope.launch {
-            try {
-                db.collection("flats").document(flatId)
-                    .collection("chores").document(choreId)
-                    .set(updatedChore).await()
-            } catch (e: Exception) {
-                e.printStackTrace()
+        if (index != -1) {
+            val chore = currentList[index]
+            val assignee = chore.assignments[weekKey]?.assignee ?: chore.assignee
+
+            val newAssignments = chore.assignments.toMutableMap()
+            newAssignments[weekKey] = ChoreAssignment(assignee = assignee, done = done)
+            val updatedChore = chore.copy(done = done, assignments = newAssignments)
+
+            currentList[index] = updatedChore
+            _chores.value = currentList.toList()
+
+            viewModelScope.launch {
+                try {
+                    repository.updateChoreStatus(flatId, choreId, weekKey, done, assignee)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
     }
+
     fun addChore(title: String, assignee: String) {
         val flatId = currentFlatId ?: return
         val weekKey = currentWeekKey()
@@ -127,15 +131,13 @@ class ChoresViewModel(
             id = System.currentTimeMillis().toString(),
             title = title,
             assignee = assignee,
-            isDone = false,
-            assignments = mapOf(weekKey to ChoreAssignment(assignee = assignee, isDone = false))
+            done = false,
+            assignments = mapOf(weekKey to ChoreAssignment(assignee = assignee, done = false))
         )
 
         viewModelScope.launch {
             try {
-                db.collection("flats").document(flatId)
-                    .collection(CHORES_SUBCOLLECTION).document(newChore.id)
-                    .set(newChore).await()
+                repository.addChore(flatId, newChore)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -147,21 +149,11 @@ class ChoresViewModel(
         val weekKey = currentWeekKey()
         val currentChore = _chores.value.firstOrNull { it.id == choreId } ?: return
         val currentAssignment = currentChore.assignments[weekKey]
-            ?: ChoreAssignment(assignee = currentChore.assignee, isDone = currentChore.isDone)
-
-        val updatedAssignments = currentChore.assignments.toMutableMap()
-        updatedAssignments[weekKey] = currentAssignment.copy(assignee = newAssignee)
-
-        val updatedChore = currentChore.copy(
-            assignee = newAssignee,
-            assignments = updatedAssignments
-        )
+            ?: ChoreAssignment(assignee = currentChore.assignee, done = currentChore.done)
 
         viewModelScope.launch {
             try {
-                db.collection("flats").document(flatId)
-                    .collection(CHORES_SUBCOLLECTION).document(choreId)
-                    .set(updatedChore).await()
+                repository.updateChoreAssignee(flatId, choreId, weekKey, newAssignee, currentAssignment.done)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -172,22 +164,9 @@ class ChoresViewModel(
         val flatId = currentFlatId ?: return
         val weekKey = currentWeekKey()
 
-        val syncedList = updatedList.map { chore ->
-            val currentAssignment = chore.assignments[weekKey] ?: ChoreAssignment(assignee = chore.assignee, isDone = chore.isDone)
-            chore.copy(
-                assignments = chore.assignments + (weekKey to currentAssignment.copy(assignee = chore.assignee))
-            )
-        }
-
         viewModelScope.launch {
             try {
-                val batch = db.batch()
-                val choresRef = db.collection("flats").document(flatId).collection(CHORES_SUBCOLLECTION)
-
-                syncedList.forEach { chore ->
-                    batch.set(choresRef.document(chore.id), chore)
-                }
-                batch.commit().await()
+                repository.saveChoresBatch(flatId, updatedList)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -205,9 +184,9 @@ class ChoresViewModel(
 
             val updatedList = currentChores.map { chore ->
                 if (chore.assignee == "Everyone") {
-                    val assignment = ChoreAssignment(assignee = chore.assignee, isDone = false)
+                    val assignment = ChoreAssignment(assignee = chore.assignee, done = false)
                     chore.copy(
-                        isDone = false,
+                        done = false,
                         assignments = chore.assignments + (weekKey to assignment)
                     )
                 } else {
@@ -219,25 +198,17 @@ class ChoresViewModel(
                     } else {
                         chore.assignee
                     }
-                    val assignment = ChoreAssignment(assignee = nextAssignee, isDone = false)
+                    val assignment = ChoreAssignment(assignee = nextAssignee, done = false)
                     chore.copy(
                         assignee = nextAssignee,
-                        isDone = false,
+                        done = false,
                         assignments = chore.assignments + (weekKey to assignment)
                     )
                 }
             }
 
             try {
-                val batch = db.batch()
-                val flatRef = db.collection("flats").document(flatId)
-                batch.update(flatRef, "lastRotationTimestamp", currentTime)
-
-                val choresRef = flatRef.collection(CHORES_SUBCOLLECTION)
-                updatedList.forEach { chore ->
-                    batch.set(choresRef.document(chore.id), chore)
-                }
-                batch.commit().await()
+                repository.performAutoRotationBatch(flatId, updatedList, currentTime)
             } catch (e: Exception) {
                 e.printStackTrace()
             }

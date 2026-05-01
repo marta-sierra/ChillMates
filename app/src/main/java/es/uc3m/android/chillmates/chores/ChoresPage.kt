@@ -17,10 +17,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
@@ -56,6 +54,7 @@ fun ChoresPage(
     val flatmates by viewModel.flatmates.collectAsState()
     val currentUserName by viewModel.currentUserName.collectAsState()
     val context = LocalContext.current
+
     var showAddChoreDialog by remember { mutableStateOf(false) }
     var showReconfigureDialog by remember { mutableStateOf(false) }
     var choreToSwap by remember { mutableStateOf<Chore?>(null) }
@@ -82,11 +81,10 @@ fun ChoresPage(
             when {
                 weekOffset == 0 -> {
                     val assignment = chore.assignments[targetWeekKey]
-                        ?: ChoreAssignment(assignee = chore.assignee, isDone = chore.isDone)
                     ChoreWeekUi(
                         chore = chore,
-                        assignee = assignment.assignee,
-                        isDone = assignment.isDone,
+                        assignee = assignment?.assignee ?: chore.assignee,
+                        done = chore.done,
                         mode = ChoreWeekMode.CURRENT,
                         hasRecord = chore.assignments.containsKey(targetWeekKey)
                     )
@@ -96,7 +94,7 @@ fun ChoresPage(
                     ChoreWeekUi(
                         chore = chore,
                         assignee = assignment?.assignee ?: "No record",
-                        isDone = assignment?.isDone ?: false,
+                        done = assignment?.done ?: false,
                         mode = ChoreWeekMode.PAST,
                         hasRecord = assignment != null
                     )
@@ -110,23 +108,18 @@ fun ChoresPage(
                         if (currentIndex == -1) {
                             baseAssignee
                         } else {
-                            val currentIndex = mates.indexOf(baseAssignee)
-                            if (currentIndex == -1) {
-                                baseAssignee
-                            } else {
-                                val size = mates.size
-                                val shiftedIndex = ((currentIndex + weekOffset) % size + size) % size
-                                mates[shiftedIndex]
-                            }
+                            val size = mates.size
+                            val shiftedIndex = ((currentIndex + weekOffset) % size + size) % size
+                            mates[shiftedIndex]
                         }
-                        ChoreWeekUi(
-                            chore = chore,
-                            assignee = tentativeAssignee,
-                            isDone = false,
-                            mode = ChoreWeekMode.FUTURE,
-                            hasRecord = false
-                        )
                     }
+                    ChoreWeekUi(
+                        chore = chore,
+                        assignee = tentativeAssignee,
+                        done = false,
+                        mode = ChoreWeekMode.FUTURE,
+                        hasRecord = false
+                    )
                 }
             }
         }
@@ -153,16 +146,16 @@ fun ChoresPage(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             IconButton(onClick = { weekOffset-- }) {
-                                Icon(Icons.Default.KeyboardArrowLeft, contentDescription = stringResource(R.string.home_cd_previous))
+                                Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Previous")
                             }
 
                             Text(
                                 text = when {
-                                    weekOffset == 0 -> stringResource(R.string.chores_week_current)
-                                    weekOffset == 1 -> stringResource(R.string.chores_week_next)
-                                    weekOffset == -1 -> stringResource(R.string.chores_week_last)
-                                    weekOffset > 1 -> stringResource(R.string.chores_week_future, weekOffset)
-                                    else -> stringResource(R.string.chores_week_past, -weekOffset)
+                                    weekOffset == 0 -> "Current Week"
+                                    weekOffset == 1 -> "Next Week"
+                                    weekOffset == -1 -> "Last Week"
+                                    weekOffset > 1 -> "In $weekOffset weeks"
+                                    else -> "${-weekOffset} weeks ago"
                                 },
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
@@ -170,7 +163,7 @@ fun ChoresPage(
                             )
 
                             IconButton(onClick = { weekOffset++ }) {
-                                Icon(Icons.Default.KeyboardArrowRight, contentDescription = stringResource(R.string.home_cd_next))
+                                Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Next")
                             }
                         }
                     }
@@ -182,12 +175,12 @@ fun ChoresPage(
                         ChoreCard(
                             chore = choreUi.chore,
                             displayedAssignee = choreUi.assignee,
-                            displayedIsDone = choreUi.isDone,
+                            displayedDone = choreUi.done,
                             mode = choreUi.mode,
                             hasRecord = choreUi.hasRecord,
                             currentUserName = currentUserName,
-                            onUpdateChore = { choreId, isDone ->
-                                viewModel.updateChoreStatus(choreId, isDone)
+                            onUpdateChore = { choreId, done ->
+                                viewModel.updateChoreStatus(choreId, done)
                             },
                             onSwapRequest = { choreToSwap = it },
                             onSendReminder = { chore ->
@@ -416,7 +409,7 @@ fun ReconfigureChoresDialog(
                             IconButton(onClick = { tempChores.removeAt(index) }) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
-                                    contentDescription = stringResource(R.string.chores_cd_delete),
+                                    contentDescription = "Delete",
                                     tint = MaterialTheme.colorScheme.error
                                 )
                             }
@@ -446,7 +439,7 @@ fun FlatmateDropdown(selected: String, flatmates: List<String>, onSelected: (Str
             onValueChange = {},
             readOnly = true,
             trailingIcon = {
-                Icon(Icons.Default.ArrowDropDown, contentDescription = stringResource(R.string.chores_cd_expand))
+                Icon(Icons.Default.ArrowDropDown, contentDescription = "Expand")
             },
             modifier = Modifier.fillMaxWidth()
         )
@@ -479,7 +472,7 @@ fun FlatmateDropdown(selected: String, flatmates: List<String>, onSelected: (Str
 private fun ChoreCard(
     chore: Chore,
     displayedAssignee: String,
-    displayedIsDone: Boolean,
+    displayedDone: Boolean,
     mode: ChoreWeekMode,
     hasRecord: Boolean,
     currentUserName: String,
@@ -489,13 +482,12 @@ private fun ChoreCard(
 ) {
     val isAssignedToMe = displayedAssignee == currentUserName || displayedAssignee == "Me"
     val isEveryone = displayedAssignee == "Everyone"
-    val canComplete = mode == ChoreWeekMode.CURRENT && (isAssignedToMe || isEveryone)
-    val showActions = mode == ChoreWeekMode.CURRENT
+
+    val canComplete = isAssignedToMe || isEveryone
 
     val cardColors = when (mode) {
         ChoreWeekMode.CURRENT -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ChoreWeekMode.PAST -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ChoreWeekMode.FUTURE -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        else -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     }
     val cardBorder = if (mode == ChoreWeekMode.CURRENT) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
 
@@ -507,10 +499,6 @@ private fun ChoreCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(enabled = canComplete && showActions) {
-                    // 🚀 La tarjeta manda la orden a Firebase, y Firebase redibuja instantáneamente.
-                    onUpdateChore(chore.id, !displayedIsDone)
-                }
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -520,7 +508,7 @@ private fun ChoreCard(
                     text = chore.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    textDecoration = if (displayedIsDone && mode == ChoreWeekMode.CURRENT) TextDecoration.LineThrough else null
+                    textDecoration = if (displayedDone) TextDecoration.LineThrough else null
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -530,11 +518,8 @@ private fun ChoreCard(
                 when (mode) {
                     ChoreWeekMode.PAST -> {
                         val statusText = if (hasRecord) {
-                            if (displayedIsDone) {
-                                stringResource(R.string.chore_status_completed)
-                            } else {
-                                stringResource(R.string.chore_status_not_completed)
-                            }
+                            if (displayedDone) stringResource(R.string.chore_status_completed)
+                            else stringResource(R.string.chore_status_not_completed)
                         } else {
                             stringResource(R.string.chore_status_no_record)
                         }
@@ -545,42 +530,45 @@ private fun ChoreCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    ChoreWeekMode.FUTURE -> Unit
-                    ChoreWeekMode.CURRENT -> Unit
+                    else -> Unit
                 }
             }
 
-            if (showActions) {
-                if (canComplete) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (!displayedIsDone) {
-                            IconButton(
-                                onClick = { onSendReminder(chore) }
-                            ) {
+            if (mode == ChoreWeekMode.CURRENT) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (!displayedDone) {
+                        if (!canComplete) {
+                            IconButton(onClick = { onSendReminder(chore) }) {
                                 Icon(
                                     Icons.Default.Notifications,
                                     contentDescription = stringResource(R.string.cd_send_reminder),
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                             }
+                            TextButton(onClick = { onSwapRequest(chore) }) {
+                                Text(stringResource(R.string.btn_swap))
+                            }
                         }
+                    }
 
+                    if (canComplete || displayedDone) {
                         Checkbox(
-                            checked = displayedIsDone,
-                            onCheckedChange = null
+                            checked = displayedDone,
+                            onCheckedChange = { isChecked ->
+                                if (canComplete) {
+                                    onUpdateChore(chore.id, isChecked)
+                                }
+                            },
+                            enabled = canComplete
                         )
                     }
-                } else {
-                    if (displayedIsDone) {
-                        TextButton(onClick = { onUpdateChore(chore.id, false) }) {
-                            Text(stringResource(R.string.btn_redo), color = MaterialTheme.colorScheme.error)
-                        }
-                    } else {
-                        TextButton(onClick = { onSwapRequest(chore) }) {
-                            Text(stringResource(R.string.btn_swap))
-                        }
-                    }
                 }
+            } else {
+                Checkbox(
+                    checked = displayedDone,
+                    onCheckedChange = null,
+                    enabled = false
+                )
             }
         }
     }
@@ -589,7 +577,7 @@ private fun ChoreCard(
 private data class ChoreWeekUi(
     val chore: Chore,
     val assignee: String,
-    val isDone: Boolean,
+    val done: Boolean,
     val mode: ChoreWeekMode,
     val hasRecord: Boolean
 )
