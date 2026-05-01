@@ -36,13 +36,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import es.uc3m.android.chillmates.NavGraph
 import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.model.*
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.util.Calendar
 
 @Composable
@@ -51,7 +47,6 @@ fun HomePage(navController: NavController, viewModel: HomeViewModel = viewModel(
     val context = LocalContext.current
     val savedStateHandle = navController.currentBackStackEntry?.savedStateHandle
     var showAddNoticeDialog by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
 
     val returnedEventDateLabel = savedStateHandle?.get<String>(NavGraph.RESULT_EVENT_DATE_LABEL)
     val returnedEventDescription = savedStateHandle?.get<String>(NavGraph.RESULT_EVENT_DESCRIPTION)
@@ -91,145 +86,6 @@ fun HomePage(navController: NavController, viewModel: HomeViewModel = viewModel(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
     ) {
-        item {
-            Button(
-                onClick = {
-                    scope.launch {
-                        try {
-                            val db = FirebaseFirestore.getInstance()
-                            val auth = FirebaseAuth.getInstance()
-                            val currentUserId = auth.currentUser?.uid ?: return@launch
-
-                            val flatId = "flat_mock_massive_001"
-                            val uAlice = "user_mock_alice"
-                            val uBob = "user_mock_bob"
-                            val uCharlie = "user_mock_charlie"
-                            val uDiana = "user_mock_diana"
-
-                            val nMe = "Me"
-                            val nAlice = "Alice"
-                            val nBob = "Bob"
-                            val nCharlie = "Charlie"
-                            val nDiana = "Diana"
-
-                            db.collection(USERS_COLLECTION).document(currentUserId).update(
-                                mapOf("flatId" to flatId, "flatName" to "ChillMates Villa")
-                            ).await()
-
-                            db.collection(USERS_COLLECTION).document(uAlice).set(mapOf("displayName" to nAlice, "flatId" to flatId, "flatName" to "ChillMates Villa", "email" to "alice@mock.com")).await()
-                            db.collection(USERS_COLLECTION).document(uBob).set(mapOf("displayName" to nBob, "flatId" to flatId, "flatName" to "ChillMates Villa", "email" to "bob@mock.com")).await()
-                            db.collection(USERS_COLLECTION).document(uCharlie).set(mapOf("displayName" to nCharlie, "flatId" to flatId, "flatName" to "ChillMates Villa", "email" to "charlie@mock.com")).await()
-                            db.collection(USERS_COLLECTION).document(uDiana).set(mapOf("displayName" to nDiana, "flatId" to flatId, "flatName" to "ChillMates Villa", "email" to "diana@mock.com")).await()
-
-                            val flat = Flat(
-                                id = flatId,
-                                name = "ChillMates Villa",
-                                inviteCode = "CHILL55",
-                                memberIds = listOf(currentUserId, uAlice, uBob, uCharlie, uDiana),
-                                supermarketIds = emptyList(),
-                                lastRotationTimestamp = System.currentTimeMillis()
-                            )
-                            db.collection(FLATS_COLLECTION).document(flatId).set(flat).await()
-
-                            val supermarkets = listOf(
-                                Supermarket(id = "sm_1", name = "Mercadona", officialName = "Mercadona S.A.", placeId = "p_1", latitude = 40.416, longitude = -3.703, address = "Calle 1"),
-                                Supermarket(id = "sm_2", name = "Carrefour", officialName = "Carrefour Express", placeId = "p_2", latitude = 40.418, longitude = -3.705, address = "Calle 2"),
-                                Supermarket(id = "sm_3", name = "Lidl", officialName = "Lidl Supermercados", placeId = "p_3", latitude = 40.420, longitude = -3.710, address = "Calle 3"),
-                                Supermarket(id = "sm_4", name = "Aldi", officialName = "Aldi", placeId = "p_4", latitude = 40.410, longitude = -3.700, address = "Calle 4"),
-                                Supermarket(id = "sm_5", name = "Dia", officialName = "Supermercados Dia", placeId = "p_5", latitude = 40.400, longitude = -3.720, address = "Calle 5")
-                            )
-                            val smIds = supermarkets.map { it.id!! }
-                            supermarkets.forEach { db.collection("supermarkets").document(it.id!!).set(it).await() }
-                            db.collection(FLATS_COLLECTION).document(flatId).update("supermarketIds", smIds).await()
-
-                            val cal = Calendar.getInstance().apply {
-                                firstDayOfWeek = Calendar.MONDAY
-                                minimalDaysInFirstWeek = 4
-                            }
-                            val currentWeek = String.format("%04d-W%02d", cal.get(Calendar.YEAR), cal.get(Calendar.WEEK_OF_YEAR))
-                            cal.add(Calendar.WEEK_OF_YEAR, -1)
-                            val past1 = String.format("%04d-W%02d", cal.get(Calendar.YEAR), cal.get(Calendar.WEEK_OF_YEAR))
-                            cal.add(Calendar.WEEK_OF_YEAR, -1)
-                            val past2 = String.format("%04d-W%02d", cal.get(Calendar.YEAR), cal.get(Calendar.WEEK_OF_YEAR))
-                            cal.add(Calendar.WEEK_OF_YEAR, -1)
-                            val past3 = String.format("%04d-W%02d", cal.get(Calendar.YEAR), cal.get(Calendar.WEEK_OF_YEAR))
-
-                            val flatRef = db.collection(FLATS_COLLECTION).document(flatId)
-
-                            val c1 = Chore(id = "c_1", title = "Clean Kitchen", assignee = "Everyone", done = false, assignments = mapOf(
-                                currentWeek to ChoreAssignment(assignee = "Everyone", done = false),
-                                past1 to ChoreAssignment(assignee = "Everyone", done = true),
-                                past2 to ChoreAssignment(assignee = "Everyone", done = false),
-                                past3 to ChoreAssignment(assignee = "Everyone", done = true)
-                            ))
-                            val c2 = Chore(id = "c_2", title = "Take out Trash", assignee = nAlice, done = true, assignments = mapOf(
-                                currentWeek to ChoreAssignment(assignee = nAlice, done = true),
-                                past1 to ChoreAssignment(assignee = nBob, done = true),
-                                past2 to ChoreAssignment(assignee = nCharlie, done = false),
-                                past3 to ChoreAssignment(assignee = nDiana, done = true)
-                            ))
-                            val c3 = Chore(id = "c_3", title = "Vacuum Living Room", assignee = nMe, done = false, assignments = mapOf(
-                                currentWeek to ChoreAssignment(assignee = nMe, done = false),
-                                past1 to ChoreAssignment(assignee = nDiana, done = true),
-                                past2 to ChoreAssignment(assignee = nBob, done = true)
-                            ))
-                            val c4 = Chore(id = "c_4", title = "Clean Bathrooms", assignee = nCharlie, done = false, assignments = mapOf(
-                                currentWeek to ChoreAssignment(assignee = nCharlie, done = false),
-                                past1 to ChoreAssignment(assignee = nMe, done = true)
-                            ))
-                            val c5 = Chore(id = "c_5", title = "Mop the floors", assignee = nDiana, done = true, assignments = mapOf(
-                                currentWeek to ChoreAssignment(assignee = nDiana, done = true),
-                                past1 to ChoreAssignment(assignee = nAlice, done = false)
-                            ))
-
-                            val chores = listOf(c1, c2, c3, c4, c5)
-                            chores.forEach { flatRef.collection(CHORES_SUBCOLLECTION).document(it.id).set(it).await() }
-
-                            val r1 = Repair(id = "r_1", title = "Broken Shower", description = "Water leaking", reportedBy = nAlice, status = "Pending")
-                            val r2 = Repair(id = "r_2", title = "Oven light", description = "Bulb needs replacement", reportedBy = nMe, status = "In Progress")
-                            val r3 = Repair(id = "r_3", title = "Heater not working", description = "Cold air only", reportedBy = nCharlie, status = "Resolved")
-                            val r4 = Repair(id = "r_4", title = "Loose door handle", description = "Front door handle is falling off", reportedBy = nDiana, status = "Pending")
-                            listOf(r1, r2, r3, r4).forEach { flatRef.collection(REPAIRS_SUBCOLLECTION).document(it.id).set(it).await() }
-
-                            val e1 = Expense(id = "e_1", title = "Internet Bill", amount = 45.00, paidBy = nMe, splitBetween = listOf(nMe, nAlice, nBob, nCharlie, nDiana))
-                            val e2 = Expense(id = "e_2", title = "Groceries", amount = 120.50, paidBy = nBob, splitBetween = listOf(nMe, nAlice, nBob, nCharlie, nDiana))
-                            val e3 = Expense(id = "e_3", title = "Cleaning Supplies", amount = 15.00, paidBy = nDiana, splitBetween = listOf(nMe, nDiana))
-                            val e4 = Expense(id = "e_4", title = "Electricity", amount = 85.20, paidBy = nCharlie, splitBetween = listOf(nMe, nAlice, nBob, nCharlie, nDiana))
-                            listOf(e1, e2, e3, e4).forEach { flatRef.collection(EXPENSES_SUBCOLLECTION).document(it.id).set(it).await() }
-
-                            val s1 = ShoppingItem(id = "s_1", name = "Milk", quantity = "4 cartons", neededBy = listOf("Everyone"), supermarkets = listOf("Mercadona", "Lidl"), bought = false)
-                            val s2 = ShoppingItem(id = "s_2", name = "Eggs", quantity = "2 dozen", neededBy = listOf(nMe, nAlice), supermarkets = listOf("Carrefour"), bought = false)
-                            val s3 = ShoppingItem(id = "s_3", name = "Coffee", quantity = "2 bags", neededBy = listOf(nBob), supermarkets = listOf("Dia"), bought = true)
-                            val s4 = ShoppingItem(id = "s_4", name = "Toilet Paper", quantity = "12 rolls", neededBy = listOf("Everyone"), supermarkets = emptyList(), bought = false)
-                            val s5 = ShoppingItem(id = "s_5", name = "Chicken Breasts", quantity = "1 kg", neededBy = listOf(nCharlie, nDiana), supermarkets = listOf("Aldi", "Mercadona"), bought = true)
-                            val s6 = ShoppingItem(id = "s_6", name = "Olive Oil", quantity = "3 liters", neededBy = listOf("Everyone"), supermarkets = listOf("Mercadona"), bought = false)
-                            listOf(s1, s2, s3, s4, s5, s6).forEach { flatRef.collection(SHOPPING_SUBCOLLECTION).document(it.id).set(it).await() }
-
-                            val n1 = Notice(id = "n_1", title = "Landlord Visit", details = "Checking boiler tomorrow at 10 AM.", poll = false, acceptedBy = emptyList(), declinedBy = emptyList())
-                            val n2 = Notice(id = "n_2", title = "Pizza Night?", details = "Should we order pizza this Friday?", poll = true, acceptedBy = listOf(nMe, nAlice, nDiana), declinedBy = listOf(nBob))
-                            val n3 = Notice(id = "n_3", title = "Quiet Hours", details = "I have an exam on Thursday, please be quiet on Wed night.", poll = false, acceptedBy = emptyList(), declinedBy = emptyList())
-                            listOf(n1, n2, n3).forEach { flatRef.collection(NOTICES_SUBCOLLECTION).document(it.id).set(it).await() }
-
-                            val ev1 = UpcomingEvent(id = "ev_1", dateLabel = "15 May 22:00", description = "House Party", location = "ChillMates Villa", attending = listOf(nMe, nAlice, nBob, nCharlie, nDiana))
-                            val ev2 = UpcomingEvent(id = "ev_2", dateLabel = "20 May 14:00", description = "Deep Cleaning Day", location = "Whole House", attending = listOf(nMe, nDiana))
-                            val ev3 = UpcomingEvent(id = "ev_3", dateLabel = "25 May 20:30", description = "Flat Dinner", location = "Dining Room", attending = listOf(nAlice, nBob, nCharlie))
-                            listOf(ev1, ev2, ev3).forEach { flatRef.collection(EVENTS_SUBCOLLECTION).document(it.id).set(it).await() }
-
-                            Toast.makeText(context, "Mock Data Generated!", Toast.LENGTH_SHORT).show()
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-            ) {
-                Text("Generate Mock Data", color = MaterialTheme.colorScheme.onPrimary)
-            }
-        }
         item {
             NoticeBoardSection(
                 notices = uiState.notices,
