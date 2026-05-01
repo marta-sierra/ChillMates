@@ -288,8 +288,8 @@ fun ChoresPage(
             },
             onSelectDelayMinutes = { minutes ->
                 reminderTargetChore?.let { chore ->
-                    val title = context.getString(R.string.notif_title_reminder)
-                    val message = context.getString(R.string.notif_text_format, chore.assignee, chore.title)
+                    val title = "Chore Reminder"
+                    val message = "${chore.assignee}, don't forget to ${chore.title}!"
                     scheduleChoreReminder(
                         context = context,
                         requestCode = chore.id.hashCode(),
@@ -312,26 +312,26 @@ private fun ReminderTimeDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.chore_reminder_title)) },
+        title = { Text("Chore Reminder") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.chore_reminder_message))
+                Text("When should we remind them?")
                 TextButton(onClick = { onSelectDelayMinutes(10) }) {
-                    Text(stringResource(R.string.chore_reminder_in_10_min))
+                    Text("In 10 minutes")
                 }
                 TextButton(onClick = { onSelectDelayMinutes(30) }) {
-                    Text(stringResource(R.string.chore_reminder_in_30_min))
+                    Text("In 30 minutes")
                 }
                 TextButton(onClick = { onSelectDelayMinutes(60) }) {
-                    Text(stringResource(R.string.chore_reminder_in_1_hour))
+                    Text("In 1 hour")
                 }
                 TextButton(onClick = { onSelectDelayMinutes(180) }) {
-                    Text(stringResource(R.string.chore_reminder_in_3_hours))
+                    Text("In 3 hours")
                 }
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 
@@ -536,31 +536,38 @@ private fun ChoreCard(
 
             if (mode == ChoreWeekMode.CURRENT) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (!displayedDone) {
-                        if (!canComplete) {
-                            IconButton(onClick = { onSendReminder(chore) }) {
-                                Icon(
-                                    Icons.Default.Notifications,
-                                    contentDescription = stringResource(R.string.cd_send_reminder),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            TextButton(onClick = { onSwapRequest(chore) }) {
-                                Text(stringResource(R.string.btn_swap))
-                            }
-                        }
-                    }
-
-                    if (canComplete || displayedDone) {
+                    if (canComplete) {
                         Checkbox(
                             checked = displayedDone,
                             onCheckedChange = { isChecked ->
-                                if (canComplete) {
-                                    onUpdateChore(chore.id, isChecked)
-                                }
-                            },
-                            enabled = canComplete
+                                onUpdateChore(chore.id, isChecked)
+                            }
                         )
+                    } else {
+                        if (!displayedDone) {
+                            IconButton(onClick = { onSendReminder(chore) }) {
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = "Remind",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Button(
+                                onClick = { onSwapRequest(chore) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            ) {
+                                Text("Swap")
+                            }
+                        } else {
+                            Checkbox(
+                                checked = true,
+                                onCheckedChange = null,
+                                enabled = false
+                            )
+                        }
                     }
                 }
             } else {
