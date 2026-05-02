@@ -61,7 +61,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -69,7 +68,6 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import es.uc3m.android.chillmates.LargeSectionHeader
 import es.uc3m.android.chillmates.PageContentWrapper
-import es.uc3m.android.chillmates.R
 
 private const val LANDLORD_EMAIL = "landlord@chillmates.app"
 private const val GMAIL_PACKAGE = "com.google.android.gm"
@@ -131,7 +129,7 @@ fun RepairPage(navController: NavController) {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        LargeSectionHeader(title = stringResource(R.string.repairs_title))
+        LargeSectionHeader(title = "Repairs")
 
         PageContentWrapper {
             Column(
@@ -167,7 +165,7 @@ fun RepairPage(navController: NavController) {
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (showRepairForm) stringResource(R.string.repairs_hide_form) else stringResource(R.string.repairs_new_request))
+                    Text(if (showRepairForm) "Hide request form" else "New repair request")
                 }
 
                 if (showRepairForm) {
@@ -184,7 +182,7 @@ fun RepairPage(navController: NavController) {
                             .padding(16.dp)
                     ) {
                         Text(
-                            text = stringResource(R.string.repairs_section_new_request),
+                            text = "Send a new request",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -194,7 +192,7 @@ fun RepairPage(navController: NavController) {
                             value = repairTitle,
                             onValueChange = { repairTitle = it },
                             modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text(stringResource(R.string.repairs_title_placeholder)) },
+                            placeholder = { Text("Repair title...") },
                             singleLine = true
                         )
 
@@ -215,7 +213,7 @@ fun RepairPage(navController: NavController) {
                                 value = requestText,
                                 onValueChange = { requestText = it },
                                 modifier = Modifier.fillMaxSize(),
-                                placeholder = { Text(stringResource(R.string.repairs_description_placeholder)) }
+                                placeholder = { Text("Describe the issue...") }
                             )
                         }
 
@@ -227,8 +225,8 @@ fun RepairPage(navController: NavController) {
                             Icon(Icons.Default.Image, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                if (selectedPhotoUris.isEmpty()) stringResource(R.string.repairs_btn_add_images)
-                                else stringResource(R.string.repairs_add_more_images, selectedPhotoUris.size)
+                                if (selectedPhotoUris.isEmpty()) "Add images"
+                                else "Add more images (${selectedPhotoUris.size} selected)"
                             )
                         }
 
@@ -265,9 +263,9 @@ fun RepairPage(navController: NavController) {
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(stringResource(R.string.repairs_ai_thinking))
+                                    Text("Thinking...")
                                 } else {
-                                    Text(stringResource(R.string.repairs_btn_ai_review))
+                                    Text("AI Review")
                                 }
                             }
 
@@ -300,7 +298,7 @@ fun RepairPage(navController: NavController) {
                                         pendingDraft = null
                                         Toast.makeText(
                                             context,
-                                            context.getString(R.string.repairs_gmail_not_installed),
+                                            "Gmail is not installed on this device",
                                             Toast.LENGTH_LONG
                                         ).show()
                                     }
@@ -309,7 +307,7 @@ fun RepairPage(navController: NavController) {
                                 shape = RoundedCornerShape(50),
                                 enabled = repairTitle.isNotBlank() && requestText.isNotBlank() && !vm.isAiReviewing
                             ) {
-                                Text(stringResource(R.string.repairs_btn_send))
+                                Text("Send")
                             }
                         }
                     }
@@ -321,8 +319,8 @@ fun RepairPage(navController: NavController) {
     if (showSentConfirmationDialog) {
         AlertDialog(
             onDismissRequest = { showSentConfirmationDialog = false },
-            title = { Text(stringResource(R.string.repairs_confirm_dialog_title)) },
-            text = { Text(stringResource(R.string.repairs_confirm_dialog_text)) },
+            title = { Text("Confirm email sending") },
+            text = { Text("Did you finally send the email from Gmail?") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -344,7 +342,7 @@ fun RepairPage(navController: NavController) {
                         showSentConfirmationDialog = false
                     }
                 ) {
-                    Text(stringResource(R.string.repairs_confirm_yes))
+                    Text("Yes, sent")
                 }
             },
             dismissButton = {
@@ -354,7 +352,7 @@ fun RepairPage(navController: NavController) {
                         showSentConfirmationDialog = false
                     }
                 ) {
-                    Text(stringResource(R.string.repairs_confirm_no))
+                    Text("No")
                 }
             }
         )
@@ -436,7 +434,7 @@ private fun SelectedImagesPreview(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(R.string.repairs_cd_remove_image),
+                        contentDescription = "Remove image",
                         modifier = Modifier.size(16.dp)
                     )
                 }

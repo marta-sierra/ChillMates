@@ -1,18 +1,14 @@
 package es.uc3m.android.chillmates.repairs
 
-import android.app.Application
-import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import es.uc3m.android.chillmates.BuildConfig
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.storage.FirebaseStorage
-import es.uc3m.android.chillmates.BuildConfig
-import es.uc3m.android.chillmates.R
 import es.uc3m.android.chillmates.model.Repair
 import es.uc3m.android.chillmates.model.USERS_COLLECTION
 import es.uc3m.android.chillmates.repository.FlatRepository
@@ -20,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 data class RepairUi(
     val id: String,
@@ -38,9 +33,8 @@ data class RepairUiState(
 )
 
 class RepairViewModel(
-    application: Application,
     private val repository: FlatRepository = FlatRepository()
-) : AndroidViewModel(application) {
+) : ViewModel() {
 
     var uiState by mutableStateOf(RepairUiState())
         private set
@@ -52,7 +46,6 @@ class RepairViewModel(
 
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
-    private val storage = FirebaseStorage.getInstance()
 
     init {
         loadUserAndFlatData()
@@ -70,6 +63,7 @@ class RepairViewModel(
                 currentFlatId = flatId
                 uiState = uiState.copy(currentUserName = userName)
 
+                // NUEVO: Escuchamos la subcolección de reparaciones directamente
                 launch {
                     repository.observeRepairs(flatId).collect { repairsList ->
                         uiState = uiState.copy(
@@ -91,7 +85,7 @@ class RepairViewModel(
             isAiReviewing = true
             try {
                 val generativeModel = GenerativeModel(
-                    modelName = "gemini-2.5-flash",
+                    modelName = "gemini-1.5-flash",
                     apiKey = BuildConfig.GEMINI_API_KEY
                 )
 
@@ -101,36 +95,21 @@ class RepairViewModel(
                     
                     Please rewrite the following issue description into a clear, formal, and polite email body.
                     Fix any spelling or grammar mistakes.
-                    Do NOT add any conversational filler, just return the finalized email text.
+                    Do NOT add any conversational filler (like "Here is your email"), just return the finalized email text.
                     
                     Here is the issue description:
                     $cleaned
                 """.trimIndent()
 
-                var responseText: String? = null
-                var success = false
-                var retries = 0
-
-                while (!success && retries < 3) {
-                    try {
-                        val response = withContext(Dispatchers.IO) {
-                            generativeModel.generateContent(prompt)
-                        }
-                        responseText = response.text
-                        success = true
-                    } catch (e: Exception) {
-                        retries++
-                        if (retries >= 3) {
-                            throw e
-                        }
-                        kotlinx.coroutines.delay(1500)
-                    }
+                val response = withContext(Dispatchers.IO) {
+                    generativeModel.generateContent(prompt)
                 }
 
-                responseText?.let { improvedText ->
+                response.text?.let { improvedText ->
                     onResult(improvedText.trim())
                 }
             } catch (e: Exception) {
+                e.printStackTrace()
                 val fallbackText = """
                     Hello,
 
@@ -156,36 +135,19 @@ class RepairViewModel(
         val description = rawDescription.trim()
         if (description.isBlank()) return
 
-        val repairTitle = title.trim().ifBlank { getApplication<Application>().resources.getString(R.string.repairs_default_title) }
+        val repairTitle = title.trim().ifBlank { "Repair request" }
+
+        val newRepair = Repair(
+            id = System.currentTimeMillis().toString(),
+            title = repairTitle,
+            description = description,
+            reportedBy = uiState.currentUserName,
+            landlordMessage = finalMessage.trim().ifBlank { description },
+            photoUris = photoUris,
+            status = "SENT"
+        )
 
         viewModelScope.launch {
-            val uploadedUrls = mutableListOf<String>()
-
-            for (localUriStr in photoUris) {
-                try {
-                    val uri = Uri.parse(localUriStr)
-                    val fileName = UUID.randomUUID().toString() + ".jpg"
-                    val ref = storage.reference.child("flats/$flatId/repairs/$fileName")
-
-                    ref.putFile(uri).await()
-
-                    val downloadUrl = ref.downloadUrl.await().toString()
-                    uploadedUrls.add(downloadUrl)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-
-            val newRepair = Repair(
-                id = System.currentTimeMillis().toString(),
-                title = repairTitle,
-                description = description,
-                reportedBy = uiState.currentUserName,
-                landlordMessage = finalMessage.trim().ifBlank { description },
-                photoUris = uploadedUrls, // Usamos las URLs de Firebase!
-                status = "SENT"
-            )
-
             repository.addRepair(flatId, newRepair)
         }
     }

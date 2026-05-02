@@ -141,14 +141,14 @@ class ChillMatesUITests {
     @Test
     fun choresTest_clickCheckbox_verificarToggle() {
         var choreFoiFeita = false
-        val testChore = Chore(id = "c1", title = "Limpar Cozinha", assignee = "Laura", isDone = false)
+        val testChore = Chore(id = "c1", title = "Limpar Cozinha", assignee = "Laura", done = false)
 
         composeTestRule.setContent {
             ChoreCard(
                 chore = testChore,
                 currentUserName = "Laura", // Nome do utilizador coincide com o responsável (assignee)
                 isPreview = false,
-                onUpdateChore = { choreAtualizada -> choreFoiFeita = choreAtualizada.isDone },
+                onUpdateChore = { choreAtualizada -> choreFoiFeita = choreAtualizada.done },
                 onSwapRequest = {}
             )
         }
@@ -157,7 +157,7 @@ class ChillMatesUITests {
         composeTestRule.onNode(isToggleable()).performClick()
 
         // Verificar que a tarefa foi feita
-        assertTrue("O estado isDone não mudou para true", choreFoiFeita)
+        assertTrue("O estado done não mudou para true", choreFoiFeita)
     }
 
     @Test
