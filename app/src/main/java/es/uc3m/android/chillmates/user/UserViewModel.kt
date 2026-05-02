@@ -313,19 +313,32 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     fun clearSuccessMessage() {
         uiState = uiState.copy(successMessage = null)
     }
-    fun onUpdatePassword(newPassword: String) {
+    fun onUpdatePassword(currentPassword: String, newPassword: String) {
         viewModelScope.launch {
-            uiState = uiState.copy(isLoading = true)
+            uiState = uiState.copy(isLoading = true, errorMessage = null)
             try {
-                auth.currentUser?.updatePassword(newPassword)?.await()
+                val user = auth.currentUser ?: throw Exception("No user logged in")
+                val email = user.email ?: throw Exception("No email found")
+
+                val credential = com.google.firebase.auth.EmailAuthProvider.getCredential(email, currentPassword)
+                user.reauthenticate(credential).await()
+
+                user.updatePassword(newPassword).await()
                 uiState = uiState.copy(
                     isLoading = false,
                     successMessage = getApplication<Application>().resources.getString(R.string.user_success_password_updated)
                 )
             } catch (e: Exception) {
+                val errorMessage = when (e) {
+                    is com.google.firebase.auth.FirebaseAuthWeakPasswordException ->
+                        getApplication<Application>().resources.getString(R.string.auth_error_password_too_short)
+                    is com.google.firebase.auth.FirebaseAuthInvalidCredentialsException ->
+                        "Current password is incorrect"
+                    else -> e.message ?: "Error updating password"
+                }
                 uiState = uiState.copy(
                     isLoading = false,
-                    errorMessage = "Error: Use a stronger password or re-login."
+                    errorMessage = errorMessage
                 )
             }
         }

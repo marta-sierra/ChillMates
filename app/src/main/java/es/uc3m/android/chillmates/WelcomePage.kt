@@ -291,6 +291,15 @@ fun FlatSetupPage(
                     Text(text = stringResource(R.string.flat_setup_continue), style = MaterialTheme.typography.titleMedium)
                 }
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            TextButton(
+                onClick = { authViewModel.logout() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Already have an account? Log in")
+            }
         }
     }
 }

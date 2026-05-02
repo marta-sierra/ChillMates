@@ -87,14 +87,17 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun loadUserFromFirestore(uid: String): User? {
-        return try {
-            val doc = firestore.collection(USERS_COLLECTION).document(uid).get().await()
-            val user = doc.toObject(User::class.java)?.apply { id = uid }
-            user
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
+        repeat(3) { attempt ->
+            try {
+                val doc = firestore.collection(USERS_COLLECTION).document(uid).get().await()
+                val user = doc.toObject(User::class.java)?.apply { id = uid }
+                if (user != null) return user
+            } catch (e: Exception) {
+                e.printStackTrace()
+                if (attempt < 2) delay(500)
+            }
         }
+        return null
     }
 
     fun onEmailChange(email: String) {

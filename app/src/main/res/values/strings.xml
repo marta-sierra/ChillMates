@@ -37,8 +37,6 @@
     <string name="home_show_all">Show all</string>
     <string name="home_accept_label">Count with me!</string>
     <string name="home_reject_label">Busy, sorry :(</string>
-    <string name="home_attending_prefix">Attending: %1$s</string>
-    <string name="home_attending_empty">—</string>
     <string name="home_btn_add_event">Add event</string>
     <string name="home_view_details">View more details</string>
     <string name="home_hide_details">Hide details</string>
@@ -210,26 +208,26 @@
     <string name="cd_delete">Delete</string>
     <string name="cd_close">Close</string>
 
-    <string name="flat_setup_title" translatable="false">Set up your flat</string>
-    <string name="flat_setup_subtitle" translatable="false">Create a new flat or join an existing one using an invite code</string>
-    <string name="flat_setup_create" translatable="false">Create new flat</string>
-    <string name="flat_setup_join" translatable="false">Join existing flat</string>
-    <string name="flat_setup_flat_name_label" translatable="false">Flat name</string>
-    <string name="flat_setup_flat_name_placeholder" translatable="false">e.g., Beach House, Downtown Flat</string>
-    <string name="flat_setup_invite_code_label" translatable="false">Invite code</string>
-    <string name="flat_setup_invite_code_placeholder" translatable="false">Enter 8-character code</string>
-    <string name="flat_setup_select_option" translatable="false">Please select an option above</string>
-    <string name="flat_setup_continue" translatable="false">Continue</string>
-    <string name="flat_setup_success" translatable="false">Flat created!</string>
-    <string name="flat_setup_invite_code" translatable="false">Invite code</string>
-    <string name="flat_setup_share_code" translatable="false">Share this code with your flatmates so they can join!</string>
-    <string name="login_button" translatable="false">Log In</string>
-    <string name="signup_button" translatable="false">Sign up</string>
-    <string name="home_notice_board" translatable="false">Notice Board</string>
-    <string name="home_upcoming_events" translatable="false">Upcoming Events</string>
-    <string name="home_add_event" translatable="false">Add Event</string>
-    <string name="home_toast_reminder_canceled" translatable="false">Reminder canceled</string>
-    <string name="home_toast_reminder_set" translatable="false">Reminder set!</string>
+    <string name="flat_setup_title">Set up your flat</string>
+    <string name="flat_setup_subtitle">Create a new flat or join an existing one using an invite code</string>
+    <string name="flat_setup_create">Create new flat</string>
+    <string name="flat_setup_join">Join existing flat</string>
+    <string name="flat_setup_flat_name_label">Flat name</string>
+    <string name="flat_setup_flat_name_placeholder">e.g., Beach House, Downtown Flat</string>
+    <string name="flat_setup_invite_code_label">Invite code</string>
+    <string name="flat_setup_invite_code_placeholder">Enter 8-character code</string>
+    <string name="flat_setup_select_option">Please select an option above</string>
+    <string name="flat_setup_continue">Continue</string>
+    <string name="flat_setup_success">Flat created!</string>
+    <string name="flat_setup_invite_code">Invite code</string>
+    <string name="flat_setup_share_code">Share this code with your flatmates so they can join!</string>
+    <string name="login_button">Log In</string>
+    <string name="signup_button">Sign up</string>
+    <string name="home_notice_board">Notice Board</string>
+    <string name="home_upcoming_events">Upcoming Events</string>
+    <string name="home_add_event">Add Event</string>
+    <string name="home_toast_reminder_canceled">Reminder canceled</string>
+    <string name="home_toast_reminder_set">Reminder set!</string>
     <string name="chore_reminder_title">Set reminder</string>
     <string name="chore_reminder_message">When do you want to be reminded?</string>
     <string name="chore_reminder_in_10_min">In 10 minutes</string>
@@ -337,5 +335,6 @@
     <string name="repo_error_parse">Parse error</string>
     <string name="repo_error_already_member">Already a member</string>
     <string name="repo_unknown_user">Unknown</string>
+    <string name="label_expense_title">Expense Title</string>
 
 </resources>

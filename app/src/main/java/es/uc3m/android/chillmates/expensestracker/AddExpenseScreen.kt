@@ -87,7 +87,7 @@ fun AddExpenseDialog(
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text(stringResource(R.string.label_chore_title)) },
+                    label = { Text(stringResource(R.string.label_expense_title)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )

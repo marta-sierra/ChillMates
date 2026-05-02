@@ -559,15 +559,6 @@ fun EventCard(event: UpcomingEventUi, context: Context, viewModel: HomeViewModel
                     )
                 }
 
-                if (event.attending.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "${stringResource(R.string.home_attending_prefix)}${event.attending.joinToString { it.name }}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
                 Spacer(modifier = Modifier.height(8.dp))
                 TextButton(
                     onClick = { exportEventToCalendar(context, event) },
@@ -622,12 +613,39 @@ private fun extractEventStartMillis(dateLabel: String): Long {
     val hour = match?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 9
     val minute = match?.groupValues?.getOrNull(2)?.toIntOrNull() ?: 0
 
-    return Calendar.getInstance().apply {
+    val dayAbbrev = dateLabel.take(3).lowercase()
+    val targetDayOfWeek = when (dayAbbrev) {
+        "mon" -> Calendar.MONDAY
+        "tue" -> Calendar.TUESDAY
+        "wed" -> Calendar.WEDNESDAY
+        "thu" -> Calendar.THURSDAY
+        "fri" -> Calendar.FRIDAY
+        "sat" -> Calendar.SATURDAY
+        "sun" -> Calendar.SUNDAY
+        else -> Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
+    }
+
+    val now = Calendar.getInstance()
+    val target = Calendar.getInstance().apply {
+        timeInMillis = now.timeInMillis
         set(Calendar.HOUR_OF_DAY, hour.coerceIn(0, 23))
         set(Calendar.MINUTE, minute.coerceIn(0, 59))
         set(Calendar.SECOND, 0)
         set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
+    }
+
+    var daysToAdd = 0
+    while (target.get(Calendar.DAY_OF_WEEK) != targetDayOfWeek) {
+        target.add(Calendar.DAY_OF_YEAR, 1)
+        daysToAdd++
+        if (daysToAdd > 7) break
+    }
+
+    if (daysToAdd == 0 && now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE) > hour * 60 + minute) {
+        target.add(Calendar.DAY_OF_YEAR, 7)
+    }
+
+    return target.timeInMillis
 }
 
 private fun scheduleReminder(context: Context, requestCode: Int, title: String, message: String, triggerAtMillis: Long) {

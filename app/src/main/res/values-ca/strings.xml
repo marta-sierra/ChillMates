@@ -36,8 +36,6 @@
     <string name="home_show_all">Mostra-ho tot</string>
     <string name="home_accept_label">Compteu amb mi!</string>
     <string name="home_reject_label">Ocupat/da, ho sento :(</string>
-    <string name="home_attending_prefix">Hi assisteixen: %1$s</string>
-    <string name="home_attending_empty">—</string>
     <string name="home_btn_add_event">Afegeix esdeveniment</string>
     <string name="home_view_details">Veure mes detalls</string>
     <string name="home_hide_details">Amaga detalls</string>
@@ -337,5 +335,6 @@
     <string name="repo_error_parse">Error danalisi</string>
     <string name="repo_error_already_member">Ja ets membre</string>
     <string name="repo_unknown_user">Desconegut</string>
+    <string name="label_expense_title">Títol de la despesa</string>
 
 </resources>

@@ -220,6 +220,10 @@ class FlatRepository {
         }.await()
     }
 
+    suspend fun deleteChore(flatId: String, choreId: String) {
+        firestore.collection(FLATS_COLLECTION).document(flatId).collection(CHORES_SUBCOLLECTION).document(choreId).delete().await()
+    }
+
     suspend fun performAutoRotationBatch(flatId: String, chores: List<Chore>, timestamp: Long) {
         firestore.runBatch { batch ->
             chores.forEach {

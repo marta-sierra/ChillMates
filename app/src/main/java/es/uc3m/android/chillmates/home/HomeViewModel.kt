@@ -36,8 +36,7 @@ data class UpcomingEventUi(
     val dateLabel: String,
     val description: String,
     val isRemindMeEnabled: Boolean = false,
-    val location: String = "",
-    val attending: List<MemberUi> = emptyList()
+    val location: String = ""
 )
 
 @Immutable
@@ -124,8 +123,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 id = e.id,
                 dateLabel = e.dateLabel,
                 description = e.description,
-                location = e.location ?: "",
-                attending = e.attending.map { MemberUi(it) }
+                location = e.location ?: ""
             )
         }.sortedBy { it.dateLabel }
 
@@ -218,8 +216,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     id = "ev_${System.currentTimeMillis()}",
                     dateLabel = dateLabel,
                     description = description,
-                    location = location,
-                    attending = emptyList()
+                    location = location
                 )
                 repository.addEvent(flatId, newEvent)
             } catch (e: Exception) { }

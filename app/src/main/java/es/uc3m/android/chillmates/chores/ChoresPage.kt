@@ -81,10 +81,11 @@ fun ChoresPage(
             when {
                 weekOffset == 0 -> {
                     val assignment = chore.assignments[targetWeekKey]
+                    val assignee = assignment?.assignee ?: "Everyone"
                     ChoreWeekUi(
                         chore = chore,
-                        assignee = assignment?.assignee ?: chore.assignee,
-                        done = chore.done,
+                        assignee = assignee,
+                        done = assignment?.done ?: false,
                         mode = ChoreWeekMode.CURRENT,
                         hasRecord = chore.assignments.containsKey(targetWeekKey)
                     )
@@ -100,7 +101,8 @@ fun ChoresPage(
                     )
                 }
                 else -> {
-                    val baseAssignee = chore.assignee
+                    val latestWeekKey = chore.assignments.keys.maxOrNull()
+                    val baseAssignee = latestWeekKey?.let { chore.assignments[it]?.assignee } ?: "Everyone"
                     val tentativeAssignee = if (baseAssignee == "Everyone" || mates.isEmpty()) {
                         baseAssignee
                     } else {
@@ -276,6 +278,9 @@ fun ChoresPage(
             onSave = { updatedList ->
                 viewModel.saveReconfiguredChores(updatedList)
                 showReconfigureDialog = false
+            },
+            onDelete = { choreId ->
+                viewModel.deleteChore(choreId)
             }
         )
     }
@@ -288,8 +293,10 @@ fun ChoresPage(
             },
             onSelectDelayMinutes = { minutes ->
                 reminderTargetChore?.let { chore ->
+                    val currentWeekKey = weekKeyForOffset(0)
+                    val assignee = chore.assignments[currentWeekKey]?.assignee ?: "Everyone"
                     val title = "Chore Reminder"
-                    val message = "${chore.assignee}, don't forget to ${chore.title}!"
+                    val message = "$assignee, don't forget to ${chore.title}!"
                     scheduleChoreReminder(
                         context = context,
                         requestCode = chore.id.hashCode(),
@@ -361,7 +368,9 @@ fun AddChoreDialog(flatmates: List<String>, onDismiss: () -> Unit, onAdd: (Strin
 
 @Composable
 fun SwapChoreDialog(chore: Chore, flatmates: List<String>, onDismiss: () -> Unit, onConfirmSwap: (String) -> Unit) {
-    var selectedAssignee by remember { mutableStateOf(flatmates.firstOrNull { it != chore.assignee } ?: chore.assignee) }
+    val currentWeekKey = weekKeyForOffset(0)
+    val currentAssignee = chore.assignments[currentWeekKey]?.assignee ?: "Everyone"
+    var selectedAssignee by remember { mutableStateOf(flatmates.firstOrNull { it != currentAssignee } ?: currentAssignee) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.dialog_swap_chore_title)) },
@@ -382,13 +391,20 @@ fun ReconfigureChoresDialog(
     flatmates: List<String>,
     currentWeekKey: String,
     onDismiss: () -> Unit,
-    onSave: (List<Chore>) -> Unit
+    onSave: (List<Chore>) -> Unit,
+    onDelete: (String) -> Unit
 ) {
     val tempChores = remember(currentChores) {
         mutableStateListOf<Chore>().apply {
             addAll(currentChores.map { chore ->
-                val actualAssignee = chore.assignments[currentWeekKey]?.assignee ?: chore.assignee
-                chore.copy(assignee = actualAssignee)
+                val actualAssignee = chore.assignments[currentWeekKey]?.assignee ?: "Everyone"
+                if (chore.assignments.containsKey(currentWeekKey)) {
+                    chore
+                } else {
+                    val newAssignments = chore.assignments.toMutableMap()
+                    newAssignments[currentWeekKey] = ChoreAssignment(assignee = actualAssignee, done = false)
+                    chore.copy(assignments = newAssignments)
+                }
             })
         }
     }
@@ -406,7 +422,10 @@ fun ReconfigureChoresDialog(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = chore.title, fontWeight = FontWeight.Bold)
-                            IconButton(onClick = { tempChores.removeAt(index) }) {
+                            IconButton(onClick = {
+                                onDelete(chore.id)
+                                tempChores.removeAt(index)
+                            }) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
                                     contentDescription = "Delete",
@@ -415,10 +434,16 @@ fun ReconfigureChoresDialog(
                             }
                         }
                         Spacer(modifier = Modifier.height(4.dp))
+                        val currentAssignee = chore.assignments[currentWeekKey]?.assignee ?: "Everyone"
                         FlatmateDropdown(
-                            selected = chore.assignee,
+                            selected = currentAssignee,
                             flatmates = flatmates,
-                            onSelected = { newAssignee -> tempChores[index] = chore.copy(assignee = newAssignee) }
+                            onSelected = { newAssignee ->
+                                val newAssignments = chore.assignments.toMutableMap()
+                                val currentDone = chore.assignments[currentWeekKey]?.done ?: false
+                                newAssignments[currentWeekKey] = ChoreAssignment(assignee = newAssignee, done = currentDone)
+                                tempChores[index] = chore.copy(assignments = newAssignments)
+                            }
                         )
                     }
                 }

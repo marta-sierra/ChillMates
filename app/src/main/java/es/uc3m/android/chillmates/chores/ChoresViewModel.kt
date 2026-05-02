@@ -105,11 +105,12 @@ class ChoresViewModel(
 
         if (index != -1) {
             val chore = currentList[index]
-            val assignee = chore.assignments[weekKey]?.assignee ?: chore.assignee
+            val assignment = chore.assignments[weekKey]
+            val assignee = assignment?.assignee ?: "Everyone"
 
             val newAssignments = chore.assignments.toMutableMap()
             newAssignments[weekKey] = ChoreAssignment(assignee = assignee, done = done)
-            val updatedChore = chore.copy(done = done, assignments = newAssignments)
+            val updatedChore = chore.copy(assignments = newAssignments)
 
             currentList[index] = updatedChore
             _chores.value = currentList.toList()
@@ -130,7 +131,6 @@ class ChoresViewModel(
         val newChore = Chore(
             id = System.currentTimeMillis().toString(),
             title = title,
-            assignee = assignee,
             done = false,
             assignments = mapOf(weekKey to ChoreAssignment(assignee = assignee, done = false))
         )
@@ -149,7 +149,7 @@ class ChoresViewModel(
         val weekKey = currentWeekKey()
         val currentChore = _chores.value.firstOrNull { it.id == choreId } ?: return
         val currentAssignment = currentChore.assignments[weekKey]
-            ?: ChoreAssignment(assignee = currentChore.assignee, done = currentChore.done)
+            ?: ChoreAssignment(assignee = "Everyone", done = false)
 
         viewModelScope.launch {
             try {
@@ -162,11 +162,21 @@ class ChoresViewModel(
 
     fun saveReconfiguredChores(updatedList: List<Chore>) {
         val flatId = currentFlatId ?: return
-        val weekKey = currentWeekKey()
 
         viewModelScope.launch {
             try {
                 repository.saveChoresBatch(flatId, updatedList)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun deleteChore(choreId: String) {
+        val flatId = currentFlatId ?: return
+        viewModelScope.launch {
+            try {
+                repository.deleteChore(flatId, choreId)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -183,25 +193,25 @@ class ChoresViewModel(
             val weekKey = weekKeyForTimestamp(currentTime)
 
             val updatedList = currentChores.map { chore ->
-                if (chore.assignee == "Everyone") {
-                    val assignment = ChoreAssignment(assignee = chore.assignee, done = false)
+                val latestWeekKey = chore.assignments.keys.maxOrNull()
+                val currentAssignee = latestWeekKey?.let { chore.assignments[it]?.assignee } ?: "Everyone"
+
+                if (currentAssignee == "Everyone") {
+                    val assignment = ChoreAssignment(assignee = currentAssignee, done = false)
                     chore.copy(
-                        done = false,
                         assignments = chore.assignments + (weekKey to assignment)
                     )
                 } else {
-                    val currentIndex = mates.indexOf(chore.assignee)
+                    val currentIndex = mates.indexOf(currentAssignee)
                     val nextAssignee = if (currentIndex != -1 && mates.size > 1) {
                         mates[(currentIndex + 1) % mates.size]
                     } else if (currentIndex == -1 && mates.isNotEmpty()) {
                         mates[0]
                     } else {
-                        chore.assignee
+                        currentAssignee
                     }
                     val assignment = ChoreAssignment(assignee = nextAssignee, done = false)
                     chore.copy(
-                        assignee = nextAssignee,
-                        done = false,
                         assignments = chore.assignments + (weekKey to assignment)
                     )
                 }

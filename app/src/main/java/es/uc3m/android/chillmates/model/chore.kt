@@ -11,7 +11,6 @@ data class ChoreAssignment(
 data class Chore(
     val id: String = "",
     val title: String = "",
-    val assignee: String = "",
     val done: Boolean = false,
     val assignments: Map<String, ChoreAssignment> = emptyMap()
 )

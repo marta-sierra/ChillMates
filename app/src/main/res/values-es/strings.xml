@@ -36,8 +36,6 @@
     <string name="home_show_all">Ver todos</string>
     <string name="home_accept_label">Contad conmigo!</string>
     <string name="home_reject_label">Ocupado/a, lo siento :(</string>
-    <string name="home_attending_prefix">Asisten: %1$s</string>
-    <string name="home_attending_empty">—</string>
     <string name="home_btn_add_event">Añadir evento</string>
     <string name="home_view_details">Ver mas detalles</string>
     <string name="home_hide_details">Ocultar detalles</string>
@@ -335,5 +333,6 @@
     <string name="repo_error_parse">Error de analisis</string>
     <string name="repo_error_already_member">Ya eres miembro</string>
     <string name="repo_unknown_user">Desconocido</string>
+    <string name="label_expense_title">Título del gasto</string>
 
 </resources>

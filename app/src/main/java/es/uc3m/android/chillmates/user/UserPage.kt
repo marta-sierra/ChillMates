@@ -101,15 +101,16 @@ fun UserPage(
             onFlatNameChange = { vm.onDialogFlatNameChange(it) },
             onInviteCodeChange = { vm.onDialogInviteCodeChange(it) },
             onConfirm = { vm.onConfirmCreateJoin() },
-            onDismiss = { vm.onDismissCreateJoinDialog() }
+            onDismiss = { vm.onDismissCreateJoinDialog() },
+            onLogout = { authViewModel.logout() }
         )
     }
 
     if (showPasswordDialog) {
         ChangePasswordDialog(
             onDismiss = { showPasswordDialog = false },
-            onConfirm = { newPass ->
-                vm.onUpdatePassword(newPass)
+            onConfirm = { currentPass, newPass ->
+                vm.onUpdatePassword(currentPass, newPass)
                 showPasswordDialog = false
             }
         )
@@ -403,7 +404,8 @@ private fun FlatSectionCardClean(
 }
 
 @Composable
-fun ChangePasswordDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+fun ChangePasswordDialog(onDismiss: () -> Unit, onConfirm: (String, String) -> Unit) {
+    var currentPass by remember { mutableStateOf("") }
     var pass1 by remember { mutableStateOf("") }
     var pass2 by remember { mutableStateOf("") }
     AlertDialog(
@@ -411,6 +413,12 @@ fun ChangePasswordDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
         title = { Text(stringResource(R.string.user_update_password_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = currentPass,
+                    onValueChange = { currentPass = it },
+                    label = { Text("Current password") },
+                    modifier = Modifier.fillMaxWidth()
+                )
                 OutlinedTextField(
                     value = pass1,
                     onValueChange = { pass1 = it },
@@ -427,8 +435,8 @@ fun ChangePasswordDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
         },
         confirmButton = {
             Button(
-                enabled = pass1.isNotEmpty() && pass1 == pass2 && pass1.length >= 6,
-                onClick = { onConfirm(pass1) }
+                enabled = currentPass.isNotEmpty() && pass1.isNotEmpty() && pass1 == pass2 && pass1.length >= 6,
+                onClick = { onConfirm(currentPass, pass1) }
             ) { Text(stringResource(R.string.user_update_action)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) } }
@@ -446,7 +454,8 @@ private fun CreateJoinFlatDialog(
     onFlatNameChange: (String) -> Unit,
     onInviteCodeChange: (String) -> Unit,
     onConfirm: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onLogout: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -500,4 +509,13 @@ private fun CreateJoinFlatDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) } }
     )
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        TextButton(onClick = onLogout) {
+            Text("Already have an account? Log in")
+        }
+    }
 }
