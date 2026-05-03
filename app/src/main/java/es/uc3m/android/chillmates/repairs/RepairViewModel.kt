@@ -3,12 +3,14 @@ package es.uc3m.android.chillmates.repairs
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import es.uc3m.android.chillmates.BuildConfig
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import es.uc3m.android.chillmates.model.Repair
 import es.uc3m.android.chillmates.model.USERS_COLLECTION
 import es.uc3m.android.chillmates.repository.FlatRepository
@@ -46,6 +48,7 @@ class RepairViewModel(
 
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
+    private val storage = FirebaseStorage.getInstance()
 
     init {
         loadUserAndFlatData()
@@ -136,19 +139,52 @@ class RepairViewModel(
         if (description.isBlank()) return
 
         val repairTitle = title.trim().ifBlank { "Repair request" }
-
-        val newRepair = Repair(
-            id = System.currentTimeMillis().toString(),
-            title = repairTitle,
-            description = description,
-            reportedBy = uiState.currentUserName,
-            landlordMessage = finalMessage.trim().ifBlank { description },
-            photoUris = photoUris,
-            status = "SENT"
-        )
+        val repairId = System.currentTimeMillis().toString()
 
         viewModelScope.launch {
+            val savedPhotoUris = uploadRepairPhotos(
+                flatId = flatId,
+                repairId = repairId,
+                photoUris = photoUris
+            )
+
+            val newRepair = Repair(
+                id = repairId,
+                title = repairTitle,
+                description = description,
+                reportedBy = uiState.currentUserName,
+                landlordMessage = finalMessage.trim().ifBlank { description },
+                photoUris = savedPhotoUris,
+                status = "SENT"
+            )
+
             repository.addRepair(flatId, newRepair)
+        }
+    }
+
+    private suspend fun uploadRepairPhotos(
+        flatId: String,
+        repairId: String,
+        photoUris: List<String>
+    ): List<String> {
+        return withContext(Dispatchers.IO) {
+            photoUris.mapIndexedNotNull { index, photoUri ->
+                try {
+                    val uri = Uri.parse(photoUri)
+                    val photoRef = storage.reference
+                        .child("flats")
+                        .child(flatId)
+                        .child("repairs")
+                        .child(repairId)
+                        .child("photo_$index.jpg")
+
+                    photoRef.putFile(uri).await()
+                    photoRef.downloadUrl.await().toString()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    null
+                }
+            }
         }
     }
 

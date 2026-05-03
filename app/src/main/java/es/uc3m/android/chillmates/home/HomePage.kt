@@ -553,7 +553,7 @@ fun EventCard(event: UpcomingEventUi, context: Context, viewModel: HomeViewModel
 
                 if (event.location.isNotEmpty()) {
                     Text(
-                        text = "${stringResource(R.string.home_location_prefix)}${event.location}",
+                        text = stringResource(R.string.home_location_prefix, event.location),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -591,9 +591,20 @@ private fun exportEventToCalendar(context: Context, event: UpcomingEventUi) {
     val startMillis = extractEventStartMillis(event.dateLabel)
     val endMillis = startMillis + 60 * 60 * 1000
 
+    val calendarDescription = buildString {
+        append(event.description)
+        append("\n")
+        append(event.dateLabel)
+        if (event.location.isNotBlank()) {
+            append("\n")
+            append(context.getString(R.string.home_location_prefix, event.location))
+        }
+    }
+
     val intent = Intent(Intent.ACTION_INSERT).apply {
         data = CalendarContract.Events.CONTENT_URI
         putExtra(CalendarContract.Events.TITLE, event.description)
+        putExtra(CalendarContract.Events.DESCRIPTION, calendarDescription)
         putExtra(CalendarContract.Events.EVENT_LOCATION, event.location)
         putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startMillis)
         putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endMillis)
@@ -607,21 +618,23 @@ private fun exportEventToCalendar(context: Context, event: UpcomingEventUi) {
 }
 
 private fun extractEventStartMillis(dateLabel: String): Long {
-    val timeRegex = Regex("""(\d{1,2})[:.]?(\d{2})?""")
-    val match = timeRegex.find(dateLabel)
+    parseDayMonthTimeMillis(dateLabel)?.let { return it }
+
+    val timeRegex = Regex("""(\d{1,2})[:.](\d{2})""")
+    val match = timeRegex.findAll(dateLabel).lastOrNull()
 
     val hour = match?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 9
     val minute = match?.groupValues?.getOrNull(2)?.toIntOrNull() ?: 0
 
     val dayAbbrev = dateLabel.take(3).lowercase()
     val targetDayOfWeek = when (dayAbbrev) {
-        "mon" -> Calendar.MONDAY
-        "tue" -> Calendar.TUESDAY
-        "wed" -> Calendar.WEDNESDAY
-        "thu" -> Calendar.THURSDAY
-        "fri" -> Calendar.FRIDAY
-        "sat" -> Calendar.SATURDAY
-        "sun" -> Calendar.SUNDAY
+        "mon", "lun", "dil" -> Calendar.MONDAY
+        "tue", "mar", "dim" -> Calendar.TUESDAY
+        "wed", "mie", "mié", "dime" -> Calendar.WEDNESDAY
+        "thu", "jue", "dij" -> Calendar.THURSDAY
+        "fri", "vie", "div" -> Calendar.FRIDAY
+        "sat", "sab", "sáb", "dis" -> Calendar.SATURDAY
+        "sun", "dom", "diu" -> Calendar.SUNDAY
         else -> Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
     }
 
@@ -646,6 +659,49 @@ private fun extractEventStartMillis(dateLabel: String): Long {
     }
 
     return target.timeInMillis
+}
+
+private fun parseDayMonthTimeMillis(dateLabel: String): Long? {
+    val dateRegex = Regex("""(?i)\b(\d{1,2})\s+([A-Za-zÀ-ÿ.]+)\s+(\d{1,2})[:.](\d{2})\b""")
+    val match = dateRegex.find(dateLabel) ?: return null
+
+    val day = match.groupValues[1].toIntOrNull() ?: return null
+    val month = monthIndex(match.groupValues[2]) ?: return null
+    val hour = match.groupValues[3].toIntOrNull() ?: 9
+    val minute = match.groupValues[4].toIntOrNull() ?: 0
+
+    val now = Calendar.getInstance()
+    return Calendar.getInstance().apply {
+        timeInMillis = now.timeInMillis
+        set(Calendar.MONTH, month)
+        set(Calendar.DAY_OF_MONTH, day.coerceIn(1, 31))
+        set(Calendar.HOUR_OF_DAY, hour.coerceIn(0, 23))
+        set(Calendar.MINUTE, minute.coerceIn(0, 59))
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+
+        if (before(now)) {
+            add(Calendar.YEAR, 1)
+        }
+    }.timeInMillis
+}
+
+private fun monthIndex(monthText: String): Int? {
+    return when (monthText.trim().trimEnd('.').lowercase()) {
+        "jan", "january", "ene", "enero", "gen", "gener" -> Calendar.JANUARY
+        "feb", "february", "febrero", "febrer" -> Calendar.FEBRUARY
+        "mar", "march", "marzo", "març", "marc" -> Calendar.MARCH
+        "apr", "april", "abr", "abril" -> Calendar.APRIL
+        "may", "mayo", "maig" -> Calendar.MAY
+        "jun", "june", "junio", "juny" -> Calendar.JUNE
+        "jul", "july", "julio", "juliol" -> Calendar.JULY
+        "aug", "august", "ago", "agosto", "agost" -> Calendar.AUGUST
+        "sep", "sept", "september", "septiembre", "set", "setembre" -> Calendar.SEPTEMBER
+        "oct", "october", "octubre" -> Calendar.OCTOBER
+        "nov", "november", "noviembre", "novembre" -> Calendar.NOVEMBER
+        "dec", "december", "dic", "diciembre", "des", "desembre" -> Calendar.DECEMBER
+        else -> null
+    }
 }
 
 private fun scheduleReminder(context: Context, requestCode: Int, title: String, message: String, triggerAtMillis: Long) {
