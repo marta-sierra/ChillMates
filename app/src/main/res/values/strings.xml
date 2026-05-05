@@ -240,7 +240,7 @@
     <string name="chore_tentative_next_week">Tentative next week rotation</string>
 
     <!-- MainActivity.kt -->
-    <string name="main_welcome_back">Welcome back,</string>
+    <string name="main_welcome_back">Welcome</string>
     <string name="main_welcome_fallback_name">mate</string>
     <string name="main_welcome_to">to</string>
     <string name="main_welcome_fallback_flat">your flat</string>

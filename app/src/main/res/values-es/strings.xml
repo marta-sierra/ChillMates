@@ -238,7 +238,7 @@
     <string name="chore_tentative_next_week">Rotacion tentativa para la proxima semana</string>
 
     <!-- MainActivity.kt -->
-    <string name="main_welcome_back">Bienvenido de nuevo,</string>
+    <string name="main_welcome_back">Bienvenido</string>
     <string name="main_welcome_fallback_name">colega</string>
     <string name="main_welcome_to">a</string>
     <string name="main_welcome_fallback_flat">tu piso</string>
