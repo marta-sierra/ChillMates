@@ -118,14 +118,8 @@ fun WelcomeBackScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
-                text = stringResource(R.string.main_welcome_back),
+                text = "${stringResource(R.string.main_welcome_back)} ${userName.ifEmpty { stringResource(R.string.main_welcome_fallback_name) }}!",
                 style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Text(
-                text = userName.ifEmpty { stringResource(R.string.main_welcome_fallback_name) },
-                style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -213,26 +207,12 @@ fun ChillMatesApp(
         return
     }
 
-    if (authState.justCompletedFlatSetup && authState.authState !is AuthState.Authenticated) {
+    if (authState.authState is AuthState.Authenticated && currentUser == null) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
+            modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(32.dp)
-            ) {
-                CircularProgressIndicator()
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = stringResource(R.string.main_preparing_flat),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            CircularProgressIndicator()
         }
         return
     }
@@ -250,11 +230,7 @@ fun ChillMatesApp(
         return
     }
 
-    val startDestination = if (authState.justCompletedFlatSetup) {
-        NavGraph.Home.route
-    } else {
-        welcomeBackRoute
-    }
+    val startDestination = welcomeBackRoute
 
     val isAuxiliaryRoute = currentRoute == NavGraph.AddEvent.route ||
             currentRoute == NavGraph.AddExpense.route ||

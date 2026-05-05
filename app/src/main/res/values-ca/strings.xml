@@ -240,7 +240,7 @@
     <string name="chore_tentative_next_week">Rotacio tentativa per a la proxima setmana</string>
 
     <!-- MainActivity.kt -->
-    <string name="main_welcome_back">Benvingut de nou,</string>
+    <string name="main_welcome_back">Benvingut</string>
     <string name="main_welcome_fallback_name">amic</string>
     <string name="main_welcome_to">a</string>
     <string name="main_welcome_fallback_flat">el teu pis</string>

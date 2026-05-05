@@ -38,8 +38,7 @@ data class AuthUiState(
     val flatSetupMode: FlatSetupMode = FlatSetupMode.NONE,
     val flatName: String = "",
     val inviteCode: String = "",
-    val createdFlat: Flat? = null,
-    val justCompletedFlatSetup: Boolean = false
+    val createdFlat: Flat? = null
 )
 
 enum class FlatSetupMode {
@@ -148,8 +147,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     if (user?.hasFlat() == true) {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            authState = AuthState.Authenticated,
-                            justCompletedFlatSetup = false
+                            authState = AuthState.Authenticated
                         )
                     } else {
                         _uiState.value = _uiState.value.copy(
@@ -296,7 +294,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         createdFlat = flat,
-                        justCompletedFlatSetup = true,
                         authState = AuthState.Authenticated
                     )
                 } else {
@@ -332,7 +329,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     _currentUser.value = updatedUser
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        justCompletedFlatSetup = true,
                         authState = AuthState.Authenticated
                     )
                 } else {
@@ -356,8 +352,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 auth.signOut()
                 _currentUser.value = null
                 _uiState.value = AuthUiState(
-                    authState = AuthState.Unauthenticated,
-                    justCompletedFlatSetup = false
+                    authState = AuthState.Unauthenticated
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
