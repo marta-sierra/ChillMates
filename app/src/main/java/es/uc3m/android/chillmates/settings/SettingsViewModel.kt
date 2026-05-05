@@ -9,12 +9,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -22,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -40,7 +45,8 @@ import es.uc3m.android.chillmates.R
 
 @Composable
 fun SettingsPage(
-    navController: NavController
+    navController: NavController,
+    onLogout: () -> Unit
 ) {
     val vm: SettingsViewModel = viewModel(
         factory = viewModelFactory {
@@ -58,7 +64,8 @@ fun SettingsPage(
         state = state,
         onBackClick = { navController.popBackStack() },
         onDarkModeToggle = vm::onDarkModeToggle,
-        onSoundToggle = vm::onSoundToggle
+        onSoundToggle = vm::onSoundToggle,
+        onLogout = onLogout
     )
 }
 
@@ -67,7 +74,8 @@ private fun SettingsRoute(
     state: SettingsUiState,
     onBackClick: () -> Unit,
     onDarkModeToggle: (Boolean) -> Unit,
-    onSoundToggle: (Boolean) -> Unit
+    onSoundToggle: (Boolean) -> Unit,
+    onLogout: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Surface(color = MaterialTheme.colorScheme.primaryContainer) {
@@ -124,6 +132,23 @@ private fun SettingsRoute(
                         checked = state.darkModeEnabled,
                         onCheckedChange = onDarkModeToggle
                     )
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                TextButton(
+                    onClick = onLogout,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(Icons.Default.Logout, null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.user_logout_session))
                 }
             }
         }

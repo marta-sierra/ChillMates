@@ -82,10 +82,7 @@ fun UserPage(
             onLeaveFlatClick = { vm.onLeaveFlat() },
             onShowCreateJoinDialog = { vm.onShowCreateJoinDialog() },
             onUpdateProfile = { vm.onUpdateProfile(it) },
-            onPasswordClick = { showPasswordDialog = true },
-            onLogoutClick = {
-                authViewModel.logout()
-            }
+            onPasswordClick = { showPasswordDialog = true }
         )
     }
 
@@ -126,8 +123,7 @@ private fun UserRoute(
     onLeaveFlatClick: () -> Unit,
     onShowCreateJoinDialog: () -> Unit,
     onUpdateProfile: (String) -> Unit,
-    onPasswordClick: () -> Unit,
-    onLogoutClick: () -> Unit
+    onPasswordClick: () -> Unit
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         Surface(color = MaterialTheme.colorScheme.primaryContainer) {
@@ -201,19 +197,6 @@ private fun UserRoute(
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(R.string.user_create_join_cta))
                     }
-                }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(
-                    onClick = onLogoutClick,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Icon(Icons.Default.Logout, null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.user_logout_session))
                 }
             }
         }

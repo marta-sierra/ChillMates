@@ -490,7 +490,10 @@ fun ChillMatesApp(
                         }
 
                         composable(NavGraph.Settings.route) {
-                            SettingsPage(navController)
+                            SettingsPage(
+                                navController = navController,
+                                onLogout = { authViewModel.logout() }
+                            )
                         }
                     }
                 }

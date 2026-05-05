@@ -88,7 +88,7 @@ class RepairViewModel(
             isAiReviewing = true
             try {
                 val generativeModel = GenerativeModel(
-                    modelName = "gemini-1.5-flash",
+                    modelName = "gemini-2.5-flash",
                     apiKey = BuildConfig.GEMINI_API_KEY
                 )
 
@@ -99,7 +99,8 @@ class RepairViewModel(
                     Please rewrite the following issue description into a clear, formal, and polite email body.
                     Fix any spelling or grammar mistakes.
                     Do NOT add any conversational filler (like "Here is your email"), just return the finalized email text.
-                    
+                    Do NOT include the subject and landlord's name, but use the subject to get additional information.
+                    Do NOT use any placeholder, if you do not have enough information, use vague words.
                     Here is the issue description:
                     $cleaned
                 """.trimIndent()
