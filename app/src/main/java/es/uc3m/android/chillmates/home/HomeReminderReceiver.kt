@@ -20,9 +20,7 @@ class HomeReminderReceiver : BroadcastReceiver() {
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        /**
-         * Create the notification channel.
-         */
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channelName = context.getString(R.string.notif_channel_reminders_name)
             val channel = NotificationChannel(

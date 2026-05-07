@@ -187,7 +187,6 @@ fun FlatSetupPage(
     val scrollState = rememberScrollState()
     val focusManager = LocalFocusManager.current
 
-    // --- NEW: Listen for successful setup and trigger navigation ---
     LaunchedEffect(uiState.authState) {
         if (uiState.authState is AuthState.Authenticated) {
             onComplete()

@@ -1,6 +1,5 @@
 package es.uc3m.android.chillmates.model
 
-// Subcollection name inside a Flat document
 const val EVENTS_SUBCOLLECTION = "events"
 
 data class UpcomingEvent(

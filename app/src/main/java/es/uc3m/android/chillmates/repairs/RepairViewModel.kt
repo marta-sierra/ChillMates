@@ -66,7 +66,6 @@ class RepairViewModel(
                 currentFlatId = flatId
                 uiState = uiState.copy(currentUserName = userName)
 
-                // NUEVO: Escuchamos la subcolección de reparaciones directamente
                 launch {
                     repository.observeRepairs(flatId).collect { repairsList ->
                         uiState = uiState.copy(

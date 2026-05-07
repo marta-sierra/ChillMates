@@ -1,6 +1,5 @@
 package es.uc3m.android.chillmates.model
 
-// Root collection name
 const val FLATS_COLLECTION = "flats"
 
 /**

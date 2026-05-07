@@ -75,8 +75,12 @@ dependencies {
     implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
     testImplementation("org.awaitility:awaitility:4.2.0")
-    testImplementation("io.mockk:mockk:1.13.10") // Vital para mockear Firebase
+    testImplementation("io.mockk:mockk:1.13.10")
     implementation("com.google.firebase:firebase-storage")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.6.3")
     debugImplementation("androidx.compose.ui:ui-test-manifest:1.6.3")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.1")
+    androidTestImplementation("androidx.test:rules:1.6.1")
 }

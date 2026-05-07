@@ -26,7 +26,6 @@ class SettingsViewModel(
         viewModelScope.launch {
             dataStoreHelper.darkModeEnabled.collectLatest { enabled ->
                 _uiState.value = _uiState.value.copy(darkModeEnabled = enabled)
-                // Se aplica el modo oscuro automáticamente al leer/cambiar el DataStore
                 applyDarkMode(enabled)
             }
         }

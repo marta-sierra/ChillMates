@@ -163,7 +163,6 @@ private fun TicketViewerDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Legacy ImageView for URI rendering
                 AndroidView(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -359,7 +358,7 @@ private fun ExpensesContentSection(
             isLargeView = showLargeBalance,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 0.dp) // Pegado al borde inferior/nav
+                .padding(bottom = 0.dp)
         )
     }
 }

@@ -3,7 +3,6 @@ package es.uc3m.android.chillmates.model
 import com.google.firebase.firestore.Exclude
 import com.google.android.gms.maps.model.LatLng
 
-// Subcollection name inside a Flat document
 const val SHOPPING_SUBCOLLECTION = "shoppingItems"
 
 data class ShoppingItem(

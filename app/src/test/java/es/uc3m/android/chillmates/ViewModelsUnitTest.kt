@@ -1,4 +1,3 @@
-// All comments and code are in English as requested.
 package es.uc3m.android.chillmates
 
 import android.app.Application
@@ -32,8 +31,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ViewModelsUnitTest {
 
-    // Using UnconfinedTestDispatcher to execute coroutines eagerly,
-    // replacing advanceUntilIdle() for a smoother test execution.
+
     private val testDispatcher = UnconfinedTestDispatcher()
 
     private lateinit var mockAuth: FirebaseAuth
@@ -51,8 +49,7 @@ class ViewModelsUnitTest {
         mockkStatic(FirebaseFirestore::class)
         mockkStatic("kotlinx.coroutines.tasks.TasksKt")
 
-        // Mock the FlatRepository constructor so HomeViewModel
-        // internal repository instances are intercepted
+
         mockkConstructor(FlatRepository::class)
 
         mockAuth = mockk(relaxed = true)
