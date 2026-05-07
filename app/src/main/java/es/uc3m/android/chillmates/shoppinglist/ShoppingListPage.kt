@@ -190,7 +190,7 @@ fun ShoppingListPage(navController: NavController) {
 }
 
 @Composable
-private fun ShoppingListRoute(
+fun ShoppingListRoute(
     state: ShoppingUiState,
     onFilter: (String?) -> Unit,
     onBoughtAction: (ShoppingItemUi) -> Unit,

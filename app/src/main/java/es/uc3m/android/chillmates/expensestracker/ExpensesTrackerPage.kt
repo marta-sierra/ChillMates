@@ -248,7 +248,7 @@ private fun AddExpenseAction(onAddClick: () -> Unit) {
 }
 
 @Composable
-private fun ExpensesRoute(
+fun ExpensesRoute(
     state: ExpensesUiState,
     onAddExpenseClick: () -> Unit,
     onTicketClick: (String) -> Unit

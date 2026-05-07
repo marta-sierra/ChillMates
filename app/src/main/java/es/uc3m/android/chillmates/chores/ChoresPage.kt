@@ -494,7 +494,7 @@ fun FlatmateDropdown(selected: String, flatmates: List<String>, onSelected: (Str
 }
 
 @Composable
-private fun ChoreCard(
+fun ChoreCard(
     chore: Chore,
     displayedAssignee: String,
     displayedDone: Boolean,
@@ -614,7 +614,7 @@ private data class ChoreWeekUi(
     val hasRecord: Boolean
 )
 
-private enum class ChoreWeekMode {
+enum class ChoreWeekMode {
     CURRENT,
     PAST,
     FUTURE
