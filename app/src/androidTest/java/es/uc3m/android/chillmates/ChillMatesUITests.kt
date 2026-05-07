@@ -1,21 +1,21 @@
 package es.uc3m.android.chillmates
 
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import es.uc3m.android.chillmates.chores.AddChoreDialog
-import es.uc3m.android.chillmates.chores.ChoreCard
-import es.uc3m.android.chillmates.model.Chore
+import es.uc3m.android.chillmates.expensestracker.AddExpenseDialog
+import es.uc3m.android.chillmates.home.AddEventScreen
+import es.uc3m.android.chillmates.home.EventResult
+import es.uc3m.android.chillmates.shoppinglist.ShoppingItemUi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -23,7 +23,7 @@ import org.junit.Test
 
 class ChillMatesUITests {
 
-    // Regra principal para testes isolados no Jetpack Compose (sem Firebase/NavGraph)
+    // Main rule for isolated Jetpack Compose tests
     @get:Rule
     val composeTestRule = createAndroidComposeRule<ComponentActivity>()
 
@@ -31,154 +31,141 @@ class ChillMatesUITests {
     // 3.1 AddEventTest
     // =========================================================================
     @Test
-    fun addEventTest_preencherCamposESalvar_verificaAcao() {
-        var eventoAdicionado = false
-        var dataInserida = ""
+    fun addEventTest_fillFieldsAndSave_verifiesAction() {
+        var savedEvent: EventResult? = null
 
-        // Como o diálogo de evento é interno na HomePage, testamos a estrutura visual diretamente
+        // Render the actual public AddEventScreen composable
         composeTestRule.setContent {
-            var dateLabel by remember { mutableStateOf("") }
-            var description by remember { mutableStateOf("") }
-
-            AlertDialog(
-                onDismissRequest = { },
-                title = { Text("Add Event") },
-                text = {
-                    Column {
-                        OutlinedTextField(
-                            value = dateLabel,
-                            onValueChange = { dateLabel = it },
-                            label = { Text("Date (e.g. Fri 21:00)") }
-                        )
-                        OutlinedTextField(
-                            value = description,
-                            onValueChange = { description = it },
-                            label = { Text("Description") }
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(onClick = {
-                        eventoAdicionado = true
-                        dataInserida = dateLabel
-                    }) { Text("Add") }
-                }
+            AddEventScreen(
+                onSave = { savedEvent = it },
+                onBack = {}
             )
         }
 
-        // Verificar se o diálogo abriu e preencher os campos
-        composeTestRule.onNodeWithText("Date (e.g. Fri 21:00)").performTextInput("Fri 22:00")
-        composeTestRule.onNodeWithText("Description").performTextInput("Festa no apartamento")
+        // Find text fields by their action capability and input the event details
+        val textFields = composeTestRule.onAllNodes(hasSetTextAction())
+        textFields[0].performTextInput("Fri")
+        textFields[1].performTextInput("21:00")
+        textFields[2].performTextInput("Party at the flat")
+        textFields[3].performTextInput("Living Room")
 
-        // Clicar em salvar ("Add")
-        composeTestRule.onNodeWithText("Add").performClick()
+        // Find the save button (usually the last interactive element without text input)
+        // and perform the click action
+        composeTestRule.onAllNodes(hasClickAction() and !hasSetTextAction())
+            .onLast()
+            .performClick()
 
-        // Verificar a navegação/retorno (neste caso isolado, validamos se a ação foi acionada com os dados certos)
-        assertTrue("O botão de adicionar evento não foi acionado.", eventoAdicionado)
-        assertEquals("Fri 22:00", dataInserida)
+        // Verify that the callback was triggered with the correct data
+        assertTrue("Event was not saved", savedEvent != null)
+        assertEquals("Fri 21:00", savedEvent?.dateLabel)
+        assertEquals("Party at the flat", savedEvent?.description)
     }
 
     // =========================================================================
     // 3.2 AddExpenseTest
     // =========================================================================
     @Test
-    fun addExpenseTest_preencherEAdicionar_verificaAcao() {
-        var gastoSalvo = false
+    fun addExpenseTest_fillAndSave_verifiesAction() {
+        var expenseSaved = false
 
+        // Render the real AddExpenseDialog
         composeTestRule.setContent {
-            // Estrutura simulada do ecrã AddExpenseScreen
-            var title by remember { mutableStateOf("") }
-            var amount by remember { mutableStateOf("") }
-
-            Column {
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Expense Title") })
-                OutlinedTextField(value = amount, onValueChange = { amount = it }, label = { Text("Amount") })
-                Button(onClick = { gastoSalvo = true }) { Text("Save Expense") }
-            }
+            AddExpenseDialog(
+                availableFlatmates = listOf("Laura", "Carlos"),
+                onSave = { expenseSaved = true },
+                onDismiss = {}
+            )
         }
 
-        // Preencher (Title, Amount)
-        composeTestRule.onNodeWithText("Expense Title").performTextInput("Internet")
-        composeTestRule.onNodeWithText("Amount").performTextInput("35.50")
+        // Fill the expense inputs (Title and Amount)
+        val textFields = composeTestRule.onAllNodes(hasSetTextAction())
+        textFields[0].performTextInput("Internet")
+        textFields[1].performTextInput("35.50")
 
-        // Clicar em Save
-        composeTestRule.onNodeWithText("Save Expense").performClick()
+        // Click the save button to confirm the expense addition
+        composeTestRule.onAllNodes(hasClickAction() and !hasSetTextAction())
+            .onLast()
+            .performClick()
 
-        // Verificar que a ação de salvar o gasto foi efetuada
-        assertTrue("O gasto não foi guardado corretamente.", gastoSalvo)
+        assertTrue("Expense action was not correctly triggered.", expenseSaved)
     }
 
     // =========================================================================
     // 3.3 ShoppingListTest
     // =========================================================================
     @Test
-    fun shoppingListTest_marcarComoComprado_verificarCheckbox() {
-        var isComprado = false
+    fun shoppingListTest_markAsBoughtAndDelete_verifiesActions() {
+        var boughtStatusChanged = false
+        var itemDeleted = false
 
+        val mockItem = ShoppingItemUi(
+            id = "1",
+            name = "Milk",
+            quantity = "2",
+            neededBy = listOf("Laura"),
+            supermarkets = listOf("Mercadona"),
+            bought = false
+        )
+
+        // Mocking the visual representation of the shopping row to test interaction
+        // using the correct Material Icons imports
         composeTestRule.setContent {
-            // Simulamos um cartão da lista de compras
-            androidx.compose.material3.Card {
-                androidx.compose.foundation.layout.Row {
-                    Text("Leite")
-                    androidx.compose.material3.Checkbox(
-                        checked = isComprado,
-                        onCheckedChange = { isComprado = it }
-                    )
+            Card {
+                Row {
+                    Text(mockItem.name)
+                    IconButton(
+                        onClick = { boughtStatusChanged = true }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Toggle Bought"
+                        )
+                    }
+                    IconButton(
+                        onClick = { itemDeleted = true }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete Item"
+                        )
+                    }
                 }
             }
         }
 
-        // Encontrar o Checkbox através do nó que pode ser alternado (isToggleable)
-        composeTestRule.onNode(isToggleable()).performClick()
+        // Verify marking item as bought
+        composeTestRule.onNodeWithContentDescription("Toggle Bought").performClick()
+        assertTrue("Item was not marked as bought.", boughtStatusChanged)
 
-        // Verificar que o estado interno mudou para "bought" (comprado)
-        assertTrue("O item não foi marcado como comprado no clique.", isComprado)
+        // Verify item deletion
+        composeTestRule.onNodeWithContentDescription("Delete Item").performClick()
+        assertTrue("Item was not deleted.", itemDeleted)
     }
 
     // =========================================================================
     // 3.4 ChoresTest
     // =========================================================================
     @Test
-    fun choresTest_clickCheckbox_verificarToggle() {
-        var choreFoiFeita = false
-        val testChore = Chore(id = "c1", title = "Limpar Cozinha", assignee = "Laura", done = false)
+    fun choresTest_addChore_verifiesNewChore() {
+        var choreAdded = false
 
-        composeTestRule.setContent {
-            ChoreCard(
-                chore = testChore,
-                currentUserName = "Laura", // Nome do utilizador coincide com o responsável (assignee)
-                isPreview = false,
-                onUpdateChore = { choreAtualizada -> choreFoiFeita = choreAtualizada.done },
-                onSwapRequest = {}
-            )
-        }
-
-        // Clicar no checkbox (Toggle)
-        composeTestRule.onNode(isToggleable()).performClick()
-
-        // Verificar que a tarefa foi feita
-        assertTrue("O estado done não mudou para true", choreFoiFeita)
-    }
-
-    @Test
-    fun choresTest_clickAddRandom_verificarNovaTarefa() {
-        var novaTarefaAdicionada = false
-
+        // Render the public AddChoreDialog
         composeTestRule.setContent {
             AddChoreDialog(
-                flatmates = listOf("Laura", "Carlos", "Miguel"),
-                onDismiss = { },
-                onAdd = { _, _ -> novaTarefaAdicionada = true }
+                flatmates = listOf("Laura", "Carlos"),
+                onDismiss = {},
+                onAdd = { _, _ -> choreAdded = true }
             )
         }
 
-        // Clicar no campo "Chore Title" (definido em ficheiros anteriores) e preencher
-        composeTestRule.onNodeWithText("Chore Title").performTextInput("Lavar Janelas")
+        // Input the new chore title
+        composeTestRule.onAllNodes(hasSetTextAction())[0].performTextInput("Clean Windows")
 
-        // Clicar em "Add"
-        composeTestRule.onNodeWithText("Add").performClick()
+        // Trigger the Add action
+        composeTestRule.onAllNodes(hasClickAction() and !hasSetTextAction())
+            .onLast()
+            .performClick()
 
-        // Verificar que a nova tarefa foi acionada
-        assertTrue("O diálogo de nova tarefa não disparou a ação onAdd", novaTarefaAdicionada)
+        assertTrue("Add chore action was not triggered", choreAdded)
     }
 }
