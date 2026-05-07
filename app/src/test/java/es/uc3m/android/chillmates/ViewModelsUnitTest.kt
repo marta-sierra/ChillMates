@@ -1,188 +1,235 @@
+// All comments and code are in English as requested.
 package es.uc3m.android.chillmates
 
+import android.app.Application
+import android.content.res.Resources
+import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.firestore.CollectionReference
+import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import es.uc3m.android.chillmates.chores.ChoresViewModel
 import es.uc3m.android.chillmates.expensestracker.ExpensesViewModel
 import es.uc3m.android.chillmates.home.HomeViewModel
+import es.uc3m.android.chillmates.model.*
+import es.uc3m.android.chillmates.repository.FlatRepository
 import es.uc3m.android.chillmates.shoppinglist.ShoppingItemUi
 import es.uc3m.android.chillmates.shoppinglist.ShoppingViewModel
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.mockkStatic
+import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.test.*
 import org.junit.After
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.lang.reflect.Field
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ViewModelsUnitTest {
 
+    // Using UnconfinedTestDispatcher to execute coroutines eagerly,
+    // replacing advanceUntilIdle() for a smoother test execution.
     private val testDispatcher = UnconfinedTestDispatcher()
+
+    private lateinit var mockAuth: FirebaseAuth
+    private lateinit var mockUser: FirebaseUser
+    private lateinit var mockDb: FirebaseFirestore
+    private lateinit var mockRepository: FlatRepository
+    private lateinit var mockApp: Application
+    private lateinit var mockResources: Resources
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
 
-        // 🚀 Aislar Firebase (Mocking)
         mockkStatic(FirebaseAuth::class)
         mockkStatic(FirebaseFirestore::class)
+        mockkStatic("kotlinx.coroutines.tasks.TasksKt")
 
-        val mockAuth = mockk<FirebaseAuth>(relaxed = true)
-        val mockUser = mockk<FirebaseUser>(relaxed = true)
-        every { mockUser.uid } returns "test_user_id"
-        every { mockUser.displayName } returns "Laura"
-        every { mockAuth.currentUser } returns mockUser
+        // Mock the FlatRepository constructor so HomeViewModel
+        // internal repository instances are intercepted
+        mockkConstructor(FlatRepository::class)
+
+        mockAuth = mockk(relaxed = true)
+        mockUser = mockk(relaxed = true)
+        mockDb = mockk(relaxed = true)
+        mockRepository = mockk(relaxed = true)
+        mockApp = mockk(relaxed = true)
+        mockResources = mockk(relaxed = true)
+
         every { FirebaseAuth.getInstance() } returns mockAuth
-
-        val mockDb = mockk<FirebaseFirestore>(relaxed = true)
+        every { mockAuth.currentUser } returns mockUser
+        every { mockUser.uid } returns "testUserId"
+        every { mockUser.displayName } returns "Test User"
         every { FirebaseFirestore.getInstance() } returns mockDb
+
+        every { mockApp.resources } returns mockResources
+        every { mockResources.getString(any()) } returns "Mock User"
+
+        val mockCollection = mockk<CollectionReference>(relaxed = true)
+        val mockDoc = mockk<DocumentReference>(relaxed = true)
+        val mockTask = mockk<Task<DocumentSnapshot>>(relaxed = true)
+        val mockSnapshot = mockk<DocumentSnapshot>(relaxed = true)
+
+        every { mockDb.collection(any()) } returns mockCollection
+        every { mockCollection.document(any()) } returns mockDoc
+        every { mockDoc.get() } returns mockTask
+        coEvery { mockTask.await() } returns mockSnapshot
+
+        every { mockSnapshot.getString(any()) } returns "flat_1"
+        every { mockSnapshot.exists() } returns true
+
+        // Base Mocks for injected instances (Chores, Expenses, Shopping)
+        coEvery { mockRepository.getMemberDetails(any()) } returns Result.success(listOf("u1" to "Alice", "u2" to "Bob"))
+        coEvery { mockRepository.getSupermarketsForFlat(any()) } returns Result.success(listOf())
+        coEvery { mockRepository.getChoresOnce(any()) } returns Result.success(listOf())
+
+        every { mockRepository.observeFlat(any()) } returns flowOf(Flat(id = "flat_1", name = "Test Flat", memberIds = listOf("testUserId")))
+        every { mockRepository.observeNotices(any()) } returns flowOf(emptyList())
+        every { mockRepository.observeEvents(any()) } returns flowOf(emptyList())
+        every { mockRepository.observeExpenses(any()) } returns flowOf(emptyList())
+        every { mockRepository.observeChores(any()) } returns flowOf(emptyList())
+        every { mockRepository.observeShoppingItems(any()) } returns flowOf(emptyList())
+
+        // Base Mocks for internally constructed instances (HomeViewModel)
+        every { anyConstructed<FlatRepository>().observeFlat(any()) } returns flowOf(Flat(id = "flat_1", name = "Test Flat", memberIds = listOf("testUserId")))
+        every { anyConstructed<FlatRepository>().observeNotices(any()) } returns flowOf(emptyList())
+        every { anyConstructed<FlatRepository>().observeEvents(any()) } returns flowOf(emptyList())
+        every { anyConstructed<FlatRepository>().observeExpenses(any()) } returns flowOf(emptyList())
+        every { anyConstructed<FlatRepository>().observeChores(any()) } returns flowOf(emptyList())
+        every { anyConstructed<FlatRepository>().observeShoppingItems(any()) } returns flowOf(emptyList())
+        coEvery { anyConstructed<FlatRepository>().getMemberDetails(any()) } returns Result.success(listOf("u1" to "Alice", "u2" to "Bob"))
     }
 
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+        clearAllMocks()
     }
 
-    /**
-     * 🛠️ HELPER (REFLECTION): Inyecta un 'flatId' falso en las variables privadas
-     * de los ViewModels para evitar que hagan "return" prematuro por falta de Firebase.
-     */
-    private fun injectFakeFlatId(viewModel: Any) {
-        try {
-            val field: Field = viewModel.javaClass.getDeclaredField("currentFlatId")
-            field.isAccessible = true
-            field.set(viewModel, "fake_flat_123")
-        } catch (e: Exception) {
-            // Se ignora si el ViewModel no tiene esta variable
-        }
-    }
-
-    // =========================================================================
+    // ==========================================
     // 2.1 HomeViewModelTest
-    // =========================================================================
+    // ==========================================
 
     @Test
-    fun homeViewModel_onAddEvent_verificarEventoCreado() = runTest {
-        val viewModel = HomeViewModel()
-        injectFakeFlatId(viewModel)
+    fun testHomeViewModel_onAddEvent_verifiesEventCreated() = runTest {
+        val viewModel = HomeViewModel(mockApp)
 
-        viewModel.addEvent("Mon 10:00", "Reunión de piso", "Salón")
-        assertNotNull("El UI State no debe ser nulo tras añadir un evento", viewModel.uiState)
+        viewModel.addEvent("Mon 10:00", "Test Event", "Home")
+
+        coVerify { anyConstructed<FlatRepository>().addEvent(any(), any()) }
     }
 
     @Test
-    fun homeViewModel_onAcceptNotice_verificarAcceptance() = runTest {
-        val viewModel = HomeViewModel()
-        injectFakeFlatId(viewModel)
+    fun testHomeViewModel_onAcceptNotice_verifiesAcceptance() = runTest {
+        val fakeNotice = Notice(id = "n_1", title = "Clean", details = "Clean the floor", poll = true)
+        every { anyConstructed<FlatRepository>().observeNotices(any()) } returns flowOf(listOf(fakeNotice))
 
-        viewModel.acceptPoll("test_notice_1")
-        assertNotNull(viewModel.uiState)
+        val viewModel = HomeViewModel(mockApp)
+
+        viewModel.acceptPoll("n_1")
+
+        coVerify { anyConstructed<FlatRepository>().updateNoticeAcceptedBy(any(), eq("n_1"), any()) }
     }
 
     @Test
-    fun homeViewModel_onToggleRemindMe_verificarStateToggle() = runTest {
-        val viewModel = HomeViewModel()
-        injectFakeFlatId(viewModel)
+    fun testHomeViewModel_onToggleRemindMe_verifiesStateToggle() = runTest {
+        val fakeEvent = UpcomingEvent(id = "e_1", dateLabel = "Mon 10:00", description = "Test")
+        every { anyConstructed<FlatRepository>().observeEvents(any()) } returns flowOf(listOf(fakeEvent))
 
-        val initialEventsSize = viewModel.uiState.upcomingEvents.size
-        viewModel.toggleReminder("test_event_1")
+        val viewModel = HomeViewModel(mockApp)
 
-        assertEquals("El tamaño de la lista no debe cambiar al hacer toggle", initialEventsSize, viewModel.uiState.upcomingEvents.size)
+        viewModel.toggleReminder("e_1")
+
+        val updatedEvent = viewModel.uiState.upcomingEvents.first { it.id == "e_1" }
+        assertTrue(updatedEvent.isRemindMeEnabled)
     }
 
-    // =========================================================================
+    // ==========================================
     // 2.2 ExpensesViewModelTest
-    // =========================================================================
+    // ==========================================
 
     @Test
-    fun expensesViewModel_onExpenseAdded_recalcularBalances() = runTest {
-        val viewModel = ExpensesViewModel()
-        injectFakeFlatId(viewModel)
+    fun testExpensesViewModel_onExpenseAdded_verifiesExpenseInList() = runTest {
+        val viewModel = ExpensesViewModel(mockRepository)
 
-        viewModel.onExpenseAdded(
-            title = "Compra conjunta",
-            amount = 100.0,
-            paidBy = "Carlos",
-            splitBetween = listOf("Carlos", "Laura")
-        )
-        assertNotNull("El estado de expenses no debe ser nulo", viewModel.uiState)
+        viewModel.onExpenseAdded("Groceries", 50.0, "Alice", listOf("Alice", "Bob"))
+
+        coVerify { mockRepository.addExpense(any(), any()) }
     }
 
-    // =========================================================================
+    @Test
+    fun testExpensesViewModel_recalculateBalances_verifiesPositiveNegativeDebt() = runTest {
+        val expenses = listOf(
+            Expense(id = "1", title = "Internet", amount = 100.0, paidBy = "Alice", splitBetween = listOf("Alice", "Bob"), ticketUri = null)
+        )
+        every { mockRepository.observeExpenses(any()) } returns flowOf(expenses)
+
+        val viewModel = ExpensesViewModel(mockRepository)
+
+        val balances = viewModel.uiState.balances
+        val aliceBalance = balances.find { it.name == "Alice" }?.balance
+        val bobBalance = balances.find { it.name == "Bob" }?.balance
+
+        assertEquals(50.0, aliceBalance)
+        assertEquals(-50.0, bobBalance)
+    }
+
+    // ==========================================
     // 2.3 ChoresViewModelTest
-    // =========================================================================
+    // ==========================================
 
     @Test
-    fun choresViewModel_addRandomChore_verificarChoreAnadida() = runTest {
-        val viewModel = ChoresViewModel()
-
-        // 🚀 APLICAMOS EL INYECTOR PARA QUE NO HAGA RETURN
-        injectFakeFlatId(viewModel)
-
-        val tituloTarea = "Limpiar la nevera"
-        viewModel.addChore(tituloTarea, "Miguel")
-
-        // Actualización optimista
-        val nuevaTarea = viewModel.chores.value.find { it.title == tituloTarea }
-
-        assertNotNull("La tarea debe haberse añadido a la lista local", nuevaTarea)
-        assertEquals("El assignee debe ser Miguel", "Miguel", nuevaTarea?.assignee)
-        assertFalse("La tarea debe inicializarse como NO hecha", nuevaTarea!!.isDone)
-    }
-
-    @Test
-    fun choresViewModel_toggleChoreDone_verificarIsDoneFlip() = runTest {
-        val viewModel = ChoresViewModel()
-
-        // 🚀 APLICAMOS EL INYECTOR
-        injectFakeFlatId(viewModel)
-
-        viewModel.addChore("Barrer", "Laura")
-        val tareaAñadida = viewModel.chores.value.first { it.title == "Barrer" }
-
-        viewModel.updateChoreStatus(tareaAñadida.id, true)
-
-        val tareaActualizada = viewModel.chores.value.first { it.id == tareaAñadida.id }
-        assertTrue("La tarea debe estar marcada como hecha (isDone = true)", tareaActualizada.isDone)
-    }
-
-    // =========================================================================
-    // 2.4 ShoppingListViewModelTest
-    // =========================================================================
-
-    @Test
-    fun shoppingViewModel_addItem_verificarItemEnLista() = runTest {
-        val viewModel = ShoppingViewModel()
-        injectFakeFlatId(viewModel)
-
-        val newItem = ShoppingItemUi(
-            id = "item_1",
-            name = "Leche Semidesnatada",
-            quantity = "6 briks",
-            neededBy = listOf("Todos"),
-            supermarkets = listOf("Mercadona"),
-            bought = false
+    fun testChoresViewModel_toggleChoreDone_verifiesIsDoneFlip() = runTest {
+        val fakeChore = Chore(
+            id = "chore_1",
+            title = "Trash",
+            done = false,
+            assignments = emptyMap()
         )
+        every { mockRepository.observeChores(any()) } returns flowOf(listOf(fakeChore))
 
-        viewModel.addItem(newItem)
-        assertNotNull("El estado de la lista de la compra debe existir", viewModel.uiState)
+        val viewModel = ChoresViewModel(mockRepository)
+
+        viewModel.updateChoreStatus("chore_1", true)
+
+        coVerify { mockRepository.updateChoreStatus(any(), eq("chore_1"), any(), eq(true), any()) }
     }
 
     @Test
-    fun shoppingViewModel_setItemBought_verificarBoughtFlip() = runTest {
-        val viewModel = ShoppingViewModel()
-        injectFakeFlatId(viewModel)
+    fun testChoresViewModel_addRandomChore_verifiesChoreAdded() = runTest {
+        val viewModel = ChoresViewModel(mockRepository)
+
+        viewModel.addChore("Clean Windows", "Everyone")
+
+        coVerify { mockRepository.addChore(any(), any()) }
+    }
+
+    // ==========================================
+    // 2.4 ShoppingListViewModelTest
+    // ==========================================
+
+    @Test
+    fun testShoppingViewModel_addItem_verifiesItemInList() = runTest {
+        val viewModel = ShoppingViewModel(mockRepository)
+
+        val newItem = ShoppingItemUi(id = "item_1", name = "Milk", quantity = "2", neededBy = listOf("Alice"), supermarkets = listOf(), bought = false)
+        viewModel.addItem(newItem)
+
+        coVerify { mockRepository.addShoppingItem(any(), any()) }
+    }
+
+    @Test
+    fun testShoppingViewModel_setItemBought_verifiesBoughtFlip() = runTest {
+        val viewModel = ShoppingViewModel(mockRepository)
 
         viewModel.setItemBought("item_1", true)
-        assertNotNull(viewModel.uiState)
+
+        coVerify { mockRepository.updateShoppingItemBought(any(), eq("item_1"), eq(true)) }
     }
 }
