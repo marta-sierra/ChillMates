@@ -1,6 +1,5 @@
 package es.uc3m.android.chillmates
 
-import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -10,7 +9,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import es.uc3m.android.chillmates.chores.AddChoreDialog
 import es.uc3m.android.chillmates.expensestracker.AddExpenseDialog
 import es.uc3m.android.chillmates.home.AddEventScreen
@@ -20,12 +20,16 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
 
+// The RunWith annotation is mandatory to execute Android instrumented tests properly
+@RunWith(AndroidJUnit4::class)
 class ChillMatesUITests {
 
-    // Main rule for isolated Jetpack Compose tests
+    // Use createComposeRule() instead of createAndroidComposeRule<ComponentActivity>()
+    // This provides a blank isolated environment and avoids deprecation issues
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<ComponentActivity>()
+    val composeTestRule = createComposeRule()
 
     // =========================================================================
     // 3.1 AddEventTest
